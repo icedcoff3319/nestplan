@@ -1,0 +1,13 @@
+<svg width="3200" height="1200" viewBox="0 0 3200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .wordmark {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 520px;
+      font-weight: 600;
+      fill: #2F342E;
+      letter-spacing: 0;
+    }
+  </style>
+  <rect width="3200" height="1200" fill="none"/>
+  <text x="120" y="735" class="wordmark">NestPlan</text>
+</svg>

@@ -1,0 +1,21 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "storage.rules",
+      ".firebaserc",
+      "functions/**",
+      "**/node_modules/**",
+      "FIREBASE_SETUP.md",
+      "Debugging Notes.txt",
+      "**/.*"
+    ]
+  }
+}

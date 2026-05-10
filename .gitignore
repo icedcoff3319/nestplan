@@ -1,0 +1,30 @@
+# Local Firebase and browser/runtime state
+.firebase/
+.edge-headless/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Dependencies and build outputs
+node_modules/
+functions/node_modules/
+dist/
+build/
+coverage/
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+*serviceAccount*.json
+*service-account*.json
+*private-key*.json
+
+# Local notes and editor/system files
+Debugging Notes.txt
+.DS_Store
+Thumbs.db
+*.log
+
+# GitHub/Codex temporary files
+.codex/

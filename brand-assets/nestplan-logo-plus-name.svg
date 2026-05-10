@@ -1,0 +1,17 @@
+<svg width="3600" height="1600" viewBox="0 0 3600 1600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .wordmark {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 540px;
+      font-weight: 600;
+      fill: #2F342E;
+      letter-spacing: 0;
+    }
+  </style>
+  <rect width="3600" height="1600" fill="none"/>
+  <g transform="translate(140 190) scale(16)">
+    <path d="M21 42C21 35.5 25 31 32 29.5C39 28 43 22.5 43 16C36.5 16 32.5 19.5 31.5 25.5C30.5 20.5 26.5 17 21 17C21 24 25 28 31 29.5" stroke="#6F8168" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M19 46H45L42 52H22L19 46Z" stroke="#8D6E58" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="1110" y="840" class="wordmark">NestPlan</text>
+</svg>

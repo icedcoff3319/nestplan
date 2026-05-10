@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NestPlan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=20260503d" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="auth-screen" class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="auth-brand-top">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 42C21 35.5 25 31 32 29.5C39 28 43 22.5 43 16C36.5 16 32.5 19.5 31.5 25.5C30.5 20.5 26.5 17 21 17C21 24 25 28 31 29.5" stroke="#6F8168" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M19 46H45L42 52H22L19 46Z" stroke="#8D6E58" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <div>
+              <h1 class="wordmark">NestPlan</h1>
+              <p class="brand-note auth-note">Plan and journal</p>
+            </div>
+          </div>
+          <p class="auth-copy">A household ledger for planning, journaling, and keeping every account in view.</p>
+        </div>
+
+        <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+          <button id="login-tab" class="tab-btn active" type="button" data-auth-mode="login">Log in</button>
+          <button id="signup-tab" class="tab-btn hidden" type="button" data-auth-mode="signup">Sign up</button>
+        </div>
+
+        <form id="login-form" class="field-stack">
+          <div class="field-group">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" placeholder="youremail@example.com" autocomplete="email" required />
+          </div>
+
+          <div class="field-group">
+            <label for="login-password">Password</label>
+            <div class="password-field">
+              <input id="login-password" type="password" placeholder="Your password" autocomplete="current-password" required />
+              <button id="login-password-toggle" class="ghost-icon-btn" type="button" aria-label="Toggle password visibility">Show</button>
+            </div>
+          </div>
+
+          <div class="inline-actions">
+            <button id="forgot-password-btn" class="text-btn" type="button">Forgot password?</button>
+          </div>
+
+          <button class="primary-btn" type="submit">Log in</button>
+          <div id="login-message" class="message" aria-live="polite"></div>
+        </form>
+
+        <form id="registration-code-form" class="field-stack registration-gate">
+          <div class="section-divider"></div>
+          <div>
+            <h2 class="card-title">Create account</h2>
+            <p class="card-subtle">NestPlan accounts are invite-only. Enter the creation code and email assigned to you.</p>
+          </div>
+
+          <div class="field-group">
+            <label for="registration-code-email">Email</label>
+            <input id="registration-code-email" type="email" placeholder="youremail@example.com" autocomplete="email" />
+          </div>
+
+          <div class="field-group">
+            <label for="registration-code">User creation code</label>
+            <input id="registration-code" type="text" placeholder="ABCD1234" autocomplete="one-time-code" />
+          </div>
+
+          <button class="secondary-btn" type="submit">Continue registration</button>
+          <div id="registration-code-message" class="message" aria-live="polite"></div>
+        </form>
+
+        <form id="signup-form" class="field-stack hidden">
+          <article id="signup-code-summary" class="status-panel hidden">
+            <p id="signup-code-summary-text" class="status-copy"></p>
+            <button id="signup-code-reset-btn" class="text-btn" type="button">Use a different code</button>
+          </article>
+
+          <div class="field-group">
+            <label for="signup-name">Display name</label>
+            <input id="signup-name" type="text" placeholder="Your name" autocomplete="name" required />
+          </div>
+
+          <div class="field-group">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" type="email" placeholder="youremail@example.com" autocomplete="email" required />
+          </div>
+
+          <div class="field-group">
+            <label for="signup-password">Password</label>
+            <div class="password-field">
+              <input id="signup-password" type="password" placeholder="Create a password" autocomplete="new-password" required />
+              <button id="signup-password-toggle" class="ghost-icon-btn" type="button" aria-label="Toggle password visibility">Show</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label>Household start</label>
+            <div class="segmented-control" role="group" aria-label="Household setup choice">
+              <button id="signup-mode-create" class="segment-btn active" type="button" data-signup-mode="create">Create household</button>
+              <button id="signup-mode-join" class="segment-btn" type="button" data-signup-mode="join">Join with invite code</button>
+            </div>
+          </div>
+
+          <div id="signup-create-fields" class="field-group">
+            <label for="signup-household-name">Household name</label>
+            <input id="signup-household-name" type="text" placeholder="NestPlan Home" />
+          </div>
+
+          <div id="signup-join-fields" class="field-group hidden">
+            <label for="signup-invite-code">Invite code</label>
+            <input id="signup-invite-code" type="text" placeholder="ABC123" autocomplete="one-time-code" />
+          </div>
+
+          <button class="primary-btn" type="submit">Create account</button>
+          <div id="signup-message" class="message" aria-live="polite"></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="email-verification-screen" class="auth-shell hidden">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="auth-brand-top">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 42C21 35.5 25 31 32 29.5C39 28 43 22.5 43 16C36.5 16 32.5 19.5 31.5 25.5C30.5 20.5 26.5 17 21 17C21 24 25 28 31 29.5" stroke="#6F8168" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M19 46H45L42 52H22L19 46Z" stroke="#8D6E58" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <div>
+              <h1 class="wordmark">NestPlan</h1>
+              <p class="brand-note auth-note">Plan and journal</p>
+            </div>
+          </div>
+          <p class="auth-copy">Verify your email to finish creating your NestPlan account.</p>
+        </div>
+
+        <div class="field-stack">
+          <article class="status-panel">
+            <p id="verification-email-label" class="status-copy"></p>
+            <p class="status-copy">Open the verification email, then return here and confirm it is done.</p>
+          </article>
+          <div class="action-row">
+            <button id="verification-refresh-btn" class="primary-btn" type="button">I verified my email</button>
+            <button id="verification-resend-btn" class="ghost-btn" type="button">Resend email</button>
+            <button id="verification-logout-btn" class="ghost-btn" type="button">Logout</button>
+          </div>
+          <div id="verification-message" class="message" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="master-admin-screen" class="screen hidden">
+      <header class="app-header setup-header">
+        <div class="header-top">
+          <div class="brand-lockup">
+            <div class="brand-label">
+              <p class="brand-name">NestPlan Admin</p>
+              <span class="brand-note">Invite-only access</span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button id="master-admin-refresh-btn" class="ghost-btn" type="button">Refresh</button>
+            <button id="master-admin-logout-btn" class="ghost-btn" type="button">Logout</button>
+          </div>
+        </div>
+        <h2 class="greeting">Registration control.</h2>
+        <p id="master-admin-user-label" class="user-email"></p>
+      </header>
+
+      <div class="settings-grid">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Create user code</h3>
+              <p class="card-subtle">One code can create one account for the assigned email only.</p>
+            </div>
+          </div>
+
+          <form id="master-code-form" class="field-stack compact-form">
+            <div class="field-group">
+              <label for="master-code-email">Email</label>
+              <input id="master-code-email" type="email" placeholder="tester@example.com" required />
+            </div>
+            <div class="field-grid two-up">
+              <div class="field-group">
+                <label for="master-code-expiry-days">Expires in days</label>
+                <input id="master-code-expiry-days" type="number" min="1" max="60" value="14" required />
+              </div>
+              <div class="field-group">
+                <label for="master-code-note">Note</label>
+                <input id="master-code-note" type="text" placeholder="Tester batch" />
+              </div>
+            </div>
+            <button class="primary-btn" type="submit">Create code</button>
+          </form>
+
+          <div id="master-code-message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Registration codes</h3>
+              <p class="card-subtle">Recent platform-level user creation codes.</p>
+            </div>
+          </div>
+          <div id="master-code-list" class="stack-list admin-table-wrap">
+            <p class="status-copy">No codes loaded yet.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Disposable email override</h3>
+              <p class="card-subtle">Override only skips the blocked-domain rule for one exact email. The user still has to verify the inbox.</p>
+            </div>
+          </div>
+
+          <form id="master-override-form" class="field-stack compact-form">
+            <div class="field-group">
+              <label for="master-override-email">Approved email</label>
+              <input id="master-override-email" type="email" placeholder="approved@example.com" required />
+            </div>
+            <button class="secondary-btn" type="submit">Add override</button>
+          </form>
+
+          <div id="master-override-message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Email overrides</h3>
+              <p class="card-subtle">Approved emails that can bypass blocked domains.</p>
+            </div>
+          </div>
+          <div id="master-override-list" class="stack-list admin-table-wrap">
+            <p class="status-copy">No overrides loaded yet.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Blocked email domains</h3>
+              <p class="card-subtle">Domains listed here cannot receive user creation codes unless the exact email has an override.</p>
+            </div>
+          </div>
+
+          <form id="master-blocked-domain-form" class="field-stack compact-form">
+            <div class="field-group">
+              <label for="master-blocked-domain">Domain</label>
+              <input id="master-blocked-domain" type="text" placeholder="mailinator.com" required />
+            </div>
+            <button class="secondary-btn" type="submit">Add blocked domain</button>
+          </form>
+
+          <div id="master-blocked-domain-message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Blocked domains</h3>
+              <p class="card-subtle">Current domain-level registration blocks.</p>
+            </div>
+          </div>
+          <div id="master-blocked-domain-list" class="stack-list admin-table-wrap scroll-10">
+            <p class="status-copy">No blocked domains yet.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Greeting library</h3>
+              <p class="card-subtle">Add short sentences that can appear at the top of the app.</p>
+            </div>
+          </div>
+
+          <form id="master-greeting-form" class="field-stack compact-form">
+            <div class="field-group">
+              <label for="master-greeting-text">Sentence</label>
+              <input id="master-greeting-text" type="text" placeholder="Keep the month in sight." required />
+            </div>
+            <div class="action-row">
+              <button class="secondary-btn" type="submit">Add sentence</button>
+              <button id="master-greeting-seed-btn" class="ghost-btn" type="button">Add current library</button>
+            </div>
+          </form>
+
+          <div id="master-greeting-message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Current greeting library</h3>
+              <p class="card-subtle">Sentences currently available for the app header.</p>
+            </div>
+          </div>
+          <div id="master-greeting-list" class="stack-list admin-table-wrap scroll-10">
+            <p class="status-copy">No greeting sentences yet.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="setup-screen" class="screen hidden">
+      <header class="app-header setup-header">
+        <div class="header-top">
+          <div class="brand-lockup">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 42C21 35.5 25 31 32 29.5C39 28 43 22.5 43 16C36.5 16 32.5 19.5 31.5 25.5C30.5 20.5 26.5 17 21 17C21 24 25 28 31 29.5" stroke="#6F8168" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M19 46H45L42 52H22L19 46Z" stroke="#8D6E58" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <div class="brand-label">
+              <p class="brand-name">NestPlan</p>
+              <span class="brand-note">Plan and journal</span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button id="setup-logout-btn" class="ghost-btn" type="button">Logout</button>
+          </div>
+        </div>
+
+        <h2 class="greeting">Start your household space.</h2>
+        <p id="setup-user-label" class="user-email"></p>
+      </header>
+
+      <div class="setup-grid">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Create or join a household</h3>
+              <p class="card-subtle">Each account can join up to 3 households. Create a new one or join with the invite code you received.</p>
+            </div>
+          </div>
+
+          <div class="segmented-control" role="group" aria-label="Setup mode">
+            <button id="setup-mode-create" class="segment-btn active" type="button" data-setup-mode="create">Create household</button>
+            <button id="setup-mode-join" class="segment-btn" type="button" data-setup-mode="join">Join with invite code</button>
+          </div>
+
+          <form id="setup-create-form" class="field-stack setup-panel">
+            <div class="field-group">
+              <label for="setup-household-name">Household name</label>
+              <input id="setup-household-name" type="text" placeholder="NestPlan Home" />
+            </div>
+            <button class="primary-btn" type="submit">Create household</button>
+          </form>
+
+          <form id="setup-join-form" class="field-stack setup-panel hidden">
+            <div class="field-group">
+              <label for="setup-invite-code">Invite code</label>
+              <input id="setup-invite-code" type="text" placeholder="ABC123" autocomplete="one-time-code" />
+            </div>
+            <button class="primary-btn" type="submit">Join household</button>
+          </form>
+
+          <div id="setup-message" class="message" aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="app-screen" class="screen hidden">
+      <header class="app-header">
+        <div class="header-top">
+          <div class="brand-lockup">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 42C21 35.5 25 31 32 29.5C39 28 43 22.5 43 16C36.5 16 32.5 19.5 31.5 25.5C30.5 20.5 26.5 17 21 17C21 24 25 28 31 29.5" stroke="#6F8168" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M19 46H45L42 52H22L19 46Z" stroke="#8D6E58" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <div class="brand-label">
+              <p class="brand-name">NestPlan</p>
+              <span class="brand-note">Plan and journal</span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <div class="header-select-wrap">
+              <label class="header-select-label" for="household-switcher">Household</label>
+              <select id="household-switcher" class="header-select"></select>
+            </div>
+            <div class="scope-toggle" role="group" aria-label="Visibility scope">
+              <button id="scope-personal" class="scope-btn active" type="button" data-scope="personal">My view</button>
+              <button id="scope-household" class="scope-btn" type="button" data-scope="household">Household</button>
+            </div>
+            <div class="header-button-row">
+              <button id="settings-gear-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
+              <button id="logout-btn" class="ghost-btn" type="button">Logout</button>
+            </div>
+          </div>
+        </div>
+
+        <h2 id="greeting-text" class="greeting">A little clarity goes a long way.</h2>
+        <div class="header-context-row">
+          <div class="header-meta">
+            <p id="household-label" class="user-email hidden"></p>
+            <p id="user-label" class="user-email subtle-meta"></p>
+          </div>
+          <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="scope" aria-label="Explain current view">i</button>
+        </div>
+
+        <div class="nav-row">
+          <div class="view-nav" role="tablist" aria-label="App sections">
+            <button id="nav-dashboard" class="view-nav-btn active" type="button" data-view="dashboard">Dashboard</button>
+            <button id="nav-planning" class="view-nav-btn" type="button" data-view="planning">Planning</button>
+            <button id="nav-management" class="view-nav-btn" type="button" data-view="management">Accounts & Categories</button>
+            <button id="nav-performance" class="view-nav-btn" type="button" data-view="performance">Performance</button>
+          </div>
+        </div>
+        <p id="scope-copy" class="card-subtle header-scope-copy hidden">Showing your owned accounts and the activity you created or touched.</p>
+      </header>
+
+      <section id="onboarding-view" class="screen hidden">
+        <article class="card onboarding-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Finish your household setup</h3>
+              <p class="card-subtle">Create the basics first: at least 1 account, 1 income category, and 1 outcome category. After that, the normal dashboard opens.</p>
+            </div>
+          </div>
+          <article class="onboarding-notice">
+            <p id="onboarding-summary" class="status-copy"></p>
+            <p class="status-copy">Open <strong>Accounts & Categories</strong> from the top menu to create the required account and category data first.</p>
+          </article>
+        </article>
+      </section>
+
+      <section id="dashboard-view" class="screen">
+        <div class="dashboard-grid">
+          <section id="dashboard-bill-reminders" class="dashboard-reminder-strip card-span-3 hidden">
+            <div id="dashboard-bill-reminders-list" class="dashboard-reminder-list"></div>
+          </section>
+
+          <section id="transaction-card" class="card card-span-2 transaction-card">
+            <div class="card-header space-between">
+              <div>
+                <h3 id="transaction-card-title" class="card-title">Create transaction</h3>
+                <p id="transaction-card-copy" class="card-subtle helper-copy">Income, outcome, transfer, and balance correction all live on the same ledger foundation.</p>
+              </div>
+              <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="transaction" aria-label="Explain create transaction">i</button>
+            </div>
+
+            <form id="transaction-form" class="field-stack">
+              <input id="transaction-group-id" type="hidden" />
+              <input id="transaction-recurring-bill-id" type="hidden" />
+              <input id="transaction-recurring-bill-occurrence-id" type="hidden" />
+
+              <div class="field-grid two-up">
+                <div class="field-group">
+                  <label for="transaction-date">Date</label>
+                  <input id="transaction-date" type="date" required />
+                </div>
+                <div class="field-group">
+                  <label for="transaction-kind">Type</label>
+                  <select id="transaction-kind" required>
+                    <option value="outcome">Outcome</option>
+                    <option value="income">Income</option>
+                    <option value="transfer">Transfer</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-grid two-up">
+                <div class="field-group">
+                  <label for="transaction-amount">Amount</label>
+                  <input id="transaction-amount" type="text" inputmode="numeric" placeholder="45.000" required />
+                </div>
+                <div id="transaction-category-field" class="field-group">
+                  <div class="label-with-action">
+                    <label for="transaction-category">Category</label>
+                    <button id="transaction-category-help-btn" class="icon-btn subtle hidden" type="button" aria-label="Open category guide">i</button>
+                  </div>
+                  <select id="transaction-category"></select>
+                </div>
+                <div id="transfer-note-field" class="field-group hidden">
+                  <label for="transfer-note">Note</label>
+                  <input id="transfer-note" type="text" placeholder="Move to another account" />
+                </div>
+              </div>
+
+              <div id="transaction-note-row" class="field-grid two-up">
+                <div id="transaction-note-field" class="field-group">
+                  <label for="transaction-note">Note</label>
+                  <input id="transaction-note" type="text" placeholder="Lunch" />
+                </div>
+                <div id="transaction-saving-field" class="field-group hidden">
+                  <label for="transaction-saving-goal">Choose Saving</label>
+                  <select id="transaction-saving-goal"></select>
+                </div>
+                <div id="transaction-account-field" class="field-group">
+                  <label for="transaction-account">Account</label>
+                  <select id="transaction-account"></select>
+                </div>
+              </div>
+
+              <div id="transaction-use-saving-field" class="field-group hidden">
+                <label for="transaction-use-saving">Use Saving</label>
+                <select id="transaction-use-saving"></select>
+              </div>
+
+              <div id="entry-fields" class="field-stack compact-form">
+              </div>
+
+              <div id="transfer-fields" class="field-stack compact-form hidden">
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="transfer-from-account">From account</label>
+                    <select id="transfer-from-account"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="transfer-to-account">To account</label>
+                    <select id="transfer-to-account"></select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="action-row">
+                <button id="transaction-submit-btn" class="primary-btn" type="submit">Save transaction</button>
+                <button id="transaction-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+              </div>
+              <div id="transaction-message" class="message" aria-live="polite"></div>
+            </form>
+          </section>
+
+          <section class="summary-cards dashboard-summary-grid card-span-2">
+            <article class="summary-stat summary-overview-card">
+              <div class="summary-card-head">
+                <span class="summary-label">Total balance</span>
+                <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="balance" aria-label="Explain balance summary">i</button>
+              </div>
+              <div>
+                <p id="summary-balance" class="summary-value net">Rp0</p>
+              </div>
+              <div class="summary-inline-list">
+                <div class="summary-inline-item">
+                  <span id="summary-inflow-label" class="summary-label">April income</span>
+                  <p id="summary-inflow" class="summary-value income">Rp0</p>
+                </div>
+                <div class="summary-inline-item">
+                  <span id="summary-outflow-label" class="summary-label">April expense</span>
+                  <p id="summary-outflow" class="summary-value outcome">Rp0</p>
+                </div>
+              </div>
+            </article>
+            <article class="card dashboard-budget-card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Budget snapshot</h3>
+                </div>
+                <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="budget-snapshot" aria-label="Explain budget snapshot">i</button>
+              </div>
+              <div id="dashboard-budgets-list" class="stack-list">
+                <p class="status-copy">No budgets yet.</p>
+              </div>
+            </article>
+            <article class="card dashboard-budget-card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Saving snapshot</h3>
+                </div>
+                <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="saving-snapshot" aria-label="Explain saving snapshot">i</button>
+              </div>
+              <div id="dashboard-savings-list" class="stack-list">
+                <p class="status-copy">No savings yet.</p>
+              </div>
+            </article>
+          </section>
+
+          <section class="card card-span-3">
+            <div class="card-header space-between">
+              <div>
+                <h3 class="card-title">Ledger history</h3>
+                <p id="history-meta" class="card-subtle">No entries loaded yet.</p>
+              </div>
+              <button id="export-btn" class="ghost-btn" type="button">Export CSV</button>
+            </div>
+
+            <div id="ledger-nav" class="list-row-meta"></div>
+
+            <div id="history-list" class="transactions-list">
+              <p class="status-copy">Loading entries...</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="planning-view" class="screen hidden">
+        <div class="planning-shell">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Planning</h3>
+                <p class="card-subtle">Create personal or household budgets, savings, and recurring bill reminders from the same ledger foundation.</p>
+              </div>
+            </div>
+
+            <div class="segmented-control" role="group" aria-label="Planning section">
+              <button id="planning-tab-budgets" class="segment-btn active" type="button" data-planning-tab="budgets">Budgets</button>
+              <button id="planning-tab-savings" class="segment-btn" type="button" data-planning-tab="savings">Savings</button>
+              <button id="planning-tab-bills" class="segment-btn" type="button" data-planning-tab="bills">Bills</button>
+            </div>
+          </section>
+
+          <section id="planning-budgets-panel" class="planning-panel">
+            <div class="planning-grid">
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Budget setup</h3>
+                    <p class="card-subtle">Budgets reduce automatically when matching outcome transactions are recorded.</p>
+                    <p id="budget-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New budgets created here belong to you only.</p>
+                  </div>
+                </div>
+
+                <form id="budget-form" class="field-stack compact-form">
+                  <input id="budget-edit-id" type="hidden" />
+                  <div class="field-group">
+                    <label for="budget-name">Budget name</label>
+                    <input id="budget-name" type="text" placeholder="Monthly essentials" required />
+                  </div>
+                  <label class="toggle-field hidden" for="budget-household-scope">
+                    <input id="budget-household-scope" type="checkbox" />
+                    <span>Use household scope</span>
+                  </label>
+                  <div class="field-grid two-up">
+                    <div class="field-group">
+                      <label for="budget-amount">Allocated amount</label>
+                      <input id="budget-amount" type="text" inputmode="numeric" placeholder="500.000" required />
+                    </div>
+                    <div class="field-group">
+                      <label for="budget-cycle-type">Cycle</label>
+                      <select id="budget-cycle-type">
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Biweekly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="custom">Custom range</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field-grid two-up">
+                    <div class="field-group">
+                      <label for="budget-start-date">Start date</label>
+                      <input id="budget-start-date" type="date" required />
+                    </div>
+                    <div id="budget-end-date-field" class="field-group hidden">
+                      <label for="budget-end-date">End date</label>
+                      <input id="budget-end-date" type="date" />
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label>Outcome categories</label>
+                    <details id="budget-category-picker" class="multi-picker">
+                      <summary id="budget-category-summary" class="multi-picker-summary">Choose one or more categories</summary>
+                      <div id="budget-category-list" class="choice-grid multi-picker-list">
+                        <p class="status-copy">Loading categories...</p>
+                      </div>
+                    </details>
+                  </div>
+                  <div class="action-row">
+                    <button id="budget-submit-btn" class="primary-btn" type="submit">Save budget</button>
+                    <button id="budget-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+                  </div>
+                  <div id="budget-message" class="message" aria-live="polite"></div>
+                </form>
+              </section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Visible budgets</h3>
+                    <p class="card-subtle">My view shows your personal budgets. Household view shows shared budgets.</p>
+                  </div>
+                </div>
+
+                <div id="budgets-list" class="stack-list">
+                  <p class="status-copy">No budgets yet.</p>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section id="planning-savings-panel" class="planning-panel hidden">
+            <div class="planning-grid">
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Saving goals</h3>
+                    <p class="card-subtle">Savings are goal buckets linked to a real account. Funding and spending both flow through the ledger.</p>
+                    <p id="saving-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New savings created here belong to you only.</p>
+                  </div>
+                </div>
+
+                <form id="saving-form" class="field-stack compact-form">
+                  <input id="saving-edit-id" type="hidden" />
+                  <div class="field-group">
+                    <label for="saving-name">Saving name</label>
+                    <input id="saving-name" type="text" placeholder="Emergency fund" required />
+                  </div>
+                  <label class="toggle-field hidden" for="saving-household-scope">
+                    <input id="saving-household-scope" type="checkbox" />
+                    <span>Use household scope</span>
+                  </label>
+                  <div class="field-grid two-up">
+                    <div class="field-group">
+                      <label for="saving-target-amount">Target amount</label>
+                      <input id="saving-target-amount" type="text" inputmode="numeric" placeholder="2.000.000" required />
+                    </div>
+                    <div class="field-group">
+                      <label for="saving-target-month">Target month</label>
+                      <input id="saving-target-month" type="month" required />
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label for="saving-linked-account">Linked account</label>
+                    <select id="saving-linked-account"></select>
+                  </div>
+                  <div class="action-row">
+                    <button id="saving-submit-btn" class="primary-btn" type="submit">Save saving</button>
+                    <button id="saving-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+                  </div>
+                  <div id="saving-message" class="message" aria-live="polite"></div>
+                </form>
+
+                <div class="section-divider"></div>
+
+                <article class="onboarding-notice">
+                  <h4 class="mini-title">Saving flow</h4>
+                  <p class="status-copy">Savings no longer support manual progress adjustments.</p>
+                  <p class="status-copy">Add funds with <strong>Transfer</strong> into a saving target, and spend them by choosing the saving as the source account in an <strong>Outcome</strong> transaction.</p>
+                </article>
+              </section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Visible savings</h3>
+                    <p class="card-subtle">Completed savings stay visible as achievements until you archive them.</p>
+                    <p id="savings-list-note" class="status-copy hidden">One or more visible savings are capped by the linked account balance.</p>
+                  </div>
+                </div>
+
+                <div id="savings-list" class="stack-list">
+                  <p class="status-copy">No savings yet.</p>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section id="planning-bills-panel" class="planning-panel hidden">
+            <div class="planning-grid">
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Recurring bills</h3>
+                    <p class="card-subtle">Bills create reminders only. A due period is completed when you save the prefilled transaction.</p>
+                    <p id="bill-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New recurring bills created here belong to you only.</p>
+                  </div>
+                </div>
+
+                <form id="bill-form" class="field-stack compact-form">
+                  <input id="bill-edit-id" type="hidden" />
+                  <div class="field-group">
+                    <label for="bill-name">Bill name</label>
+                    <input id="bill-name" type="text" placeholder="Electricity" required />
+                  </div>
+                  <label class="toggle-field hidden" for="bill-household-scope">
+                    <input id="bill-household-scope" type="checkbox" />
+                    <span>Use household scope</span>
+                  </label>
+                  <div class="field-grid two-up">
+                    <div class="field-group">
+                      <label for="bill-category">Category</label>
+                      <select id="bill-category"></select>
+                    </div>
+                    <div class="field-group">
+                      <label for="bill-schedule">Schedule</label>
+                      <select id="bill-schedule">
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Biweekly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field-grid two-up">
+                    <div class="field-group">
+                      <label for="bill-note">Note</label>
+                      <input id="bill-note" type="text" placeholder="Pay before due date" />
+                    </div>
+                    <div class="field-group">
+                      <label for="bill-anchor-date">First due date</label>
+                      <input id="bill-anchor-date" type="date" required />
+                    </div>
+                  </div>
+                  <div class="action-row">
+                    <button id="bill-submit-btn" class="primary-btn" type="submit">Save bill</button>
+                    <button id="bill-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+                  </div>
+                  <div id="bill-message" class="message" aria-live="polite"></div>
+                </form>
+              </section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Bill reminders</h3>
+                    <p class="card-subtle">Every active bill stays here with its current paid or unpaid status. Use Pay to prefill the transaction form for the next unpaid period.</p>
+                  </div>
+                </div>
+
+                <div id="bill-reminders-list" class="stack-list">
+                  <p class="status-copy">No active bills yet.</p>
+                </div>
+                <div id="bills-list" class="hidden" aria-hidden="true"></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="performance-view" class="screen hidden">
+        <section class="summary-cards">
+          <article class="summary-stat">
+            <span class="summary-label">Budget status</span>
+            <p id="performance-budget-summary" class="summary-value net">0 tracked</p>
+          </article>
+          <article class="summary-stat">
+            <span class="summary-label">Savings progress</span>
+            <p id="performance-savings-summary" class="summary-value income">0 active</p>
+          </article>
+          <article class="summary-stat">
+            <span class="summary-label">Bill reminders</span>
+            <p id="performance-bills-summary" class="summary-value outcome">0 due</p>
+          </article>
+        </section>
+
+        <div class="performance-grid">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Budget performance</h3>
+                <p class="card-subtle">Read-only status of the budgets visible in the current scope.</p>
+              </div>
+            </div>
+
+            <div id="performance-budgets-list" class="stack-list">
+              <p class="status-copy">No budget data yet.</p>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Savings progress & achievements</h3>
+                <p class="card-subtle">Completed savings appear here as achievements in the current scope.</p>
+              </div>
+            </div>
+
+            <div id="performance-savings-list" class="stack-list">
+              <p class="status-copy">No savings data yet.</p>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Bills snapshot</h3>
+                <p class="card-subtle">Upcoming, overdue, and recently completed bill periods from the current scope.</p>
+              </div>
+            </div>
+
+            <div id="performance-bills-list" class="stack-list">
+              <p class="status-copy">No bill data yet.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="management-view" class="screen hidden">
+        <div class="management-grid">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Accounts</h3>
+                <p class="card-subtle">New accounts are assigned to the signed-in member and remain visible in household view.</p>
+              </div>
+            </div>
+
+            <form id="account-form" class="field-stack compact-form">
+              <input id="account-edit-id" type="hidden" />
+              <input id="account-owner" type="hidden" />
+              <div class="field-group">
+                <label for="account-name">Account name</label>
+                <input id="account-name" type="text" placeholder="Bank/ewallet name" required />
+              </div>
+              <div class="field-group">
+                <label for="account-opening-balance">Opening balance</label>
+                <input id="account-opening-balance" type="text" inputmode="numeric" placeholder="0" />
+              </div>
+              <div class="action-row">
+                <button id="account-submit-btn" class="primary-btn" type="submit">Save account</button>
+                <button id="account-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+              </div>
+              <div id="account-message" class="message" aria-live="polite"></div>
+            </form>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <h4 class="mini-title">Active accounts</h4>
+              <div id="accounts-list" class="stack-list">
+                <p class="status-copy">No accounts yet.</p>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <form id="adjustment-form" class="field-stack compact-form">
+              <h4 class="mini-title">Adjust account to actual balance</h4>
+              <div class="field-group">
+                <label for="adjust-account">Account</label>
+                <select id="adjust-account"></select>
+              </div>
+              <div class="field-group">
+                <label for="adjust-actual-balance">Actual balance</label>
+                <input id="adjust-actual-balance" type="text" inputmode="numeric" placeholder="0" />
+              </div>
+              <div class="field-group">
+                <label for="adjust-note">Adjustment note</label>
+                <input id="adjust-note" type="text" placeholder="Balance correction" />
+              </div>
+              <button class="secondary-btn" type="submit">Create balance correction</button>
+              <div id="adjustment-message" class="message" aria-live="polite"></div>
+            </form>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Categories</h3>
+                <p class="card-subtle">Create at least one income category and one outcome category before using the normal dashboard.</p>
+              </div>
+            </div>
+
+            <div class="action-row compact-actions">
+              <button id="category-defaults-btn" class="ghost-btn" type="button">Use default categories</button>
+              <p id="category-defaults-note" class="card-subtle">Merge the starter set into this household once. Existing active categories stay untouched.</p>
+            </div>
+
+            <form id="category-form" class="field-stack compact-form">
+              <input id="category-edit-id" type="hidden" />
+              <div class="field-group">
+                <label for="category-name">Category name</label>
+                <input id="category-name" type="text" placeholder="Essentials - Food" required />
+              </div>
+              <div class="field-group">
+                <label for="category-description">Description</label>
+                <input id="category-description" type="text" placeholder="Optional guidance for this category" />
+              </div>
+              <div class="field-group">
+                <label for="category-direction">Direction</label>
+                <select id="category-direction">
+                  <option value="outcome">Outcome</option>
+                  <option value="income">Income</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div class="action-row">
+                <button id="category-submit-btn" class="primary-btn" type="submit">Save category</button>
+                <button id="category-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+              </div>
+              <div id="category-message" class="message" aria-live="polite"></div>
+            </form>
+
+            <div class="section-divider"></div>
+
+            <div>
+              <h4 class="mini-title">Active categories</h4>
+              <div id="categories-list" class="stack-list">
+                <p class="status-copy">No categories yet.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="settings-view" class="screen hidden">
+        <div class="settings-grid">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Profile & access</h3>
+                <p class="card-subtle">Update your name, send a password reset, and choose your active household.</p>
+              </div>
+            </div>
+
+            <form id="profile-form" class="field-stack compact-form">
+              <div class="field-group">
+                <label for="profile-display-name">Display name</label>
+                <input id="profile-display-name" type="text" placeholder="Your name" />
+              </div>
+              <div class="field-group">
+                <label for="settings-household-switcher">Active household</label>
+                <select id="settings-household-switcher"></select>
+              </div>
+              <div class="action-row">
+                <button class="primary-btn" type="submit">Save profile</button>
+                <button id="settings-password-reset-btn" class="ghost-btn" type="button">Send password reset</button>
+              </div>
+              <div id="profile-message" class="message" aria-live="polite"></div>
+            </form>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Create or join household</h3>
+                <p class="card-subtle">You can belong to up to 3 households. Create a new one or join with a 24-hour invite code.</p>
+              </div>
+            </div>
+
+            <div class="segmented-control" role="group" aria-label="Settings household mode">
+              <button id="settings-mode-create" class="segment-btn active" type="button" data-settings-mode="create">Create household</button>
+              <button id="settings-mode-join" class="segment-btn" type="button" data-settings-mode="join">Join with invite code</button>
+            </div>
+
+            <form id="settings-create-form" class="field-stack setup-panel">
+              <div class="field-group">
+                <label for="settings-household-name">Household name</label>
+                <input id="settings-household-name" type="text" placeholder="Weekend Home" />
+              </div>
+              <button class="primary-btn" type="submit">Create household</button>
+            </form>
+
+            <form id="settings-join-form" class="field-stack setup-panel hidden">
+              <div class="field-group">
+                <label for="settings-invite-code">Invite code</label>
+                <input id="settings-invite-code" type="text" placeholder="ABC123" />
+              </div>
+              <button class="primary-btn" type="submit">Join household</button>
+            </form>
+
+            <div id="settings-household-message" class="message" aria-live="polite"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Household members & invite codes</h3>
+                <p class="card-subtle">Manage members of the active household and generate a code you can share manually.</p>
+              </div>
+            </div>
+
+            <p id="invite-admin-hint" class="status-copy hidden">Only the household admin can generate invite codes.</p>
+            <form id="invite-form" class="field-stack compact-form">
+              <p class="card-subtle">Generate a 24-hour invite code, then send it manually to the person you want to invite.</p>
+              <button class="primary-btn" type="submit">Generate invite code</button>
+              <div id="invite-message" class="message" aria-live="polite"></div>
+            </form>
+
+            <div class="section-divider"></div>
+
+            <div class="settings-columns">
+              <div>
+                <h4 class="mini-title">Members</h4>
+                <div id="members-list" class="stack-list">
+                  <p class="status-copy">No members loaded yet.</p>
+                </div>
+              </div>
+              <div>
+                <h4 class="mini-title">Active invite codes</h4>
+                <div id="invite-list" class="stack-list">
+                  <p class="status-copy">No invites yet.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <div id="export-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+      <div class="modal-backdrop" data-action="close-export-modal"></div>
+      <div class="modal-panel">
+        <div class="card-header space-between">
+          <div>
+            <h3 id="export-modal-title" class="card-title">Export ledger CSV</h3>
+            <p class="card-subtle">Download the file or copy the CSV text directly if the in-app browser blocks downloads.</p>
+          </div>
+          <button id="export-close-btn" class="ghost-btn" type="button">Close</button>
+        </div>
+        <div class="modal-copy">
+          <textarea id="export-preview" class="export-preview" readonly></textarea>
+        </div>
+        <div class="action-row">
+          <button id="export-download-btn" class="primary-btn" type="button">Download CSV</button>
+          <button id="export-copy-btn" class="ghost-btn" type="button">Copy CSV</button>
+        </div>
+        <div id="export-message" class="message" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div id="category-helper-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="category-helper-title">
+      <div class="modal-backdrop" data-action="close-category-helper"></div>
+      <div class="modal-panel">
+        <div class="card-header space-between">
+          <div>
+            <h3 id="category-helper-title" class="card-title">Category guide</h3>
+            <p id="category-helper-copy" class="card-subtle">Browse the categories available for the current transaction type.</p>
+          </div>
+          <button id="category-helper-close-btn" class="ghost-btn" type="button">Close</button>
+        </div>
+        <div id="category-helper-list" class="stack-list modal-copy">
+          <p class="status-copy">No categories available.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="info-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+      <div class="modal-backdrop" data-action="close-info-modal"></div>
+      <div class="modal-panel compact-modal-panel">
+        <div class="card-header space-between">
+          <div>
+            <h3 id="info-modal-title" class="card-title">About this area</h3>
+          </div>
+          <button id="info-modal-close-btn" class="ghost-btn" type="button">Close</button>
+        </div>
+        <div id="info-modal-copy" class="modal-copy">
+          <p class="status-copy">No details available.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    window.__nestplanBuild = "20260503d";
+    window.__nestplanBootReady = false;
+    window.__nestplanBootError = "";
+
+    (function () {
+      const majorResetKey = "nestplan-major-reset-version";
+      const currentBuild = window.__nestplanBuild;
+      const currentUrl = new URL(window.location.href);
+      const requestedBuild = currentUrl.searchParams.get("v");
+
+      if (localStorage.getItem(majorResetKey) !== currentBuild) {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch (error) {
+          console.warn("Could not clear browser storage:", error);
+        }
+
+        try {
+          localStorage.setItem(majorResetKey, currentBuild);
+        } catch (error) {
+          console.warn("Could not persist build reset marker:", error);
+        }
+      }
+
+      if (requestedBuild !== currentBuild) {
+        currentUrl.searchParams.set("v", currentBuild);
+        window.location.replace(currentUrl.toString());
+        return;
+      }
+
+      const loginTab = document.getElementById("login-tab");
+      const signupTab = document.getElementById("signup-tab");
+      const loginForm = document.getElementById("login-form");
+      const signupForm = document.getElementById("signup-form");
+      const loginPassword = document.getElementById("login-password");
+      const signupPassword = document.getElementById("signup-password");
+      const loginPasswordToggle = document.getElementById("login-password-toggle");
+      const signupPasswordToggle = document.getElementById("signup-password-toggle");
+      const signupModeCreate = document.getElementById("signup-mode-create");
+      const signupModeJoin = document.getElementById("signup-mode-join");
+      const signupCreateFields = document.getElementById("signup-create-fields");
+      const signupJoinFields = document.getElementById("signup-join-fields");
+      const loginMessage = document.getElementById("login-message");
+
+      function switchAuth(mode) {
+        const isLogin = mode === "login";
+        loginForm?.classList.toggle("hidden", !isLogin);
+        signupForm?.classList.toggle("hidden", isLogin);
+        loginTab?.classList.toggle("active", isLogin);
+        signupTab?.classList.toggle("active", !isLogin);
+      }
+
+      function togglePassword(input, button) {
+        if (!input || !button) return;
+        const nextType = input.type === "password" ? "text" : "password";
+        input.type = nextType;
+        button.textContent = nextType === "password" ? "Show" : "Hide";
+      }
+
+      function setSignupMode(mode) {
+        const isCreate = mode === "create";
+        signupModeCreate?.classList.toggle("active", isCreate);
+        signupModeJoin?.classList.toggle("active", !isCreate);
+        signupCreateFields?.classList.toggle("hidden", !isCreate);
+        signupJoinFields?.classList.toggle("hidden", isCreate);
+      }
+
+      loginTab?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        switchAuth("login");
+      });
+      signupTab?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        switchAuth("signup");
+      });
+      loginPasswordToggle?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        togglePassword(loginPassword, loginPasswordToggle);
+      });
+      signupPasswordToggle?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        togglePassword(signupPassword, signupPasswordToggle);
+      });
+      signupModeCreate?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        setSignupMode("create");
+      });
+      signupModeJoin?.addEventListener("click", function () {
+        if (window.__nestplanBootReady) return;
+        setSignupMode("join");
+      });
+
+      setTimeout(function () {
+        if (!window.__nestplanBootReady && loginMessage) {
+          const bootError = window.__nestplanBootError
+            ? `App boot failed: ${window.__nestplanBootError}`
+            : "The app did not finish loading. Refresh the page once. If it still stays like this, the browser is using stale files.";
+          loginMessage.textContent = bootError;
+          loginMessage.className = "message error";
+        }
+      }, 2500);
+    }());
+  </script>
+  <script type="module">
+    import("./app.js?v=20260503d").catch(function (error) {
+      console.error("NestPlan module boot failed:", error);
+      window.__nestplanBootError = error?.message || String(error);
+      const loginMessage = document.getElementById("login-message");
+      if (loginMessage) {
+        loginMessage.textContent = `App boot failed: ${window.__nestplanBootError}`;
+        loginMessage.className = "message error";
+      }
+    });
+  </script>
+</body>
+</html>

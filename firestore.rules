@@ -1,0 +1,1005 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function signedInEmailNormalized() {
+      return request.auth.token.email.lower();
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasNonEmptyString(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function isBlockedEmailDomain(domain) {
+      return exists(/databases/$(database)/documents/emailPolicyBlockedDomains/$(domain))
+        && get(/databases/$(database)/documents/emailPolicyBlockedDomains/$(domain)).data.status == "active";
+    }
+
+    function emailPolicyAllows(email, domain) {
+      return !isBlockedEmailDomain(domain)
+        || (
+          exists(/databases/$(database)/documents/emailPolicyOverrides/$(email))
+          && get(/databases/$(database)/documents/emailPolicyOverrides/$(email)).data.status == "active"
+        );
+    }
+
+    function hasStringOrNull(value) {
+      return value == null || hasNonEmptyString(value);
+    }
+
+    function hasTimestampOrNull(value) {
+      return value == null || value is timestamp;
+    }
+
+    function isHouseholdMember(householdId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.status == "active";
+    }
+
+    function isHouseholdAdmin(householdId) {
+      return isHouseholdMember(householdId)
+        && get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/masterAdmins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/masterAdmins/$(request.auth.uid)).data.status == "active";
+    }
+
+    function hasActiveUserProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
+    }
+
+    function memberDocExists(householdId, userId) {
+      return hasNonEmptyString(userId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/members/$(userId));
+    }
+
+    function memberDocIsActive(householdId, userId) {
+      return memberDocExists(householdId, userId)
+        && get(/databases/$(database)/documents/households/$(householdId)/members/$(userId)).data.status == "active";
+    }
+
+    function householdDoc(householdId) {
+      return get(/databases/$(database)/documents/households/$(householdId)).data;
+    }
+
+    function accountDoc(householdId, accountId) {
+      return get(/databases/$(database)/documents/households/$(householdId)/accounts/$(accountId)).data;
+    }
+
+    function categoryDoc(householdId, categoryId) {
+      return get(/databases/$(database)/documents/households/$(householdId)/categories/$(categoryId)).data;
+    }
+
+    function savingGoalDoc(householdId, goalId) {
+      return get(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId)).data;
+    }
+
+    function accountOwnerUserId(data) {
+      return hasNonEmptyString(data.get("primaryOwnerUserId", ""))
+        ? data.primaryOwnerUserId
+        : data.createdByUserId;
+    }
+
+    function memberAcceptedInviteId() {
+      return request.resource.data.get("acceptedInviteId", "");
+    }
+
+    function validUserFields() {
+      return hasNonEmptyString(request.resource.data.email)
+        && request.resource.data.get("emailNormalized", "") == signedInEmailNormalized()
+        && request.resource.data.displayName is string
+        && request.resource.data.get("householdIds", []) is list
+        && request.resource.data.get("householdIds", []).size() <= 3
+        && (request.resource.data.activeHouseholdId == null || hasNonEmptyString(request.resource.data.activeHouseholdId))
+        && request.resource.data.status == "active"
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validRegisteredUserCreate(userId) {
+      return isEmailVerified()
+        && hasNonEmptyString(request.resource.data.registrationCode)
+        && request.resource.data.requiresEmailVerification == true
+        && request.resource.data.registrationVerified == true
+        && existsAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode))
+        && getAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode)).data.status == "consumed"
+        && getAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode)).data.consumedByUserId == userId
+        && getAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode)).data.emailNormalized == signedInEmailNormalized();
+    }
+
+    function validRegistrationCodeCreate(code) {
+      return isMasterAdmin()
+        && request.resource.data.code == code
+        && request.resource.data.emailNormalized is string
+        && request.resource.data.emailNormalized.size() > 3
+        && request.resource.data.emailDomain is string
+        && request.resource.data.status == "unused"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdByEmail == signedInEmailNormalized()
+        && request.resource.data.policyOverrideUsed is bool
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.consumedAt == null
+        && request.resource.data.consumedByUserId == null
+        && request.resource.data.revokedAt == null
+        && request.resource.data.revokedByUserId == null
+        && emailPolicyAllows(request.resource.data.emailNormalized, request.resource.data.emailDomain);
+    }
+
+    function validRegistrationCodeConsume() {
+      return isEmailVerified()
+        && resource.data.status == "unused"
+        && resource.data.expiresAt is timestamp
+        && resource.data.expiresAt > request.time
+        && resource.data.emailNormalized == signedInEmailNormalized()
+        && request.resource.data.status == "consumed"
+        && request.resource.data.consumedByUserId == request.auth.uid
+        && request.resource.data.consumedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "consumedAt",
+          "consumedByUserId",
+          "updatedAt"
+        ]);
+    }
+
+    function validRegistrationCodeRevoke() {
+      return isMasterAdmin()
+        && resource.data.status == "unused"
+        && request.resource.data.status == "revoked"
+        && request.resource.data.revokedByUserId == request.auth.uid
+        && request.resource.data.revokedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "revokedAt",
+          "revokedByUserId",
+          "updatedAt"
+        ]);
+    }
+
+    function validRegistrationCodeDelete() {
+      return isMasterAdmin()
+        && resource.data.status == "unused";
+    }
+
+    function validGreetingQuoteWrite() {
+      return isMasterAdmin()
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 140
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdByEmail == signedInEmailNormalized()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validHouseholdCreate() {
+      return hasActiveUserProfile()
+        && hasNonEmptyString(request.resource.data.name)
+        && hasNonEmptyString(request.resource.data.currencyCode)
+        && hasNonEmptyString(request.resource.data.timezone)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.settings is map
+        && request.resource.data.settings.visibilityMode == "multi-household"
+        && request.resource.data.settings.defaultScope == "personal";
+    }
+
+    function validHouseholdSettingsUpdate(householdId) {
+      return isHouseholdMember(householdId)
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.currencyCode == resource.data.currencyCode
+        && request.resource.data.timezone == resource.data.timezone
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.settings is map
+        && request.resource.data.settings.visibilityMode == resource.data.settings.visibilityMode
+        && request.resource.data.settings.defaultScope == resource.data.settings.defaultScope
+        && resource.data.settings.get("categoryDefaults", null) == null
+        && request.resource.data.settings.get("categoryDefaults", null) is map
+        && request.resource.data.settings.categoryDefaults.version == 1
+        && request.resource.data.settings.categoryDefaults.appliedByUserId == request.auth.uid
+        && request.resource.data.settings.categoryDefaults.appliedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "settings",
+          "updatedAt"
+        ]);
+    }
+
+    function validMemberFields(data) {
+      return hasNonEmptyString(data.userId)
+        && hasNonEmptyString(data.emailNormalized)
+        && data.displayName is string
+        && (data.role == "admin" || data.role == "member")
+        && (data.status == "active" || data.status == "removed")
+        && data.joinedAt is timestamp
+        && hasStringOrNull(data.get("invitedByUserId", null))
+        && hasStringOrNull(data.get("acceptedInviteId", null))
+        && hasTimestampOrNull(data.get("updatedAt", null));
+    }
+
+    function isHouseholdCreatorBootstrap(householdId, userId) {
+      return hasActiveUserProfile()
+        && existsAfter(/databases/$(database)/documents/households/$(householdId))
+        && getAfter(/databases/$(database)/documents/households/$(householdId)).data.createdByUserId == userId
+        && validMemberFields(request.resource.data)
+        && request.resource.data.userId == userId
+        && request.resource.data.emailNormalized == signedInEmailNormalized()
+        && request.resource.data.status == "active"
+        && request.resource.data.role == "admin";
+    }
+
+    function isAcceptedInviteMemberCreate(householdId, userId) {
+      return hasActiveUserProfile()
+        && hasNonEmptyString(memberAcceptedInviteId())
+        && existsAfter(/databases/$(database)/documents/households/$(householdId)/invites/$(memberAcceptedInviteId()))
+        && getAfter(/databases/$(database)/documents/households/$(householdId)/invites/$(memberAcceptedInviteId())).data.status == "accepted"
+        && getAfter(/databases/$(database)/documents/households/$(householdId)/invites/$(memberAcceptedInviteId())).data.acceptedByUserId == userId
+        && validMemberFields(request.resource.data)
+        && request.resource.data.userId == userId
+        && request.resource.data.emailNormalized == signedInEmailNormalized()
+        && request.resource.data.acceptedInviteId == memberAcceptedInviteId()
+        && request.resource.data.status == "active"
+        && request.resource.data.role == "member";
+    }
+
+    function isPendingInviteAcceptance() {
+      return isSignedIn()
+        && hasActiveUserProfile()
+        && resource.data.status == "pending"
+        && resource.data.expiresAt is timestamp
+        && resource.data.expiresAt > request.time
+        && resource.data.acceptedAt == null
+        && resource.data.acceptedByUserId == null
+        && request.resource.data.status == "accepted"
+        && request.resource.data.acceptedAt is timestamp
+        && request.resource.data.acceptedByUserId == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "acceptedAt",
+          "acceptedByUserId",
+          "updatedAt"
+        ]);
+    }
+
+    function isAdminInviteRevocation() {
+      return resource.data.status == "pending"
+        && request.resource.data.status == "revoked"
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "updatedAt"
+        ]);
+    }
+
+    function validInviteCreate(householdId, inviteId) {
+      return isHouseholdAdmin(householdId)
+        && request.resource.data.householdId == householdId
+        && request.resource.data.inviteId == inviteId
+        && hasNonEmptyString(request.resource.data.householdName)
+        && hasNonEmptyString(request.resource.data.inviteCode)
+        && request.resource.data.invitedByUserId == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.acceptedAt == null
+        && request.resource.data.acceptedByUserId == null
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validInviteCodeCreate(inviteCode) {
+      return hasNonEmptyString(request.resource.data.householdId)
+        && isHouseholdAdmin(request.resource.data.householdId)
+        && request.resource.data.inviteCode == inviteCode
+        && hasNonEmptyString(request.resource.data.inviteId)
+        && hasNonEmptyString(request.resource.data.householdName)
+        && request.resource.data.invitedByUserId == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.acceptedAt == null
+        && request.resource.data.acceptedByUserId == null
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validAccountFields(data) {
+      return hasNonEmptyString(data.name)
+        && hasNonEmptyString(accountOwnerUserId(data))
+        && data.openingBalanceMinor is int
+        && data.openingBalanceMinor >= 0
+        && data.openingBalanceAt is timestamp
+        && (data.status == "active" || data.status == "archived")
+        && hasNonEmptyString(data.createdByUserId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validAccountCreate(householdId) {
+      return isHouseholdMember(householdId)
+        && request.resource.data.primaryOwnerUserId == request.auth.uid
+        && request.resource.data.createdByUserId == request.auth.uid
+        && memberDocIsActive(householdId, accountOwnerUserId(request.resource.data))
+        && validAccountFields(request.resource.data);
+    }
+
+    function validAccountUpdate(householdId) {
+      return (accountOwnerUserId(resource.data) == request.auth.uid || isHouseholdAdmin(householdId))
+        && accountOwnerUserId(request.resource.data) == accountOwnerUserId(resource.data)
+        && memberDocIsActive(householdId, accountOwnerUserId(request.resource.data))
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.openingBalanceAt == resource.data.openingBalanceAt
+        && validAccountFields(request.resource.data);
+    }
+
+    function isCategoryDirection(value) {
+      return value == "income" || value == "outcome" || value == "both";
+    }
+
+    function validCategoryFields(data) {
+      return hasNonEmptyString(data.name)
+        && data.get("description", "") is string
+        && isCategoryDirection(data.direction)
+        && (data.status == "active" || data.status == "archived")
+        && hasNonEmptyString(data.createdByUserId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.get("systemKey", null) == null || data.systemKey == "saving");
+    }
+
+    function validCategoryCreate(householdId, categoryId) {
+      return isHouseholdMember(householdId)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && validCategoryFields(request.resource.data)
+        && (
+          request.resource.data.get("systemKey", null) == null
+          || (request.resource.data.systemKey == "saving" && categoryId == "system-saving")
+        );
+    }
+
+    function validCategoryUpdate(householdId, categoryId) {
+      return isHouseholdMember(householdId)
+        && resource.data.get("systemKey", null) != "saving"
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.get("systemKey", null) == resource.data.get("systemKey", null)
+        && validCategoryFields(request.resource.data)
+        && (
+          request.resource.data.get("systemKey", null) == null
+          || (request.resource.data.systemKey == "saving" && categoryId == "system-saving")
+        );
+    }
+
+    function validAccountReference(householdId, accountId, nameSnapshot, ownerSnapshot) {
+      return hasNonEmptyString(accountId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/accounts/$(accountId))
+        && accountDoc(householdId, accountId).status == "active"
+        && nameSnapshot is string
+        && nameSnapshot == accountDoc(householdId, accountId).name
+        && hasNonEmptyString(ownerSnapshot)
+        && ownerSnapshot == accountOwnerUserId(accountDoc(householdId, accountId));
+    }
+
+    function validCategoryReference(householdId, categoryId, categoryNameSnapshot, displayKind) {
+      return hasNonEmptyString(categoryId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/categories/$(categoryId))
+        && categoryDoc(householdId, categoryId).status == "active"
+        && categoryNameSnapshot is string
+        && categoryNameSnapshot == categoryDoc(householdId, categoryId).name
+        && (
+          (displayKind == "income" && (categoryDoc(householdId, categoryId).direction == "income" || categoryDoc(householdId, categoryId).direction == "both"))
+          || (displayKind == "outcome" && (categoryDoc(householdId, categoryId).direction == "outcome" || categoryDoc(householdId, categoryId).direction == "both"))
+        );
+    }
+
+    function isScopedHouseholdData(data) {
+      return data.scopeType == "household" && data.ownerUserId == null;
+    }
+
+    function isScopedPersonalData(data) {
+      return data.scopeType == "personal" && data.ownerUserId == request.auth.uid;
+    }
+
+    function validScopedData(householdId, data) {
+      return isHouseholdMember(householdId)
+        && (isScopedHouseholdData(data) || isScopedPersonalData(data));
+    }
+
+    function canReadScopedData(householdId, data) {
+      return isHouseholdMember(householdId)
+        && (
+          data.scopeType == "household"
+          || (data.scopeType == "personal" && data.ownerUserId == request.auth.uid)
+        );
+    }
+
+    function canUpdateScopedData(householdId) {
+      return isHouseholdMember(householdId)
+        && request.resource.data.scopeType == resource.data.scopeType
+        && request.resource.data.ownerUserId == resource.data.ownerUserId
+        && (
+          resource.data.scopeType == "household"
+          || (resource.data.scopeType == "personal" && resource.data.ownerUserId == request.auth.uid)
+        );
+    }
+
+    function canDeleteScopedData(householdId) {
+      return isHouseholdMember(householdId)
+        && (
+          resource.data.scopeType == "household"
+          || (resource.data.scopeType == "personal" && resource.data.ownerUserId == request.auth.uid)
+        );
+    }
+
+    function keepsScopedImmutableFields() {
+      return request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function isBudgetCycle(value) {
+      return value == "weekly"
+        || value == "biweekly"
+        || value == "monthly"
+        || value == "quarterly"
+        || value == "yearly"
+        || value == "custom";
+    }
+
+    function isBillSchedule(value) {
+      return value == "weekly"
+        || value == "biweekly"
+        || value == "monthly"
+        || value == "quarterly"
+        || value == "yearly";
+    }
+
+    function validTargetMonthKey(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}$');
+    }
+
+    function validSavingGoalReference(householdId, goalId) {
+      return goalId == null
+        || (
+          hasNonEmptyString(goalId)
+          && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
+          && canReadScopedData(householdId, savingGoalDoc(householdId, goalId))
+        );
+    }
+
+    function savingGoalCanReceiveFunds(householdId, goalId, accountId) {
+      return hasNonEmptyString(goalId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
+        && savingGoalDoc(householdId, goalId).status == "active"
+        && savingGoalDoc(householdId, goalId).linkedAccountId == accountId
+        && canReadScopedData(householdId, savingGoalDoc(householdId, goalId));
+    }
+
+    function savingGoalCanBeSpentFrom(householdId, goalId, accountId) {
+      return hasNonEmptyString(goalId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
+        && savingGoalDoc(householdId, goalId).status != "archived"
+        && savingGoalDoc(householdId, goalId).linkedAccountId == accountId
+        && (
+          savingGoalDoc(householdId, goalId).get("linkedAccountPrimaryOwnerUserIdSnapshot", "") == request.auth.uid
+          || accountOwnerUserId(accountDoc(householdId, savingGoalDoc(householdId, goalId).linkedAccountId)) == request.auth.uid
+        )
+        && isHouseholdMember(householdId);
+    }
+
+    function accountOwnedByRequester(householdId, accountId) {
+      return validAccountReference(householdId, accountId, request.resource.data.accountNameSnapshot, request.resource.data.accountPrimaryOwnerUserIdSnapshot)
+        && accountOwnerUserId(accountDoc(householdId, accountId)) == request.auth.uid;
+    }
+
+    function validNonTransferAccountUsage(householdId, data) {
+      return (
+        data.displayKind == "income"
+        && accountOwnedByRequester(householdId, data.accountId)
+      ) || (
+        data.displayKind == "outcome"
+        && (
+          (
+            categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
+            && accountOwnedByRequester(householdId, data.accountId)
+            && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+          )
+          || (
+            categoryDoc(householdId, data.categoryId).get("systemKey", null) != "saving"
+            && (
+              (data.savingGoalId == null && accountOwnedByRequester(householdId, data.accountId))
+              || savingGoalCanBeSpentFrom(householdId, data.savingGoalId, data.accountId)
+            )
+          )
+        )
+      ) || (
+        data.displayKind == "adjustment"
+        && accountOwnedByRequester(householdId, data.accountId)
+      );
+    }
+
+    function validTransferAccountUsage(householdId, data) {
+      return (
+        data.postingKind == "transfer_out"
+        && accountOwnedByRequester(householdId, data.accountId)
+        && data.savingGoalId == null
+      ) || (
+        data.postingKind == "transfer_in"
+        && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
+        && accountOwnerUserId(accountDoc(householdId, data.counterpartyAccountId)) == request.auth.uid
+        && (
+          data.savingGoalId == null
+          || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+        )
+      );
+    }
+
+    function validRecurringBillReference(householdId, billId, occurrenceId) {
+      return (billId == null && occurrenceId == null)
+        || (
+          hasNonEmptyString(billId)
+          && hasNonEmptyString(occurrenceId)
+          && exists(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(billId))
+          && canReadScopedData(householdId, get(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(billId)).data)
+        );
+    }
+
+    function validTransactionKindPair(data) {
+      return (data.displayKind == "income" && data.postingKind == "income")
+        || (data.displayKind == "outcome" && data.postingKind == "outcome")
+        || (data.displayKind == "transfer" && (data.postingKind == "transfer_in" || data.postingKind == "transfer_out"))
+        || (data.displayKind == "adjustment" && (data.postingKind == "adjustment_increase" || data.postingKind == "adjustment_decrease"));
+    }
+
+    function validTransactionShape(householdId, data) {
+      return data.createdByUserId == request.auth.uid
+        && data.amountMinor is int
+        && data.amountMinor > 0
+        && data.status == "active"
+        && hasNonEmptyString(data.transactionGroupId)
+        && data.note is string
+        && data.transactionAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.currencyCode == householdDoc(householdId).currencyCode
+        && validAccountReference(householdId, data.accountId, data.accountNameSnapshot, data.accountPrimaryOwnerUserIdSnapshot)
+        && validTransactionKindPair(data)
+        && validSavingGoalReference(householdId, data.savingGoalId)
+        && validRecurringBillReference(householdId, data.recurringBillId, data.recurringBillOccurrenceId)
+        && (
+          (
+            data.displayKind == "income"
+            && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
+            && validNonTransferAccountUsage(householdId, data)
+            && data.counterpartyAccountId == null
+            && data.counterpartyAccountNameSnapshot == null
+            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
+            && data.savingGoalId == null
+            && data.recurringBillId == null
+            && data.recurringBillOccurrenceId == null
+          )
+          || (
+            data.displayKind == "outcome"
+            && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
+            && validNonTransferAccountUsage(householdId, data)
+            && data.counterpartyAccountId == null
+            && data.counterpartyAccountNameSnapshot == null
+            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
+          )
+          || (
+            data.displayKind == "transfer"
+            && data.categoryId == null
+            && data.categoryNameSnapshot == null
+            && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
+            && data.counterpartyAccountId != data.accountId
+            && validTransferAccountUsage(householdId, data)
+            && data.recurringBillId == null
+            && data.recurringBillOccurrenceId == null
+          )
+          || (
+            data.displayKind == "adjustment"
+            && data.categoryId == null
+            && data.categoryNameSnapshot == null
+            && validNonTransferAccountUsage(householdId, data)
+            && data.counterpartyAccountId == null
+            && data.counterpartyAccountNameSnapshot == null
+            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
+            && data.savingGoalId == null
+            && data.recurringBillId == null
+            && data.recurringBillOccurrenceId == null
+          )
+        );
+    }
+
+    function keepsImmutableTransactionFields() {
+      return request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.transactionGroupId == resource.data.transactionGroupId;
+    }
+
+    function validEditableActiveTransaction(householdId) {
+      return request.auth.uid == resource.data.createdByUserId
+        && resource.data.status == "active"
+        && request.resource.data.status == "active"
+        && keepsImmutableTransactionFields()
+        && request.resource.data.deletedAt == resource.data.deletedAt
+        && request.resource.data.deletedByUserId == resource.data.deletedByUserId
+        && validTransactionShape(householdId, request.resource.data);
+    }
+
+    function validSoftDeleteTransaction() {
+      return request.auth.uid == resource.data.createdByUserId
+        && resource.data.status == "active"
+        && request.resource.data.status == "deleted"
+        && keepsImmutableTransactionFields()
+        && request.resource.data.deletedByUserId == request.auth.uid
+        && request.resource.data.deletedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "deletedAt",
+          "deletedByUserId",
+          "updatedAt"
+        ]);
+    }
+
+    function validBudgetFields(data) {
+      return hasNonEmptyString(data.name)
+        && data.amountMinor is int
+        && data.amountMinor > 0
+        && data.categoryIds is list
+        && data.categoryIds.size() > 0
+        && isBudgetCycle(data.cycleType)
+        && data.startDate is timestamp
+        && (data.cycleType == "custom" ? data.endDate is timestamp : data.endDate == null)
+        && (data.status == "active" || data.status == "archived")
+        && data.updatedAt is timestamp
+        && hasTimestampOrNull(data.archivedAt);
+    }
+
+    function validBudgetCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && validBudgetFields(request.resource.data)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validBudgetUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && keepsScopedImmutableFields()
+        && validBudgetFields(request.resource.data);
+    }
+
+    function validSavingGoalFields(data) {
+      return hasNonEmptyString(data.name)
+        && data.targetAmountMinor is int
+        && data.targetAmountMinor > 0
+        && validTargetMonthKey(data.targetMonthKey)
+        && hasNonEmptyString(data.linkedAccountId)
+        && data.linkedAccountNameSnapshot is string
+        && hasNonEmptyString(data.linkedAccountPrimaryOwnerUserIdSnapshot)
+        && (data.scopeType == "household" || data.linkedAccountPrimaryOwnerUserIdSnapshot == request.auth.uid)
+        && (data.status == "active" || data.status == "archived" || data.status == "completed")
+        && data.updatedAt is timestamp
+        && hasTimestampOrNull(data.archivedAt)
+        && hasTimestampOrNull(data.completedAt);
+    }
+
+    function validSavingGoalCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && validSavingGoalFields(request.resource.data)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validSavingGoalUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && keepsScopedImmutableFields()
+        && validSavingGoalFields(request.resource.data);
+    }
+
+    function savingGoalScopeMatches(householdId, data) {
+      return hasNonEmptyString(data.savingGoalId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId))
+        && get(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId)).data.scopeType == data.scopeType
+        && get(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId)).data.ownerUserId == data.ownerUserId
+        && canReadScopedData(householdId, get(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId)).data);
+    }
+
+    function validSavingGoalEventCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && savingGoalScopeMatches(householdId, request.resource.data)
+        && request.resource.data.deltaMinor is int
+        && request.resource.data.deltaMinor != 0
+        && request.resource.data.note is string
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validRecurringBillFields(data) {
+      return hasNonEmptyString(data.name)
+        && hasNonEmptyString(data.categoryId)
+        && data.categoryNameSnapshot is string
+        && data.note is string
+        && isBillSchedule(data.scheduleType)
+        && data.anchorDate is timestamp
+        && (data.status == "active" || data.status == "archived")
+        && data.updatedAt is timestamp
+        && hasTimestampOrNull(data.archivedAt);
+    }
+
+    function validRecurringBillCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && validRecurringBillFields(request.resource.data)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validRecurringBillUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && keepsScopedImmutableFields()
+        && validRecurringBillFields(request.resource.data);
+    }
+
+    function recurringBillScopeMatches(householdId, data) {
+      return hasNonEmptyString(data.billId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(data.billId))
+        && get(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(data.billId)).data.scopeType == data.scopeType
+        && get(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(data.billId)).data.ownerUserId == data.ownerUserId
+        && canReadScopedData(householdId, get(/databases/$(database)/documents/households/$(householdId)/recurringBills/$(data.billId)).data);
+    }
+
+    function validRecurringBillOccurrenceComplete(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && recurringBillScopeMatches(householdId, request.resource.data)
+        && hasNonEmptyString(request.resource.data.occurrenceKey)
+        && request.resource.data.dueAt is timestamp
+        && hasStringOrNull(request.resource.data.get("transactionId", null))
+        && hasStringOrNull(request.resource.data.get("transactionGroupId", null))
+        && hasTimestampOrNull(request.resource.data.get("transactionAt", null))
+        && (
+          (
+            hasNonEmptyString(request.resource.data.get("transactionId", null))
+            && hasNonEmptyString(request.resource.data.get("transactionGroupId", null))
+            && request.resource.data.get("transactionAt", null) is timestamp
+          )
+          || (
+            request.resource.data.get("transactionId", null) == null
+            && request.resource.data.get("transactionGroupId", null) == null
+            && request.resource.data.get("transactionAt", null) == null
+          )
+        )
+        && request.resource.data.status == "completed"
+        && request.resource.data.completedByUserId == request.auth.uid
+        && request.resource.data.completedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validRecurringBillOccurrenceVoid(householdId) {
+      return canUpdateScopedData(householdId)
+        && recurringBillScopeMatches(householdId, request.resource.data)
+        && resource.data.status == "completed"
+        && request.resource.data.status == "voided"
+        && request.resource.data.billId == resource.data.billId
+        && request.resource.data.occurrenceKey == resource.data.occurrenceKey
+        && request.resource.data.dueAt == resource.data.dueAt
+        && request.resource.data.transactionId == resource.data.transactionId
+        && request.resource.data.transactionGroupId == resource.data.transactionGroupId
+        && request.resource.data.completedByUserId == resource.data.completedByUserId
+        && request.resource.data.completedAt == resource.data.completedAt
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.voidedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId);
+      allow create: if isSelf(userId)
+        && validRegisteredUserCreate(userId)
+        && validUserFields()
+        && request.resource.data.createdAt is timestamp;
+      allow update: if isSelf(userId)
+        && validUserFields()
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    match /masterAdmins/{userId} {
+      allow read: if isSelf(userId) || isMasterAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /registrationCodes/{code} {
+      allow get: if isMasterAdmin() || (resource.data.status == "unused" && resource.data.expiresAt > request.time);
+      allow list: if isMasterAdmin();
+      allow create: if validRegistrationCodeCreate(code);
+      allow update: if validRegistrationCodeConsume() || validRegistrationCodeRevoke();
+      allow delete: if validRegistrationCodeDelete();
+    }
+
+    match /registrationActivations/{userId} {
+      allow read: if isSelf(userId) || isMasterAdmin();
+      allow create: if isSelf(userId)
+        && isEmailVerified()
+        && request.resource.data.userId == userId
+        && request.resource.data.emailNormalized == signedInEmailNormalized()
+        && hasNonEmptyString(request.resource.data.registrationCode)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.activatedAt is timestamp
+        && existsAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode))
+        && getAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode)).data.status == "consumed"
+        && getAfter(/databases/$(database)/documents/registrationCodes/$(request.resource.data.registrationCode)).data.consumedByUserId == userId;
+      allow update, delete: if false;
+    }
+
+    match /emailPolicyOverrides/{emailId} {
+      allow read, list: if isMasterAdmin();
+      allow create, update: if isMasterAdmin()
+        && request.resource.data.emailNormalized == emailId
+        && hasNonEmptyString(request.resource.data.emailDomain)
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdByEmail == signedInEmailNormalized()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if isMasterAdmin();
+    }
+
+    match /emailPolicyBlockedDomains/{domainId} {
+      allow read, list: if isMasterAdmin();
+      allow create, update: if isMasterAdmin()
+        && request.resource.data.domain == domainId
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdByEmail == signedInEmailNormalized()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if isMasterAdmin();
+    }
+
+    match /appGreetingQuotes/{quoteId} {
+      allow read, list: if isSignedIn();
+      allow create, update: if validGreetingQuoteWrite();
+      allow delete: if isMasterAdmin();
+    }
+
+    match /households/{householdId} {
+      allow create: if isSignedIn() && validHouseholdCreate();
+      allow read: if isHouseholdMember(householdId);
+      allow update: if validHouseholdSettingsUpdate(householdId);
+      allow delete: if false;
+
+      match /members/{userId} {
+        allow read: if isHouseholdMember(householdId);
+        allow create: if isSelf(userId)
+          && (
+            isHouseholdCreatorBootstrap(householdId, userId)
+            || isAcceptedInviteMemberCreate(householdId, userId)
+          );
+        allow update: if (
+            isHouseholdAdmin(householdId)
+            && validMemberFields(request.resource.data)
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.emailNormalized == resource.data.emailNormalized
+            && request.resource.data.displayName == resource.data.displayName
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.joinedAt == resource.data.joinedAt
+            && request.resource.data.get("invitedByUserId", null) == resource.data.get("invitedByUserId", null)
+            && request.resource.data.get("acceptedInviteId", null) == resource.data.get("acceptedInviteId", null)
+            && resource.data.status == "active"
+            && request.resource.data.status == "removed"
+            && request.resource.data.updatedAt is timestamp
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              "status",
+              "updatedAt"
+            ])
+          )
+          || (
+            isSelf(userId)
+            && isAcceptedInviteMemberCreate(householdId, userId)
+          );
+        allow delete: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if isHouseholdMember(householdId);
+        allow create: if validInviteCreate(householdId, inviteId);
+        allow update: if (isHouseholdAdmin(householdId) && isAdminInviteRevocation()) || isPendingInviteAcceptance();
+        allow delete: if false;
+      }
+
+      match /accounts/{accountId} {
+        allow read: if isHouseholdMember(householdId);
+        allow create: if validAccountCreate(householdId);
+        allow update: if validAccountUpdate(householdId);
+        allow delete: if false;
+      }
+
+      match /categories/{categoryId} {
+        allow read: if isHouseholdMember(householdId);
+        allow create: if validCategoryCreate(householdId, categoryId);
+        allow update: if validCategoryUpdate(householdId, categoryId);
+        allow delete: if false;
+      }
+
+      match /transactions/{transactionId} {
+        allow read: if isHouseholdMember(householdId);
+        allow create: if isHouseholdMember(householdId)
+          && request.resource.data.deletedAt == null
+          && request.resource.data.deletedByUserId == null
+          && validTransactionShape(householdId, request.resource.data);
+        allow update: if isHouseholdMember(householdId)
+          && (validEditableActiveTransaction(householdId) || validSoftDeleteTransaction());
+        allow delete: if false;
+      }
+
+      match /budgets/{budgetId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validBudgetCreate(householdId);
+        allow update: if validBudgetUpdate(householdId);
+        allow delete: if canDeleteScopedData(householdId);
+      }
+
+      match /savingGoals/{goalId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validSavingGoalCreate(householdId);
+        allow update: if validSavingGoalUpdate(householdId);
+        allow delete: if canDeleteScopedData(householdId);
+      }
+
+      match /savingGoalEvents/{eventId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if false;
+        allow update, delete: if false;
+      }
+
+      match /recurringBills/{billId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validRecurringBillCreate(householdId);
+        allow update: if validRecurringBillUpdate(householdId);
+        allow delete: if canDeleteScopedData(householdId);
+      }
+
+      match /recurringBillOccurrences/{occurrenceId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validRecurringBillOccurrenceComplete(householdId);
+        allow update: if validRecurringBillOccurrenceComplete(householdId) || validRecurringBillOccurrenceVoid(householdId);
+        allow delete: if false;
+      }
+    }
+
+    match /inviteCodes/{inviteCode} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if validInviteCodeCreate(inviteCode);
+      allow update: if (isHouseholdAdmin(resource.data.householdId) && isAdminInviteRevocation()) || isPendingInviteAcceptance();
+      allow delete: if false;
+    }
+  }
+}

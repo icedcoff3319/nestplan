@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NestPlan Brand Pack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --canvas: #f4f5ef;
+      --surface: rgba(251, 250, 246, 0.94);
+      --text-strong: #2f342e;
+      --text-soft: #5d655a;
+      --border: rgba(126, 138, 118, 0.18);
+      --primary-soft: #e4eadc;
+      --shadow-soft: 0 18px 40px rgba(90, 105, 83, 0.08);
+      --radius-card: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 28px;
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      color: var(--text-strong);
+      background:
+        radial-gradient(circle at top left, rgba(225, 234, 216, 0.85), transparent 34%),
+        radial-gradient(circle at top right, rgba(239, 237, 227, 0.85), transparent 28%),
+        linear-gradient(180deg, var(--canvas) 0%, #f2f4ec 48%, #f6f6f1 100%);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 52px;
+      line-height: 0.95;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      gap: 22px;
+      margin-top: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .asset-frame {
+      display: grid;
+      place-items: center;
+      min-height: 180px;
+      padding: 18px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(111, 129, 104, 0.12);
+    }
+
+    .asset-frame img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .social-frame img {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(111, 129, 104, 0.12);
+    }
+
+    .note {
+      margin-top: 10px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>NestPlan Brand Pack</h1>
+  <p>These are vector-first exports based on the current app branding, intended for promotional layouts and social-media compositions.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Logo</h2>
+      <div class="asset-frame">
+        <img src="./nestplan-logo.svg" alt="NestPlan logo" />
+      </div>
+      <p class="note">Transparent vector asset.</p>
+    </section>
+
+    <section class="card">
+      <h2>Name</h2>
+      <div class="asset-frame">
+        <img src="./nestplan-name.svg" alt="NestPlan name" />
+      </div>
+      <p class="note">Transparent vector wordmark.</p>
+    </section>
+
+    <section class="card">
+      <h2>Logo + Name</h2>
+      <div class="asset-frame">
+        <img src="./nestplan-logo-plus-name.svg" alt="NestPlan logo and name" />
+      </div>
+      <p class="note">Transparent vector lockup.</p>
+    </section>
+
+    <section class="card">
+      <h2>Instagram Story Background</h2>
+      <div class="social-frame">
+        <img src="./nestplan-instagram-story-background.svg" alt="NestPlan Instagram story background" />
+      </div>
+      <p class="note">2160 × 3840 vector background.</p>
+    </section>
+
+    <section class="card">
+      <h2>Instagram Post Background</h2>
+      <div class="social-frame">
+        <img src="./nestplan-instagram-post-background.svg" alt="NestPlan Instagram post background" />
+      </div>
+      <p class="note">2160 × 2160 vector background.</p>
+    </section>
+  </div>
+</body>
+</html>
