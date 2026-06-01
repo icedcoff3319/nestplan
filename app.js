@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510b";
+} from "./firebase-client.js?v=20260510c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510b";
+} from "./constants.js?v=20260510c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
@@ -885,7 +885,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510c");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -3050,8 +3050,6 @@ async function saveSingleTransaction({ kind, amountMinor, feeMinor = 0, note, tr
       }
     } else {
       assertRegularAccountSpendAllowed(account.id, amountMinor + feeMinor, baseRows);
-    } else if (feeMinor) {
-      assertRegularAccountSpendAllowed(account.id, feeMinor, baseRows);
     }
   }
 
