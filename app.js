@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510f";
+} from "./firebase-client.js?v=20260510g";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510f";
+} from "./constants.js?v=20260510g";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1114,7 +1114,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510f");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510g");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -5002,7 +5002,7 @@ function renderDashboardBudgets() {
     return;
   }
 
-  const budgetSummaries = getVisibleBudgets().map(buildBudgetSummary);
+  const budgetSummaries = getVisibleBudgets().map(budget => buildBudgetSummary(budget));
   els.dashboardBudgetsList.innerHTML = budgetSummaries.length
     ? budgetSummaries.map(summary => {
         const progressPercent = getBudgetProgressPercent(summary);
@@ -5858,7 +5858,7 @@ function variance(values) {
 }
 
 function renderPerformanceView() {
-  const budgetSummaries = getVisibleBudgets().map(buildBudgetSummary);
+  const budgetSummaries = getVisibleBudgets().map(budget => buildBudgetSummary(budget));
   const savingSummaries = getVisibleSavingGoals().map(buildSavingSummary);
   const reminders = getVisibleBillReminders();
   const completedBills = getRecentlyCompletedBillOccurrences();

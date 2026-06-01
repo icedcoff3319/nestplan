@@ -931,10 +931,10 @@ service cloud.firestore {
 
     function investmentAccountScopeMatches(householdId, data) {
       return hasNonEmptyString(data.investmentAccountId)
-        && exists(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId))
-        && get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.scopeType == data.scopeType
-        && get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.ownerUserId == data.ownerUserId
-        && canReadScopedData(householdId, get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data);
+        && existsAfter(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId))
+        && getAfter(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.scopeType == data.scopeType
+        && getAfter(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.ownerUserId == data.ownerUserId
+        && canReadScopedData(householdId, getAfter(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data);
     }
 
     function validInvestmentEventType(value) {
