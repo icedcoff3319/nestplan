@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510e";
+} from "./firebase-client.js?v=20260510f";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510e";
+} from "./constants.js?v=20260510f";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -827,10 +827,15 @@ function scheduleRender() {
   renderQueued = true;
   requestAnimationFrame(() => {
     renderQueued = false;
-    if (state.authUser) {
-      renderApp();
-    } else {
-      renderScreens();
+    try {
+      if (state.authUser) {
+        renderApp();
+      } else {
+        renderScreens();
+      }
+    } catch (error) {
+      console.error("NestPlan render failed:", error);
+      renderNonBlockingRenderError(error);
     }
   });
 }
@@ -991,16 +996,12 @@ async function refreshFromCurrentUser() {
 }
 
 async function loadGreetingQuotes() {
-  try {
-    const snapshot = await getDocs(collection(db, "appGreetingQuotes"));
-    state.greetingQuotes = snapshot.docs
-      .map(item => ({ id: item.id, ...item.data() }))
-      .filter(item => item.status === "active" && cleanText(item.text))
-      .sort((a, b) => (a.text || "").localeCompare(b.text || ""));
-  } catch (error) {
-    console.warn("Could not load greeting library:", error);
-    state.greetingQuotes = [];
-  }
+  state.greetingQuotes = GREETINGS.map((text, index) => ({
+    id: `builtin-greeting-${index}`,
+    text,
+    source: "built-in",
+    readonly: true
+  }));
 }
 
 async function loadDefaultCategoryLibrary() {
@@ -1113,7 +1114,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510e");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510f");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -1154,11 +1155,9 @@ async function assertMasterAdminClient() {
 
 async function getMasterAdminDashboard() {
   await assertMasterAdminClient();
-  const [codesSnap, overridesSnap, blockedDomainsSnap, greetingQuotesSnap, defaultCategoriesSnap] = await Promise.all([
+  const [codesSnap, overridesSnap, defaultCategoriesSnap] = await Promise.all([
     getDocs(collection(db, "registrationCodes")),
     getDocs(collection(db, "emailPolicyOverrides")),
-    getDocs(collection(db, "emailPolicyBlockedDomains")),
-    getDocs(collection(db, "appGreetingQuotes")),
     getDocs(collection(db, "appDefaultCategories"))
   ]);
 
@@ -1171,14 +1170,13 @@ async function getMasterAdminDashboard() {
       .map(snapshot => serializeEmailOverride(snapshot.id, snapshot.data()))
       .sort((a, b) => b.createdAtSort - a.createdAtSort)
       .slice(0, 60),
-    blockedDomains: blockedDomainsSnap.docs
-      .map(snapshot => serializeBlockedDomain(snapshot.id, snapshot.data()))
-      .sort((a, b) => (a.domain || "").localeCompare(b.domain || ""))
-      .slice(0, 60),
-    greetingQuotes: greetingQuotesSnap.docs
-      .map(snapshot => serializeGreetingQuote(snapshot.id, snapshot.data()))
-      .sort((a, b) => (a.text || "").localeCompare(b.text || ""))
-      .slice(0, 60),
+    blockedDomains: [],
+    greetingQuotes: GREETINGS.map((text, index) => ({
+      id: `builtin-greeting-${index}`,
+      text,
+      source: "built-in",
+      readonly: true
+    })),
     defaultCategories: defaultCategoriesSnap.docs
       .map(snapshot => serializeDefaultCategory(snapshot.id, snapshot.data()))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
@@ -1690,46 +1688,16 @@ async function handleMasterOverrideSubmit(event) {
 
 async function handleMasterBlockedDomainSubmit(event) {
   event.preventDefault();
-  setMessage(els.masterBlockedDomainMessage, "");
-
-  try {
-    await addBlockedEmailDomain({ domain: els.masterBlockedDomain.value });
-    els.masterBlockedDomainForm.reset();
-    setMessage(els.masterBlockedDomainMessage, "Blocked domain added.", "success");
-    await refreshMasterAdminDashboard();
-  } catch (error) {
-    setMessage(els.masterBlockedDomainMessage, getRegistrationErrorMessage(error), "error");
-  }
+  setMessage(els.masterBlockedDomainMessage, "Blocked-domain library editing is disabled in this staging build. Production policy data is left untouched.", "success");
 }
 
 async function handleMasterGreetingSubmit(event) {
   event.preventDefault();
-  setMessage(els.masterGreetingMessage, "");
-
-  try {
-    await addGreetingQuote({ text: els.masterGreetingText.value });
-    els.masterGreetingForm.reset();
-    setMessage(els.masterGreetingMessage, "Sentence added.", "success");
-    await refreshMasterAdminDashboard();
-  } catch (error) {
-    setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
-  }
+  setMessage(els.masterGreetingMessage, "Greeting editing is disabled in this staging build. The app uses the built-in greeting library.", "success");
 }
 
 async function handleMasterGreetingSeed() {
-  setMessage(els.masterGreetingMessage, "");
-
-  try {
-    const addedCount = await seedDefaultGreetingQuotes();
-    setMessage(
-      els.masterGreetingMessage,
-      addedCount ? `${addedCount} current library sentences added.` : "The current library is already added.",
-      "success"
-    );
-    await refreshMasterAdminDashboard();
-  } catch (error) {
-    setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
-  }
+  setMessage(els.masterGreetingMessage, "No action needed. This staging build always uses the built-in greeting library.", "success");
 }
 
 async function handleMasterDefaultCategorySubmit(event) {
@@ -4622,9 +4590,6 @@ function renderMasterAdminScreen(message = "", type = "") {
     els.masterCodeExpiryDays,
     els.masterCodeNote,
     els.masterOverrideEmail,
-    els.masterBlockedDomain,
-    els.masterGreetingText,
-    els.masterGreetingSeedBtn,
     els.masterDefaultCategoryName,
     els.masterDefaultCategoryDirection,
     els.masterDefaultCategoryDescription,
@@ -4637,8 +4602,11 @@ function renderMasterAdminScreen(message = "", type = "") {
 
   els.masterCodeForm.querySelector("button[type='submit']").disabled = disabled;
   els.masterOverrideForm.querySelector("button[type='submit']").disabled = disabled;
-  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = disabled;
-  els.masterGreetingForm.querySelector("button[type='submit']").disabled = disabled;
+  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = true;
+  els.masterGreetingForm.querySelector("button[type='submit']").disabled = true;
+  els.masterBlockedDomain.disabled = true;
+  els.masterGreetingText.disabled = true;
+  els.masterGreetingSeedBtn.disabled = true;
   els.masterDefaultCategoryForm.querySelector("button[type='submit']").disabled = disabled;
 
   if (message) {
@@ -4727,28 +4695,8 @@ function renderMasterBlockedDomains() {
     return;
   }
 
-  if (!state.masterAdmin.blockedDomains.length) {
-    els.masterBlockedDomainList.innerHTML = `<p class="status-copy">No blocked domains yet.</p>`;
-    return;
-  }
-
   els.masterBlockedDomainList.innerHTML = `
-    <div class="admin-table compact-admin-table">
-      <div class="admin-table-row four-col admin-table-head">
-        <span>Domain</span>
-        <span>Status</span>
-        <span>Added</span>
-        <span></span>
-      </div>
-      ${state.masterAdmin.blockedDomains.map(item => `
-        <div class="admin-table-row four-col">
-          <span class="admin-table-strong">${escapeHtml(item.domain || item.id || "")}</span>
-          <span>${escapeHtml(item.status || "active")}</span>
-          <span>${escapeHtml(item.createdAtFormatted || "-")}</span>
-          <span><button class="ghost-btn small-btn" type="button" data-action="remove-blocked-domain" data-domain="${escapeHtml(item.domain || item.id || "")}">Remove</button></span>
-        </div>
-      `).join("")}
-    </div>
+    <p class="status-copy">Blocked-domain library editing is disabled in staging, so this project cannot accidentally become the source of truth for production policy data.</p>
   `;
 }
 
@@ -4758,23 +4706,18 @@ function renderMasterGreetingQuotes() {
     return;
   }
 
-  if (!state.masterAdmin.greetingQuotes.length) {
-    els.masterGreetingList.innerHTML = `<p class="status-copy">No greeting sentences yet.</p>`;
-    return;
-  }
-
   els.masterGreetingList.innerHTML = `
     <div class="admin-table compact-admin-table">
       <div class="admin-table-row three-col admin-table-head">
         <span>Sentence</span>
-        <span>Added</span>
+        <span>Source</span>
         <span></span>
       </div>
       ${state.masterAdmin.greetingQuotes.map(item => `
         <div class="admin-table-row three-col">
           <span class="admin-table-strong">${escapeHtml(item.text || "")}</span>
-          <span>${escapeHtml(item.readonly ? "Built-in" : item.createdAtFormatted || "-")}</span>
-          <span>${item.readonly ? `<span class="status-copy">Seed to Firestore to edit</span>` : `<button class="ghost-btn small-btn" type="button" data-action="remove-greeting-quote" data-id="${escapeHtml(item.id || "")}">Remove</button>`}</span>
+          <span>Built-in</span>
+          <span><span class="status-copy">Read-only</span></span>
         </div>
       `).join("")}
     </div>
@@ -4826,45 +4769,69 @@ function renderSetup() {
 }
 
 function renderApp() {
-  renderScreens();
-  renderHeader();
-  renderViewState();
-  renderOnboarding();
-  renderSummaries();
-  renderDashboardBillReminders();
-  renderDashboardBudgets();
-  renderDashboardSavings();
-  renderPlanningState();
-  renderInsightsState();
-  renderPlanningScopeCopy();
-  renderBudgetsList();
-  renderSavingsList();
-  renderBillRemindersList();
-  renderBillsList();
-  renderPerformanceView();
-  renderInvestmentsView();
-  renderLedgerFilterControls();
-  renderPlanningLedger();
-  renderReportView();
-  renderAccountsList();
-  renderCategories();
-  renderCategorySeedAccess();
-  renderInviteAccess();
-  renderMembersList();
-  renderInvitesList();
-  renderTransactions();
-  renderCategoryHelperContent();
-  syncAccountOwnerInput();
-  syncBudgetForm();
-  populateBudgetCategoryOptions();
-  populateSavingSelects();
-  populateBillCategorySelects();
-  populateTransactionSelects();
-  populateInvestmentSelects();
-  syncTransactionFeeField();
-  syncInvestmentMovementFeeField();
-  syncInvestmentForm();
-  renderHouseholdRenameAccess();
+  [
+    ["screens", renderScreens],
+    ["header", renderHeader],
+    ["view state", renderViewState],
+    ["onboarding", renderOnboarding],
+    ["summaries", renderSummaries],
+    ["dashboard bill reminders", renderDashboardBillReminders],
+    ["dashboard budgets", renderDashboardBudgets],
+    ["dashboard savings", renderDashboardSavings],
+    ["planning state", renderPlanningState],
+    ["insights state", renderInsightsState],
+    ["planning scope copy", renderPlanningScopeCopy],
+    ["budgets list", renderBudgetsList],
+    ["savings list", renderSavingsList],
+    ["bill reminders", renderBillRemindersList],
+    ["bills list", renderBillsList],
+    ["performance", renderPerformanceView],
+    ["investments", renderInvestmentsView],
+    ["ledger controls", renderLedgerFilterControls],
+    ["planning ledger", renderPlanningLedger],
+    ["report", renderReportView],
+    ["accounts", renderAccountsList],
+    ["categories", renderCategories],
+    ["category seed access", renderCategorySeedAccess],
+    ["invite access", renderInviteAccess],
+    ["members", renderMembersList],
+    ["invites", renderInvitesList],
+    ["transactions", renderTransactions],
+    ["category helper", renderCategoryHelperContent],
+    ["account owner sync", syncAccountOwnerInput],
+    ["budget form sync", syncBudgetForm],
+    ["budget category options", populateBudgetCategoryOptions],
+    ["saving selects", populateSavingSelects],
+    ["bill category selects", populateBillCategorySelects],
+    ["transaction selects", populateTransactionSelects],
+    ["investment selects", populateInvestmentSelects],
+    ["transaction fee sync", syncTransactionFeeField],
+    ["investment fee sync", syncInvestmentMovementFeeField],
+    ["investment form sync", syncInvestmentForm],
+    ["household rename access", renderHouseholdRenameAccess]
+  ].forEach(([label, renderStep]) => safeRenderStep(label, renderStep));
+}
+
+function safeRenderStep(label, renderStep) {
+  try {
+    renderStep();
+  } catch (error) {
+    console.error(`NestPlan render step failed: ${label}`, error);
+    renderNonBlockingRenderError(error, label);
+  }
+}
+
+function renderNonBlockingRenderError(error, label = "") {
+  const message = `A display section failed to update${label ? ` (${label})` : ""}. Reload once; if it repeats, send this text: ${error?.message || error}`;
+  const visibleMessages = [
+    els.budgetMessage,
+    els.savingMessage,
+    els.billMessage,
+    els.transactionMessage,
+    els.profileMessage
+  ];
+  const target = visibleMessages.find(element => element && !element.closest(".hidden"));
+  setMessage(target || els.setupMessage || els.loginMessage, message, "error");
 }
 
 function renderHeader() {
@@ -5121,13 +5088,13 @@ function setPlanningTab(tab) {
 
 function renderPlanningState() {
   els.planningTabAccounts?.classList.toggle("active", state.planningTab === "accounts");
-  els.planningTabBudgets.classList.toggle("active", state.planningTab === "budgets");
-  els.planningTabSavings.classList.toggle("active", state.planningTab === "savings");
-  els.planningTabBills.classList.toggle("active", state.planningTab === "bills");
-  els.planningTabPerformance.classList.toggle("active", state.planningTab === "performance");
-  els.planningBudgetsPanel.classList.toggle("hidden", state.planningTab !== "budgets");
-  els.planningSavingsPanel.classList.toggle("hidden", state.planningTab !== "savings");
-  els.planningBillsPanel.classList.toggle("hidden", state.planningTab !== "bills");
+  els.planningTabBudgets?.classList.toggle("active", state.planningTab === "budgets");
+  els.planningTabSavings?.classList.toggle("active", state.planningTab === "savings");
+  els.planningTabBills?.classList.toggle("active", state.planningTab === "bills");
+  els.planningTabPerformance?.classList.toggle("active", state.planningTab === "performance");
+  els.planningBudgetsPanel?.classList.toggle("hidden", state.planningTab !== "budgets");
+  els.planningSavingsPanel?.classList.toggle("hidden", state.planningTab !== "savings");
+  els.planningBillsPanel?.classList.toggle("hidden", state.planningTab !== "bills");
   els.planningLedgerPanel?.classList.toggle("hidden", state.currentView !== "insights" || state.insightsTab !== "ledger");
 }
 
@@ -5150,6 +5117,9 @@ function renderInsightsState() {
 }
 
 function renderBudgetsList() {
+  if (!els.budgetsList) {
+    return;
+  }
   const budgets = getVisibleBudgets();
   els.budgetsList.innerHTML = "";
 
@@ -5199,6 +5169,9 @@ function renderBudgetsList() {
 }
 
 function renderSavingsList() {
+  if (!els.savingsList) {
+    return;
+  }
   const savings = getVisibleSavingGoals();
   els.savingsList.innerHTML = "";
   const hasClampedSavings = savings.some(goal => buildSavingSummary(goal).isClamped);
@@ -5260,6 +5233,9 @@ function renderSavingsList() {
 }
 
 function renderBillRemindersList() {
+  if (!els.billRemindersList) {
+    return;
+  }
   const reminders = getVisibleBillStatusRows();
   els.billRemindersList.innerHTML = "";
 
@@ -5363,20 +5339,38 @@ function renderReportControls() {
   }
 
   els.reportRange.value = state.reportRange;
-  els.reportDateFrom.value = state.reportCustomFrom || "";
-  els.reportDateTo.value = state.reportCustomTo || "";
-  els.reportCustomRange.classList.toggle("hidden", state.reportRange !== "custom");
-  els.reportFiltersToggle.checked = state.reportFiltersVisible;
-  els.reportFiltersPanel.classList.toggle("hidden", !state.reportFiltersVisible);
-  els.reportIncludeSavingSpending.checked = state.reportFilters.includeSavingSpending;
-  els.reportKindFilter.value = state.reportFilters.kind || "outcome";
-  els.reportBudgetMode.value = state.reportBudgetMode;
-  els.reportBudgetRanking.value = state.reportBudgetRanking;
-  els.reportBudgetBuffer.value = state.reportBudgetBuffer;
-  els.reportScopeNote.textContent = state.scope === "household"
+  if (els.reportDateFrom) {
+    els.reportDateFrom.value = state.reportCustomFrom || "";
+  }
+  if (els.reportDateTo) {
+    els.reportDateTo.value = state.reportCustomTo || "";
+  }
+  els.reportCustomRange?.classList.toggle("hidden", state.reportRange !== "custom");
+  if (els.reportFiltersToggle) {
+    els.reportFiltersToggle.checked = state.reportFiltersVisible;
+  }
+  els.reportFiltersPanel?.classList.toggle("hidden", !state.reportFiltersVisible);
+  if (els.reportIncludeSavingSpending) {
+    els.reportIncludeSavingSpending.checked = state.reportFilters.includeSavingSpending;
+  }
+  if (els.reportKindFilter) {
+    els.reportKindFilter.value = state.reportFilters.kind || "outcome";
+  }
+  if (els.reportBudgetMode) {
+    els.reportBudgetMode.value = state.reportBudgetMode;
+  }
+  if (els.reportBudgetRanking) {
+    els.reportBudgetRanking.value = state.reportBudgetRanking;
+  }
+  if (els.reportBudgetBuffer) {
+    els.reportBudgetBuffer.value = state.reportBudgetBuffer;
+  }
+  if (els.reportScopeNote) {
+    els.reportScopeNote.textContent = state.scope === "household"
     ? "Household view includes shared household activity. Member filters apply here."
     : "My view includes your own and touched activity only.";
-  els.reportMemberFilterGroup.classList.toggle("hidden", state.scope !== "household");
+  }
+  els.reportMemberFilterGroup?.classList.toggle("hidden", state.scope !== "household");
 
   renderReportMultiOptions(els.reportAccountFilter, getVisibleAccounts().map(account => ({
     value: account.id,
@@ -6058,10 +6052,14 @@ function renderInvestmentsView() {
 }
 
 function populateBudgetCategoryOptions() {
+  if (!els.budgetCategoryList) {
+    return;
+  }
+  const currentSelection = getSelectedBudgetCategoryIds();
   const selectedIds = new Set(
     state.editBudgetId
       ? sanitizeStringArray(state.budgets.find(item => item.id === state.editBudgetId)?.categoryIds)
-      : []
+      : currentSelection
   );
   const categories = getBudgetEligibleCategories();
 
@@ -6081,9 +6079,13 @@ function populateBudgetCategoryOptions() {
 }
 
 function populateSavingSelects() {
+  if (!els.savingLinkedAccount) {
+    return;
+  }
   const editingSaving = state.editSavingGoalId
     ? state.savingGoals.find(item => item.id === state.editSavingGoalId)
     : null;
+  const currentLinkedAccountId = els.savingLinkedAccount.value;
   const savingScopeType = editingSaving?.scopeType || getCurrentPlanningScopeType();
   const accountOptions = getEligibleAccountsForScope(savingScopeType)
     .map(account => `<option value="${account.id}">${escapeHtml(getAccountOptionLabel(account))}</option>`)
@@ -6092,12 +6094,18 @@ function populateSavingSelects() {
   els.savingLinkedAccount.innerHTML = accountOptions || `<option value="">No eligible accounts</option>`;
   if (editingSaving?.linkedAccountId) {
     setSelectValue(els.savingLinkedAccount, editingSaving.linkedAccountId);
+  } else if (currentLinkedAccountId) {
+    setSelectValue(els.savingLinkedAccount, currentLinkedAccountId);
   }
 
 }
 
 function populateBillCategorySelects() {
+  if (!els.billCategory) {
+    return;
+  }
   const categories = getBillEligibleCategories();
+  const currentCategoryId = els.billCategory.value;
   const options = categories.map(category => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join("");
   els.billCategory.innerHTML = options || `<option value="">No eligible categories</option>`;
 
@@ -6106,6 +6114,8 @@ function populateBillCategorySelects() {
     : null;
   if (editingBill?.categoryId) {
     setSelectValue(els.billCategory, editingBill.categoryId);
+  } else if (currentCategoryId) {
+    setSelectValue(els.billCategory, currentCategoryId);
   }
 }
 
