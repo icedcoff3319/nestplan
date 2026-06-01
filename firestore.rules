@@ -755,7 +755,6 @@ service cloud.firestore {
 
     function validEditableActiveTransaction(householdId) {
       return request.auth.uid == resource.data.createdByUserId
-        && resource.data.get("investmentAccountId", null) == null
         && resource.data.status == "active"
         && request.resource.data.status == "active"
         && keepsImmutableTransactionFields()
@@ -766,14 +765,13 @@ service cloud.firestore {
 
     function validSoftDeleteTransaction() {
       return request.auth.uid == resource.data.createdByUserId
-        && resource.data.get("investmentAccountId", null) == null
         && resource.data.status == "active"
         && request.resource.data.status == "deleted"
         && keepsImmutableTransactionFields()
         && request.resource.data.deletedByUserId == request.auth.uid
         && request.resource.data.deletedAt is timestamp
         && request.resource.data.updatedAt is timestamp
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "status",
           "deletedAt",
           "deletedByUserId",
@@ -962,7 +960,9 @@ service cloud.firestore {
     }
 
     function validInvestmentAccountUpdate(householdId) {
-      return canUpdateScopedData(householdId)
+      return isHouseholdMember(householdId)
+        && canReadScopedData(householdId, resource.data)
+        && validScopedData(householdId, request.resource.data)
         && keepsScopedImmutableFields()
         && validInvestmentAccountFields(request.resource.data);
     }
@@ -1008,10 +1008,48 @@ service cloud.firestore {
         && hasStringOrNull(request.resource.data.ledgerAccountNameSnapshot)
         && hasStringOrNull(request.resource.data.ledgerTransactionId)
         && hasStringOrNull(request.resource.data.transactionGroupId)
+        && hasTimestampOrNull(request.resource.data.get("transactionAt", null))
         && request.resource.data.status == "active"
         && request.resource.data.createdByUserId == request.auth.uid
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validInvestmentEventUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && request.resource.data.investmentAccountId == resource.data.investmentAccountId
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && exists(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(request.resource.data.investmentAccountId))
+        && validInvestmentEventType(request.resource.data.eventType)
+        && request.resource.data.amountMinor is int
+        && request.resource.data.amountMinor >= 0
+        && request.resource.data.note is string
+        && request.resource.data.investmentAccountNameSnapshot is string
+        && hasStringOrNull(request.resource.data.ledgerAccountId)
+        && hasStringOrNull(request.resource.data.ledgerAccountNameSnapshot)
+        && hasStringOrNull(request.resource.data.ledgerTransactionId)
+        && hasStringOrNull(request.resource.data.transactionGroupId)
+        && hasTimestampOrNull(request.resource.data.get("transactionAt", null))
+        && request.resource.data.status == "active"
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validInvestmentEventSoftDelete(householdId) {
+      return canUpdateScopedData(householdId)
+        && resource.data.status == "active"
+        && request.resource.data.status == "deleted"
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.deletedByUserId == request.auth.uid
+        && request.resource.data.deletedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "deletedAt",
+          "deletedByUserId",
+          "updatedAt"
+        ]);
     }
 
     match /users/{userId} {
@@ -1212,7 +1250,8 @@ service cloud.firestore {
       match /investmentEvents/{eventId} {
         allow read: if canReadScopedData(householdId, resource.data);
         allow create: if validInvestmentEventCreate(householdId);
-        allow update, delete: if false;
+        allow update: if validInvestmentEventUpdate(householdId) || validInvestmentEventSoftDelete(householdId);
+        allow delete: if false;
       }
     }
 

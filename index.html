@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510d" />
+  <link rel="stylesheet" href="./styles.css?v=20260510e" />
 </head>
 <body>
   <main class="app-shell">
@@ -469,9 +469,9 @@
         <div class="nav-row">
           <div class="view-nav" role="tablist" aria-label="App sections">
             <button id="nav-dashboard" class="view-nav-btn active" type="button" data-view="dashboard">Dashboard</button>
+            <button id="nav-investments" class="view-nav-btn" type="button" data-view="investments">Investment</button>
             <button id="nav-planning" class="view-nav-btn" type="button" data-view="planning">Planning</button>
-            <button id="nav-management" class="view-nav-btn" type="button" data-view="management">Accounts & Categories</button>
-            <button id="nav-investments" class="view-nav-btn" type="button" data-view="investments">Investments</button>
+            <button id="nav-insights" class="view-nav-btn" type="button" data-view="insights">Insights</button>
           </div>
         </div>
         <p id="scope-copy" class="card-subtle header-scope-copy hidden">Showing your owned accounts and the activity you created or touched.</p>
@@ -487,7 +487,7 @@
           </div>
           <article class="onboarding-notice">
             <p id="onboarding-summary" class="status-copy"></p>
-            <p class="status-copy">Open <strong>Accounts & Categories</strong> from the top menu to create the required account and category data first.</p>
+            <p class="status-copy">Open <strong>Planning &gt; Accounts & Categories</strong> to create the required account and category data first.</p>
           </article>
         </article>
       </section>
@@ -650,7 +650,13 @@
                 <h3 class="card-title">Ledger history</h3>
                 <p id="history-meta" class="card-subtle">No entries loaded yet.</p>
               </div>
-              <button id="export-btn" class="ghost-btn" type="button">Export CSV</button>
+              <div class="action-row compact-actions">
+                <label class="inline-check" for="dashboard-ledger-filter-toggle">
+                  <input id="dashboard-ledger-filter-toggle" type="checkbox" />
+                  <span>Filters</span>
+                </label>
+                <button id="export-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8681;</button>
+              </div>
             </div>
 
             <div id="ledger-nav" class="list-row-meta"></div>
@@ -680,10 +686,10 @@
             </div>
 
             <div class="segmented-control" role="group" aria-label="Planning section">
-              <button id="planning-tab-budgets" class="segment-btn active" type="button" data-planning-tab="budgets">Budgets</button>
+              <button id="planning-tab-accounts" class="segment-btn active" type="button" data-planning-tab="accounts">Accounts & Categories</button>
+              <button id="planning-tab-budgets" class="segment-btn" type="button" data-planning-tab="budgets">Budgets</button>
               <button id="planning-tab-savings" class="segment-btn" type="button" data-planning-tab="savings">Savings</button>
               <button id="planning-tab-bills" class="segment-btn" type="button" data-planning-tab="bills">Bills</button>
-              <button id="planning-tab-ledger" class="segment-btn" type="button" data-planning-tab="ledger">Ledger</button>
               <button id="planning-tab-performance" class="segment-btn" type="button" data-planning-tab="performance">Performance</button>
             </div>
           </section>
@@ -906,67 +912,6 @@
             </div>
           </section>
 
-          <section id="planning-ledger-panel" class="planning-panel hidden">
-            <div class="planning-grid ledger-planning-grid">
-              <section class="card">
-                <div class="card-header">
-                  <div>
-                    <h3 class="card-title">Ledger filters</h3>
-                    <p class="card-subtle">Review older activity with filters and sorting without crowding the dashboard.</p>
-                  </div>
-                </div>
-                <div class="ledger-filter-grid">
-                  <div class="field-group">
-                    <label for="ledger-page-kind-filter">Type</label>
-                    <select id="ledger-page-kind-filter"></select>
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-account-filter">Account</label>
-                    <select id="ledger-page-account-filter"></select>
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-category-filter">Category</label>
-                    <select id="ledger-page-category-filter"></select>
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-date-from">From</label>
-                    <input id="ledger-page-date-from" type="date" />
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-date-to">To</label>
-                    <input id="ledger-page-date-to" type="date" />
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-sort">Sort</label>
-                    <select id="ledger-page-sort">
-                      <option value="created-desc">Created newest</option>
-                      <option value="created-asc">Created oldest</option>
-                      <option value="transaction-desc">Transaction newest</option>
-                      <option value="transaction-asc">Transaction oldest</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="action-row">
-                  <button id="ledger-page-clear-btn" class="ghost-btn" type="button">Clear filters</button>
-                </div>
-              </section>
-
-              <section class="card card-span-2">
-                <div class="card-header space-between">
-                  <div>
-                    <h3 class="card-title">Ledger table</h3>
-                    <p id="ledger-page-meta" class="card-subtle">Open this tab to load ledger rows.</p>
-                  </div>
-                </div>
-                <div id="ledger-table" class="ledger-table-wrap">
-                  <p class="status-copy">Ledger rows load when this tab is opened.</p>
-                </div>
-                <div class="action-row">
-                  <button id="ledger-load-more-btn" class="ghost-btn hidden" type="button">Load more</button>
-                </div>
-              </section>
-            </div>
-          </section>
         </div>
       </section>
 
@@ -1028,6 +973,232 @@
         </div>
       </section>
 
+      <section id="insights-view" class="screen hidden">
+        <div class="planning-shell">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Insights</h3>
+                <p class="card-subtle">Review detailed ledger rows and spending patterns for the current view.</p>
+              </div>
+            </div>
+
+            <div class="segmented-control" role="group" aria-label="Insights section">
+              <button id="insights-tab-ledger" class="segment-btn active" type="button" data-insights-tab="ledger">Ledger</button>
+              <button id="insights-tab-report" class="segment-btn" type="button" data-insights-tab="report">Report</button>
+            </div>
+          </section>
+
+          <section id="insights-ledger-panel" class="planning-panel">
+            <div id="planning-ledger-panel" class="planning-grid ledger-planning-grid">
+              <section class="card sticky-report-controls">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Ledger filters</h3>
+                    <p class="card-subtle">Review older activity with filters and sorting without crowding the dashboard.</p>
+                  </div>
+                </div>
+                <div class="ledger-filter-grid">
+                  <div class="field-group">
+                    <label for="ledger-page-kind-filter">Type</label>
+                    <select id="ledger-page-kind-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-account-filter">Account</label>
+                    <select id="ledger-page-account-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-category-filter">Category</label>
+                    <select id="ledger-page-category-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-date-from">From</label>
+                    <input id="ledger-page-date-from" type="date" />
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-date-to">To</label>
+                    <input id="ledger-page-date-to" type="date" />
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-sort">Sort</label>
+                    <select id="ledger-page-sort">
+                      <option value="created-desc">Created newest</option>
+                      <option value="created-asc">Created oldest</option>
+                      <option value="transaction-desc">Transaction newest</option>
+                      <option value="transaction-asc">Transaction oldest</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="action-row compact-actions">
+                  <button id="ledger-page-clear-btn" class="ghost-btn" type="button">Clear filters</button>
+                  <label class="inline-check" for="ledger-page-actions-toggle">
+                    <input id="ledger-page-actions-toggle" type="checkbox" />
+                    <span>Show row actions</span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="card card-span-2">
+                <div class="card-header space-between">
+                  <div>
+                    <h3 class="card-title">Ledger table</h3>
+                    <p id="ledger-page-meta" class="card-subtle">Open this tab to load ledger rows.</p>
+                  </div>
+                  <button id="ledger-page-download-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8681;</button>
+                </div>
+                <div id="ledger-table" class="ledger-table-wrap">
+                  <p class="status-copy">Ledger rows load when this tab is opened.</p>
+                </div>
+                <div class="action-row">
+                  <button id="ledger-load-more-btn" class="ghost-btn hidden" type="button">Load more</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section id="insights-report-panel" class="planning-panel hidden">
+            <section class="card sticky-report-controls">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Report controls</h3>
+                  <p id="report-scope-note" class="card-subtle">My view and Household view affect the report data.</p>
+                </div>
+                <button id="report-month-back-btn" class="ghost-btn small-btn hidden" type="button">Back to range</button>
+              </div>
+              <div class="ledger-filter-grid">
+                <div class="field-group">
+                  <label for="report-range">Time range</label>
+                  <select id="report-range">
+                    <option value="this-month">This month</option>
+                    <option value="last-month">Last month</option>
+                    <option value="last-3">Last 3 months</option>
+                    <option value="last-6">Last 6 months</option>
+                    <option value="last-12">Last 12 months</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <label class="toggle-field compact-toggle" for="report-filters-toggle">
+                  <input id="report-filters-toggle" type="checkbox" />
+                  <span>Show filters</span>
+                </label>
+              </div>
+              <div id="report-custom-range" class="ledger-filter-grid hidden">
+                <div class="field-group">
+                  <label for="report-date-from">From</label>
+                  <input id="report-date-from" type="date" />
+                </div>
+                <div class="field-group">
+                  <label for="report-date-to">To</label>
+                  <input id="report-date-to" type="date" />
+                </div>
+              </div>
+              <div id="report-filters-panel" class="ledger-filter-grid hidden">
+                <div class="field-group">
+                  <label for="report-account-filter">Accounts</label>
+                  <select id="report-account-filter" multiple></select>
+                </div>
+                <div class="field-group">
+                  <label for="report-category-filter">Categories</label>
+                  <select id="report-category-filter" multiple></select>
+                </div>
+                <div class="field-group">
+                  <label for="report-kind-filter">Direction</label>
+                  <select id="report-kind-filter">
+                    <option value="outcome">Outcome only</option>
+                    <option value="income">Income only</option>
+                    <option value="all">Income and outcome</option>
+                  </select>
+                </div>
+                <div id="report-member-filter-group" class="field-group hidden">
+                  <label for="report-member-filter">Members</label>
+                  <select id="report-member-filter" multiple></select>
+                </div>
+                <label class="toggle-field compact-toggle" for="report-include-saving-spending">
+                  <input id="report-include-saving-spending" type="checkbox" />
+                  <span>Include spending from savings</span>
+                </label>
+              </div>
+            </section>
+
+            <section class="report-kpi-strip">
+              <article><span>Total spent</span><strong id="report-total-spent">Rp0</strong></article>
+              <article><span>Avg / month</span><strong id="report-average-monthly">Rp0</strong></article>
+              <article><span>Top category share</span><strong id="report-top-category-share">0%</strong></article>
+              <article><span>Months covered</span><strong id="report-months-covered">0</strong></article>
+            </section>
+
+            <div class="planning-grid">
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Category breakdown</h3>
+                    <p class="card-subtle">Ranked by selected range total.</p>
+                  </div>
+                </div>
+                <div id="report-category-breakdown" class="report-list"></div>
+              </section>
+
+              <section id="report-category-drill" class="card hidden"></section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Monthly view</h3>
+                    <p class="card-subtle">Tap a month to lock the report to that month.</p>
+                  </div>
+                </div>
+                <div id="report-monthly-table"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Budget performance</h3>
+                    <p class="card-subtle">Compares visible budgets against selected report activity.</p>
+                  </div>
+                </div>
+                <div class="ledger-filter-grid">
+                  <div class="field-group">
+                    <label for="report-budget-mode">Mode</label>
+                    <select id="report-budget-mode">
+                      <option value="average">Average over range</option>
+                      <option value="month">By month</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="report-budget-ranking">Rank by</label>
+                    <select id="report-budget-ranking">
+                      <option value="frequent">Most frequently overspent</option>
+                      <option value="average-over">Biggest average overspend</option>
+                      <option value="volatile">Most volatile</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="report-budget-performance" class="report-list"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Suggested budgets</h3>
+                    <p class="card-subtle">Median monthly spending plus buffer.</p>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="report-budget-buffer">Buffer</label>
+                  <select id="report-budget-buffer">
+                    <option value="tight">Tight</option>
+                    <option value="normal">Normal</option>
+                    <option value="conservative">Conservative</option>
+                  </select>
+                </div>
+                <div id="report-budget-suggestions" class="report-list"></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section id="investments-view" class="screen hidden">
         <div class="planning-shell">
           <section class="card">
@@ -1039,26 +1210,27 @@
             </div>
           </section>
 
-          <section class="summary-cards investment-summary-grid">
-            <article class="summary-stat">
-              <span class="summary-label">Current value</span>
-              <p id="investment-total-value" class="summary-value net">Rp0</p>
-            </article>
-            <article class="summary-stat">
-              <span class="summary-label">Net invested</span>
-              <p id="investment-net-invested" class="summary-value income">Rp0</p>
-            </article>
-            <article class="summary-stat">
-              <span class="summary-label">Gain / loss</span>
-              <p id="investment-gain-loss" class="summary-value net">Rp0</p>
-            </article>
+          <section class="card investment-summary-card">
+            <div class="card-header space-between">
+              <div>
+                <h3 class="card-title">Investment summary</h3>
+              </div>
+              <button id="investment-summary-info-btn" class="icon-btn subtle app-info-btn" type="button" data-info-topic="investment-summary" aria-label="Explain investment summary">i</button>
+            </div>
+            <div class="compact-summary-table">
+              <span>Valuation</span><strong id="investment-total-value">Rp0</strong>
+              <span>Total Deposits</span><strong id="investment-total-deposit">Rp0</strong>
+              <span>Total Withdrawals</span><strong id="investment-total-withdrawal">Rp0</strong>
+              <span>Net Deposits</span><strong id="investment-net-invested">Rp0</strong>
+              <span>Total P&amp;L</span><strong id="investment-gain-loss">Rp0</strong>
+            </div>
           </section>
 
           <div class="planning-grid">
-            <section class="card">
+            <section id="investment-form-card" class="card hidden">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Portfolio</h3>
+                  <h3 class="card-title">Create portfolio</h3>
                   <p id="investment-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New portfolios created here belong to you only.</p>
                 </div>
               </div>
@@ -1070,8 +1242,18 @@
                   <input id="investment-name" type="text" placeholder="Brokerage, gold, mutual fund" required />
                 </div>
                 <div class="field-group">
-                  <label for="investment-current-value">Current value</label>
+                  <label for="investment-current-value">Valuation</label>
                   <input id="investment-current-value" type="text" inputmode="numeric" placeholder="0" />
+                </div>
+                <div id="investment-initial-fields" class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-initial-deposit">Total deposits so far</label>
+                    <input id="investment-initial-deposit" type="text" inputmode="numeric" placeholder="0" />
+                  </div>
+                  <div class="field-group">
+                    <label for="investment-initial-withdrawal">Total withdrawals so far</label>
+                    <input id="investment-initial-withdrawal" type="text" inputmode="numeric" placeholder="0" />
+                  </div>
                 </div>
                 <label class="toggle-field compact-toggle hidden" for="investment-use-assets" aria-hidden="true">
                   <input id="investment-use-assets" type="checkbox" />
@@ -1090,11 +1272,12 @@
             </section>
 
             <section class="card">
-              <div class="card-header">
+              <div class="card-header space-between">
                 <div>
-                  <h3 class="card-title">Visible investments</h3>
+                  <h3 class="card-title">Portfolio</h3>
                   <p class="card-subtle">Personal portfolios show in My view. Shared portfolios show in Household view.</p>
                 </div>
+                <button id="investment-add-portfolio-btn" class="ghost-btn small-btn" type="button">Add a portfolio</button>
               </div>
               <div id="investments-list" class="stack-list">
                 <p class="status-copy">No investments yet.</p>
@@ -1104,7 +1287,7 @@
             <section class="card">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Deposit or withdrawal</h3>
+                  <h3 class="card-title">Create investment transaction</h3>
                   <p class="card-subtle">Cash movements affect account balance but stay separate from monthly income, expenses, and budgets.</p>
                 </div>
               </div>
@@ -1125,12 +1308,29 @@
                 </div>
                 <div class="field-grid two-up">
                   <div class="field-group">
+                    <label for="investment-movement-date">Transaction date</label>
+                    <input id="investment-movement-date" type="date" required />
+                  </div>
+                  <div class="field-group">
                     <label id="investment-movement-ledger-label" for="investment-movement-ledger-account">Cash account</label>
                     <select id="investment-movement-ledger-account"></select>
                   </div>
+                </div>
+                <div class="field-grid two-up">
                   <div class="field-group">
-                    <label for="investment-movement-amount">Amount</label>
+                    <div class="label-with-action fee-label-row">
+                      <label for="investment-movement-amount">Amount</label>
+                      <label class="inline-check" for="investment-movement-fee-enabled">
+                        <input id="investment-movement-fee-enabled" type="checkbox" />
+                        <span>Add fee</span>
+                      </label>
+                      <button class="icon-btn subtle app-info-btn" id="investment-movement-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                    </div>
                     <input id="investment-movement-amount" type="text" inputmode="numeric" placeholder="100.000" required />
+                    <div id="investment-movement-fee-field" class="inline-fee-field hidden">
+                      <label for="investment-movement-fee-amount">Fee amount</label>
+                      <input id="investment-movement-fee-amount" type="text" inputmode="numeric" placeholder="2.500" />
+                    </div>
                   </div>
                 </div>
                 <div class="field-group">
@@ -1467,7 +1667,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510d";
+    window.__nestplanBuild = "20260510e";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1582,7 +1782,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510d").catch(function (error) {
+    import("./app.js?v=20260510e").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");
