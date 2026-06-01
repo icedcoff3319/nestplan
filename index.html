@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510g" />
+  <link rel="stylesheet" href="./styles.css?v=20260510h" />
 </head>
 <body>
   <main class="app-shell">
@@ -531,11 +531,13 @@
                 <div class="field-group">
                   <div class="label-with-action fee-label-row">
                     <label for="transaction-amount">Amount</label>
-                    <label id="transaction-fee-toggle-field" class="inline-check hidden" for="transaction-fee-enabled">
-                      <input id="transaction-fee-enabled" type="checkbox" />
-                      <span>Add fee</span>
-                    </label>
-                    <button class="icon-btn subtle app-info-btn hidden" id="transaction-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                    <span class="fee-control-cluster">
+                      <label id="transaction-fee-toggle-field" class="inline-check hidden" for="transaction-fee-enabled">
+                        <input id="transaction-fee-enabled" type="checkbox" />
+                        <span>Add fee</span>
+                      </label>
+                      <button class="icon-btn subtle app-info-btn hidden" id="transaction-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                    </span>
                   </div>
                   <input id="transaction-amount" type="text" inputmode="numeric" placeholder="45.000" required />
                   <div id="transaction-fee-field" class="inline-fee-field hidden">
@@ -991,50 +993,53 @@
 
           <section id="insights-ledger-panel" class="planning-panel">
             <div id="planning-ledger-panel" class="planning-grid ledger-planning-grid">
-              <section class="card sticky-report-controls">
-                <div class="card-header">
+              <section class="card sticky-report-controls compact-ledger-filter-card">
+                <div class="card-header space-between compact-card-header">
                   <div>
                     <h3 class="card-title">Ledger filters</h3>
                     <p class="card-subtle">Review older activity with filters and sorting without crowding the dashboard.</p>
                   </div>
+                  <button id="ledger-page-filter-toggle" class="ghost-btn small-btn" type="button" aria-expanded="true">Hide</button>
                 </div>
-                <div class="ledger-filter-grid">
-                  <div class="field-group">
-                    <label for="ledger-page-kind-filter">Type</label>
-                    <select id="ledger-page-kind-filter"></select>
+                <div id="ledger-page-filter-body" class="compact-ledger-filter-body">
+                  <div class="ledger-filter-grid compact-filter-grid">
+                    <div class="field-group">
+                      <label for="ledger-page-kind-filter">Type</label>
+                      <select id="ledger-page-kind-filter"></select>
+                    </div>
+                    <div class="field-group">
+                      <label for="ledger-page-account-filter">Account</label>
+                      <select id="ledger-page-account-filter"></select>
+                    </div>
+                    <div class="field-group">
+                      <label for="ledger-page-category-filter">Category</label>
+                      <select id="ledger-page-category-filter"></select>
+                    </div>
+                    <div class="field-group">
+                      <label for="ledger-page-date-from">From</label>
+                      <input id="ledger-page-date-from" type="date" />
+                    </div>
+                    <div class="field-group">
+                      <label for="ledger-page-date-to">To</label>
+                      <input id="ledger-page-date-to" type="date" />
+                    </div>
+                    <div class="field-group">
+                      <label for="ledger-page-sort">Sort</label>
+                      <select id="ledger-page-sort">
+                        <option value="created-desc">Created newest</option>
+                        <option value="created-asc">Created oldest</option>
+                        <option value="transaction-desc">Transaction newest</option>
+                        <option value="transaction-asc">Transaction oldest</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="field-group">
-                    <label for="ledger-page-account-filter">Account</label>
-                    <select id="ledger-page-account-filter"></select>
+                  <div class="action-row compact-actions">
+                    <button id="ledger-page-clear-btn" class="ghost-btn small-btn" type="button">Clear</button>
+                    <label class="inline-check" for="ledger-page-actions-toggle">
+                      <input id="ledger-page-actions-toggle" type="checkbox" />
+                      <span>Actions</span>
+                    </label>
                   </div>
-                  <div class="field-group">
-                    <label for="ledger-page-category-filter">Category</label>
-                    <select id="ledger-page-category-filter"></select>
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-date-from">From</label>
-                    <input id="ledger-page-date-from" type="date" />
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-date-to">To</label>
-                    <input id="ledger-page-date-to" type="date" />
-                  </div>
-                  <div class="field-group">
-                    <label for="ledger-page-sort">Sort</label>
-                    <select id="ledger-page-sort">
-                      <option value="created-desc">Created newest</option>
-                      <option value="created-asc">Created oldest</option>
-                      <option value="transaction-desc">Transaction newest</option>
-                      <option value="transaction-asc">Transaction oldest</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="action-row compact-actions">
-                  <button id="ledger-page-clear-btn" class="ghost-btn" type="button">Clear filters</button>
-                  <label class="inline-check" for="ledger-page-actions-toggle">
-                    <input id="ledger-page-actions-toggle" type="checkbox" />
-                    <span>Show row actions</span>
-                  </label>
                 </div>
               </section>
 
@@ -1057,7 +1062,7 @@
           </section>
 
           <section id="insights-report-panel" class="planning-panel hidden">
-            <section class="card sticky-report-controls">
+            <section class="card">
               <div class="card-header space-between">
                 <div>
                   <h3 class="card-title">Report controls</h3>
@@ -1095,11 +1100,19 @@
               <div id="report-filters-panel" class="ledger-filter-grid hidden">
                 <div class="field-group">
                   <label for="report-account-filter">Accounts</label>
-                  <select id="report-account-filter" multiple></select>
+                  <details id="report-account-picker" class="multi-picker compact-multi-picker">
+                    <summary id="report-account-summary" class="multi-picker-summary">All accounts</summary>
+                    <div id="report-account-list" class="choice-grid multi-picker-list compact-picker-list"></div>
+                  </details>
+                  <select id="report-account-filter" class="hidden" multiple tabindex="-1" aria-hidden="true"></select>
                 </div>
                 <div class="field-group">
                   <label for="report-category-filter">Categories</label>
-                  <select id="report-category-filter" multiple></select>
+                  <details id="report-category-picker" class="multi-picker compact-multi-picker">
+                    <summary id="report-category-summary" class="multi-picker-summary">All categories</summary>
+                    <div id="report-category-list" class="choice-grid multi-picker-list compact-picker-list"></div>
+                  </details>
+                  <select id="report-category-filter" class="hidden" multiple tabindex="-1" aria-hidden="true"></select>
                 </div>
                 <div class="field-group">
                   <label for="report-kind-filter">Direction</label>
@@ -1320,11 +1333,13 @@
                   <div class="field-group">
                     <div class="label-with-action fee-label-row">
                       <label for="investment-movement-amount">Amount</label>
-                      <label class="inline-check" for="investment-movement-fee-enabled">
-                        <input id="investment-movement-fee-enabled" type="checkbox" />
-                        <span>Add fee</span>
-                      </label>
-                      <button class="icon-btn subtle app-info-btn" id="investment-movement-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                      <span class="fee-control-cluster">
+                        <label class="inline-check" for="investment-movement-fee-enabled">
+                          <input id="investment-movement-fee-enabled" type="checkbox" />
+                          <span>Add fee</span>
+                        </label>
+                        <button class="icon-btn subtle app-info-btn" id="investment-movement-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                      </span>
                     </div>
                     <input id="investment-movement-amount" type="text" inputmode="numeric" placeholder="100.000" required />
                     <div id="investment-movement-fee-field" class="inline-fee-field hidden">
@@ -1667,7 +1682,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510g";
+    window.__nestplanBuild = "20260510h";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1782,7 +1797,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510g").catch(function (error) {
+    import("./app.js?v=20260510h").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");

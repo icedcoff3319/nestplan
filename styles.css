@@ -328,8 +328,16 @@ textarea:focus {
 }
 
 .fee-label-row {
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.fee-control-cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
 }
 
 .inline-check {
@@ -1417,6 +1425,67 @@ textarea:focus {
   z-index: 5;
 }
 
+.compact-ledger-filter-card {
+  padding: 12px;
+}
+
+.compact-card-header {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.compact-card-header .card-title {
+  font-size: 15px;
+}
+
+.compact-card-header .card-subtle {
+  font-size: 11px;
+}
+
+.compact-ledger-filter-body {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-filter-grid {
+  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.compact-filter-grid .field-group {
+  gap: 4px;
+}
+
+.compact-filter-grid label {
+  font-size: 10px;
+}
+
+.compact-filter-grid select,
+.compact-filter-grid input {
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.compact-multi-picker .multi-picker-summary {
+  min-height: 38px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
+.compact-picker-list {
+  max-height: 190px;
+  overflow: auto;
+  grid-template-columns: 1fr;
+}
+
+.compact-choice-item {
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
 .report-kpi-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1879,6 +1948,21 @@ textarea:focus {
   min-width: 32px;
   border-radius: 10px;
   font-size: 18px;
+}
+
+.investment-event-actions {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 4px;
+}
+
+.tiny-overflow-btn {
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 15px;
 }
 
 .overflow-menu {

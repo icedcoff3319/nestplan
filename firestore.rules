@@ -545,7 +545,16 @@ service cloud.firestore {
         || (
           hasNonEmptyString(goalId)
           && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
-          && canReadScopedData(householdId, savingGoalDoc(householdId, goalId))
+          && canUseSavingGoal(householdId, savingGoalDoc(householdId, goalId))
+        );
+    }
+
+    function canUseSavingGoal(householdId, goalData) {
+      return canReadScopedData(householdId, goalData)
+        || (
+          isHouseholdMember(householdId)
+          && hasNonEmptyString(goalData.linkedAccountId)
+          && exists(/databases/$(database)/documents/households/$(householdId)/accounts/$(goalData.linkedAccountId))
         );
     }
 
@@ -554,7 +563,7 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
         && savingGoalDoc(householdId, goalId).status == "active"
         && savingGoalDoc(householdId, goalId).linkedAccountId == accountId
-        && canReadScopedData(householdId, savingGoalDoc(householdId, goalId));
+        && canUseSavingGoal(householdId, savingGoalDoc(householdId, goalId));
     }
 
     function savingGoalCanBeSpentFrom(householdId, goalId, accountId) {

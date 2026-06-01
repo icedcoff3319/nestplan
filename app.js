@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510g";
+} from "./firebase-client.js?v=20260510h";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510g";
+} from "./constants.js?v=20260510h";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -145,7 +145,8 @@ const state = {
   reportBudgetBuffer: "normal",
   reportDrillCategoryId: "",
   reportLockedMonthKey: "",
-  ensuringSystemCategories: false
+  ensuringSystemCategories: false,
+  showLedgerFilters: true
 };
 
 const els = {
@@ -379,6 +380,8 @@ const els = {
   ledgerPageActionsToggle: document.getElementById("ledger-page-actions-toggle"),
   ledgerPageDownloadBtn: document.getElementById("ledger-page-download-btn"),
   ledgerPageClearBtn: document.getElementById("ledger-page-clear-btn"),
+  ledgerPageFilterBody: document.getElementById("ledger-page-filter-body"),
+  ledgerPageFilterToggle: document.getElementById("ledger-page-filter-toggle"),
   ledgerPageMeta: document.getElementById("ledger-page-meta"),
   ledgerTable: document.getElementById("ledger-table"),
   ledgerLoadMoreBtn: document.getElementById("ledger-load-more-btn"),
@@ -443,7 +446,11 @@ const els = {
   reportFiltersToggle: document.getElementById("report-filters-toggle"),
   reportFiltersPanel: document.getElementById("report-filters-panel"),
   reportAccountFilter: document.getElementById("report-account-filter"),
+  reportAccountSummary: document.getElementById("report-account-summary"),
+  reportAccountList: document.getElementById("report-account-list"),
   reportCategoryFilter: document.getElementById("report-category-filter"),
+  reportCategorySummary: document.getElementById("report-category-summary"),
+  reportCategoryList: document.getElementById("report-category-list"),
   reportKindFilter: document.getElementById("report-kind-filter"),
   reportMemberFilter: document.getElementById("report-member-filter"),
   reportMemberFilterGroup: document.getElementById("report-member-filter-group"),
@@ -735,6 +742,10 @@ function bindEvents() {
     els.ledgerPageSort
   ].forEach(input => input?.addEventListener("change", handlePlanningLedgerFilterChange));
   els.ledgerPageClearBtn?.addEventListener("click", clearPlanningLedgerFilters);
+  els.ledgerPageFilterToggle?.addEventListener("click", () => {
+    state.showLedgerFilters = !state.showLedgerFilters;
+    renderPlanningLedgerFilterPanel();
+  });
   els.ledgerPageActionsToggle?.addEventListener("change", () => {
     state.showLedgerPageActions = els.ledgerPageActionsToggle.checked;
     state.openHistoryMenuId = null;
@@ -757,6 +768,10 @@ function bindEvents() {
     els.reportBudgetMode,
     els.reportBudgetRanking,
     els.reportBudgetBuffer
+  ].forEach(input => input?.addEventListener("change", handleReportControlsChange));
+  [
+    els.reportAccountList,
+    els.reportCategoryList
   ].forEach(input => input?.addEventListener("change", handleReportControlsChange));
   els.reportFiltersToggle?.addEventListener("change", () => {
     state.reportFiltersVisible = els.reportFiltersToggle.checked;
@@ -1114,7 +1129,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510g");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510h");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -5315,7 +5330,35 @@ function getMultiSelectValues(select) {
   if (!select) {
     return [];
   }
+  const checklist = getReportChecklistForSelect(select)?.list;
+  if (checklist) {
+    return [...checklist.querySelectorAll("input[type='checkbox']:checked")]
+      .map(option => option.value)
+      .filter(Boolean);
+  }
   return [...select.selectedOptions].map(option => option.value).filter(Boolean);
+}
+
+function getReportChecklistForSelect(select) {
+  if (select === els.reportAccountFilter) {
+    return {
+      list: els.reportAccountList,
+      summary: els.reportAccountSummary,
+      emptyLabel: "All accounts",
+      singularLabel: "account",
+      pluralLabel: "accounts"
+    };
+  }
+  if (select === els.reportCategoryFilter) {
+    return {
+      list: els.reportCategoryList,
+      summary: els.reportCategorySummary,
+      emptyLabel: "All categories",
+      singularLabel: "category",
+      pluralLabel: "categories"
+    };
+  }
+  return null;
 }
 
 function renderReportView() {
@@ -5399,6 +5442,24 @@ function renderReportMultiOptions(select, options, selectedValues = []) {
   select.innerHTML = options.map(option => `
     <option value="${escapeHtml(option.value)}" ${selectedSet.has(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>
   `).join("");
+
+  const checklist = getReportChecklistForSelect(select);
+  if (!checklist?.list) {
+    return;
+  }
+
+  checklist.list.innerHTML = options.length
+    ? options.map(option => `
+      <label class="choice-item compact-choice-item">
+        <input type="checkbox" value="${escapeHtml(option.value)}" ${selectedSet.has(option.value) ? "checked" : ""} />
+        <span>${escapeHtml(option.label)}</span>
+      </label>
+    `).join("")
+    : `<p class="status-copy">No options available.</p>`;
+  const selectedCount = options.filter(option => selectedSet.has(option.value)).length;
+  checklist.summary.textContent = selectedCount
+    ? `${selectedCount} ${selectedCount === 1 ? checklist.singularLabel : checklist.pluralLabel} selected`
+    : checklist.emptyLabel;
 }
 
 function buildReportModel() {
@@ -6034,10 +6095,10 @@ function renderInvestmentsView() {
                   ${event.note ? `<span>|</span><span>${escapeHtml(event.note)}</span>` : ""}
                 </div>
               </div>
-              <div class="list-row-actions">
-                <p class="history-amount ${event.eventType === "withdrawal" ? "income" : event.eventType === "deposit" || event.eventType === "contribution" ? "outcome" : "transfer"}">${escapeHtml(formatRupiah(event.amountMinor || 0))}</p>
-                <div class="overflow-actions">
-                  <button class="overflow-btn" type="button" aria-label="Open investment activity actions" data-action="toggle-investment-event-menu" data-id="${escapeHtml(event.id)}">&#8942;</button>
+                <div class="list-row-actions investment-event-actions">
+                  <p class="history-amount ${event.eventType === "withdrawal" ? "income" : event.eventType === "deposit" || event.eventType === "contribution" ? "outcome" : "transfer"}">${escapeHtml(formatRupiah(event.amountMinor || 0))}</p>
+                  <div class="overflow-actions">
+                  <button class="overflow-btn tiny-overflow-btn" type="button" aria-label="Open investment activity actions" data-action="toggle-investment-event-menu" data-id="${escapeHtml(event.id)}">&#8942;</button>
                   <div class="overflow-menu${state.openInvestmentEventMenuId === event.id ? "" : " hidden"}">
                     <button class="overflow-item" type="button" data-action="edit-investment-event" data-id="${escapeHtml(event.id)}">Edit</button>
                     <button class="overflow-item danger" type="button" data-action="delete-investment-event" data-id="${escapeHtml(event.id)}">Delete</button>
@@ -7835,6 +7896,7 @@ function renderPlanningLedgerFilters() {
     return;
   }
 
+  renderPlanningLedgerFilterPanel();
   renderLedgerKindOptions(els.ledgerPageKindFilter, state.planningLedgerFilters.kind, { includeInvestment: true });
   renderLedgerAccountOptions(els.ledgerPageAccountFilter, state.planningLedgerFilters.accountId);
   renderLedgerCategoryOptions(els.ledgerPageCategoryFilter, state.planningLedgerFilters.categoryId);
@@ -7843,6 +7905,16 @@ function renderPlanningLedgerFilters() {
   els.ledgerPageSort.value = state.planningLedgerSort;
   if (els.ledgerPageActionsToggle) {
     els.ledgerPageActionsToggle.checked = state.showLedgerPageActions;
+  }
+}
+
+function renderPlanningLedgerFilterPanel() {
+  if (els.ledgerPageFilterBody) {
+    els.ledgerPageFilterBody.classList.toggle("hidden", !state.showLedgerFilters);
+  }
+  if (els.ledgerPageFilterToggle) {
+    els.ledgerPageFilterToggle.textContent = state.showLedgerFilters ? "Hide" : "Filters";
+    els.ledgerPageFilterToggle.setAttribute("aria-expanded", String(state.showLedgerFilters));
   }
 }
 
