@@ -97,11 +97,6 @@ export const DEFAULT_CATEGORY_SEED = [
   },
   {
     direction: "outcome",
-    name: "Investment - Contributions",
-    description: "Money put into investments, trading, or other capital contributions."
-  },
-  {
-    direction: "outcome",
     name: "Other - Spending",
     description: "Anything that does not fit another spending category yet."
   },
@@ -114,11 +109,6 @@ export const DEFAULT_CATEGORY_SEED = [
     direction: "income",
     name: "Work - Bonus & Freelance",
     description: "Bonuses, overtime, freelance work, and other work-related extra income."
-  },
-  {
-    direction: "income",
-    name: "Investment - Returns",
-    description: "Income or profit received from investments."
   },
   {
     direction: "income",

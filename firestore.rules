@@ -91,6 +91,10 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId)).data;
     }
 
+    function investmentAccountDoc(householdId, investmentId) {
+      return get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(investmentId)).data;
+    }
+
     function accountOwnerUserId(data) {
       return hasNonEmptyString(data.get("primaryOwnerUserId", ""))
         ? data.primaryOwnerUserId
@@ -565,33 +569,77 @@ service cloud.firestore {
         && isHouseholdMember(householdId);
     }
 
+    function investmentAccountCanBeUsed(householdId, investmentId) {
+      return hasNonEmptyString(investmentId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(investmentId))
+        && investmentAccountDoc(householdId, investmentId).status == "active"
+        && canReadScopedData(householdId, investmentAccountDoc(householdId, investmentId));
+    }
+
+    function isInvestmentDepositCategory(householdId, categoryId) {
+      return categoryDoc(householdId, categoryId).get("systemKey", null) == "investment_deposit";
+    }
+
+    function isInvestmentWithdrawalCategory(householdId, categoryId) {
+      return categoryDoc(householdId, categoryId).get("systemKey", null) == "investment_withdrawal";
+    }
+
     function accountOwnedByRequester(householdId, accountId) {
       return validAccountReference(householdId, accountId, request.resource.data.accountNameSnapshot, request.resource.data.accountPrimaryOwnerUserIdSnapshot)
         && accountOwnerUserId(accountDoc(householdId, accountId)) == request.auth.uid;
     }
 
+    function validInvestmentDepositUsage(householdId, data) {
+      return isInvestmentDepositCategory(householdId, data.categoryId)
+        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
+        && accountOwnedByRequester(householdId, data.accountId)
+        && data.savingGoalId == null;
+    }
+
+    function validInvestmentWithdrawalUsage(householdId, data) {
+      return isInvestmentWithdrawalCategory(householdId, data.categoryId)
+        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
+        && accountOwnedByRequester(householdId, data.accountId)
+        && data.savingGoalId == null;
+    }
+
     function validNonTransferAccountUsage(householdId, data) {
       return (
         data.displayKind == "income"
-        && accountOwnedByRequester(householdId, data.accountId)
+        && (
+          validInvestmentWithdrawalUsage(householdId, data)
+          || (
+            !isInvestmentWithdrawalCategory(householdId, data.categoryId)
+            && data.get("investmentAccountId", null) == null
+            && accountOwnedByRequester(householdId, data.accountId)
+          )
+        )
       ) || (
         data.displayKind == "outcome"
         && (
-          (
-            categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
-            && accountOwnedByRequester(householdId, data.accountId)
-            && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
-          )
+          validInvestmentDepositUsage(householdId, data)
           || (
-            categoryDoc(householdId, data.categoryId).get("systemKey", null) != "saving"
+            !isInvestmentDepositCategory(householdId, data.categoryId)
+            && data.get("investmentAccountId", null) == null
             && (
-              (data.savingGoalId == null && accountOwnedByRequester(householdId, data.accountId))
-              || savingGoalCanBeSpentFrom(householdId, data.savingGoalId, data.accountId)
+              (
+                categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
+                && accountOwnedByRequester(householdId, data.accountId)
+                && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+              )
+              || (
+                categoryDoc(householdId, data.categoryId).get("systemKey", null) != "saving"
+                && (
+                  (data.savingGoalId == null && accountOwnedByRequester(householdId, data.accountId))
+                  || savingGoalCanBeSpentFrom(householdId, data.savingGoalId, data.accountId)
+                )
+              )
             )
           )
         )
       ) || (
         data.displayKind == "adjustment"
+        && data.get("investmentAccountId", null) == null
         && accountOwnedByRequester(householdId, data.accountId)
       );
     }
@@ -646,6 +694,7 @@ service cloud.firestore {
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
         && data.currencyCode == householdDoc(householdId).currencyCode
+        && hasStringOrNull(data.get("investmentAccountId", null))
         && validAccountReference(householdId, data.accountId, data.accountNameSnapshot, data.accountPrimaryOwnerUserIdSnapshot)
         && validTransactionKindPair(data)
         && validSavingGoalReference(householdId, data.savingGoalId)
@@ -677,6 +726,7 @@ service cloud.firestore {
             && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
             && validTransferCounterpartyPair(householdId, data)
             && validTransferAccountUsage(householdId, data)
+            && data.get("investmentAccountId", null) == null
             && data.recurringBillId == null
             && data.recurringBillOccurrenceId == null
           )
@@ -689,6 +739,7 @@ service cloud.firestore {
             && data.counterpartyAccountNameSnapshot == null
             && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
             && data.savingGoalId == null
+            && data.get("investmentAccountId", null) == null
             && data.recurringBillId == null
             && data.recurringBillOccurrenceId == null
           )
@@ -698,11 +749,13 @@ service cloud.firestore {
     function keepsImmutableTransactionFields() {
       return request.resource.data.createdByUserId == resource.data.createdByUserId
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.transactionGroupId == resource.data.transactionGroupId;
+        && request.resource.data.transactionGroupId == resource.data.transactionGroupId
+        && request.resource.data.get("investmentAccountId", null) == resource.data.get("investmentAccountId", null);
     }
 
     function validEditableActiveTransaction(householdId) {
       return request.auth.uid == resource.data.createdByUserId
+        && resource.data.get("investmentAccountId", null) == null
         && resource.data.status == "active"
         && request.resource.data.status == "active"
         && keepsImmutableTransactionFields()
@@ -713,6 +766,7 @@ service cloud.firestore {
 
     function validSoftDeleteTransaction() {
       return request.auth.uid == resource.data.createdByUserId
+        && resource.data.get("investmentAccountId", null) == null
         && resource.data.status == "active"
         && request.resource.data.status == "deleted"
         && keepsImmutableTransactionFields()
@@ -886,7 +940,7 @@ service cloud.firestore {
     }
 
     function validInvestmentEventType(value) {
-      return value in ["contribution", "withdrawal", "valuation", "asset_update"];
+      return value in ["contribution", "deposit", "withdrawal", "valuation", "valuation_update", "asset_update"];
     }
 
     function validInvestmentAccountFields(data) {

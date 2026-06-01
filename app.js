@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510c";
+} from "./firebase-client.js?v=20260510d";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510c";
+} from "./constants.js?v=20260510d";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
@@ -107,6 +107,21 @@ const state = {
   authFlowLock: false,
   ledgerMode: "recent",
   ledgerMonthOffset: 0,
+  dashboardLedgerFilters: {
+    kind: "",
+    accountId: "",
+    categoryId: ""
+  },
+  planningLedgerLoaded: false,
+  planningLedgerVisibleCount: 50,
+  planningLedgerFilters: {
+    kind: "",
+    accountId: "",
+    categoryId: "",
+    dateFrom: "",
+    dateTo: ""
+  },
+  planningLedgerSort: "created-desc",
   ensuringSystemCategories: false
 };
 
@@ -269,6 +284,7 @@ const els = {
   transactionUseSavingField: document.getElementById("transaction-use-saving-field"),
   transactionUseSaving: document.getElementById("transaction-use-saving"),
   transactionFeeToggleField: document.getElementById("transaction-fee-toggle-field"),
+  transactionFeeHelpBtn: document.getElementById("transaction-fee-help-btn"),
   transactionFeeEnabled: document.getElementById("transaction-fee-enabled"),
   transactionFeeField: document.getElementById("transaction-fee-field"),
   transactionFeeAmount: document.getElementById("transaction-fee-amount"),
@@ -284,6 +300,10 @@ const els = {
   historyMeta: document.getElementById("history-meta"),
   ledgerNav: document.getElementById("ledger-nav"),
   historyList: document.getElementById("history-list"),
+  dashboardLedgerKindFilter: document.getElementById("dashboard-ledger-kind-filter"),
+  dashboardLedgerAccountFilter: document.getElementById("dashboard-ledger-account-filter"),
+  dashboardLedgerCategoryFilter: document.getElementById("dashboard-ledger-category-filter"),
+  dashboardLedgerClearBtn: document.getElementById("dashboard-ledger-clear-btn"),
   exportBtn: document.getElementById("export-btn"),
   exportModal: document.getElementById("export-modal"),
   exportCloseBtn: document.getElementById("export-close-btn"),
@@ -319,10 +339,22 @@ const els = {
   planningTabBudgets: document.getElementById("planning-tab-budgets"),
   planningTabSavings: document.getElementById("planning-tab-savings"),
   planningTabBills: document.getElementById("planning-tab-bills"),
+  planningTabLedger: document.getElementById("planning-tab-ledger"),
   planningTabPerformance: document.getElementById("planning-tab-performance"),
   planningBudgetsPanel: document.getElementById("planning-budgets-panel"),
   planningSavingsPanel: document.getElementById("planning-savings-panel"),
   planningBillsPanel: document.getElementById("planning-bills-panel"),
+  planningLedgerPanel: document.getElementById("planning-ledger-panel"),
+  ledgerPageKindFilter: document.getElementById("ledger-page-kind-filter"),
+  ledgerPageAccountFilter: document.getElementById("ledger-page-account-filter"),
+  ledgerPageCategoryFilter: document.getElementById("ledger-page-category-filter"),
+  ledgerPageDateFrom: document.getElementById("ledger-page-date-from"),
+  ledgerPageDateTo: document.getElementById("ledger-page-date-to"),
+  ledgerPageSort: document.getElementById("ledger-page-sort"),
+  ledgerPageClearBtn: document.getElementById("ledger-page-clear-btn"),
+  ledgerPageMeta: document.getElementById("ledger-page-meta"),
+  ledgerTable: document.getElementById("ledger-table"),
+  ledgerLoadMoreBtn: document.getElementById("ledger-load-more-btn"),
   budgetScopeCopy: document.getElementById("budget-scope-copy"),
   savingScopeCopy: document.getElementById("saving-scope-copy"),
   billScopeCopy: document.getElementById("bill-scope-copy"),
@@ -373,6 +405,9 @@ const els = {
   performanceBudgetsList: document.getElementById("performance-budgets-list"),
   performanceSavingsList: document.getElementById("performance-savings-list"),
   performanceBillsList: document.getElementById("performance-bills-list"),
+  investmentTotalValue: document.getElementById("investment-total-value"),
+  investmentNetInvested: document.getElementById("investment-net-invested"),
+  investmentGainLoss: document.getElementById("investment-gain-loss"),
   investmentScopeCopy: document.getElementById("investment-scope-copy"),
   investmentForm: document.getElementById("investment-form"),
   investmentEditId: document.getElementById("investment-edit-id"),
@@ -387,10 +422,13 @@ const els = {
   investmentMovementForm: document.getElementById("investment-movement-form"),
   investmentMovementAccount: document.getElementById("investment-movement-account"),
   investmentMovementType: document.getElementById("investment-movement-type"),
+  investmentMovementLedgerLabel: document.getElementById("investment-movement-ledger-label"),
   investmentMovementLedgerAccount: document.getElementById("investment-movement-ledger-account"),
   investmentMovementAmount: document.getElementById("investment-movement-amount"),
   investmentMovementNote: document.getElementById("investment-movement-note"),
+  investmentMovementSubmitBtn: document.getElementById("investment-movement-submit-btn"),
   investmentMovementMessage: document.getElementById("investment-movement-message"),
+  investmentActivityList: document.getElementById("investment-activity-list"),
   investmentAssetForm: document.getElementById("investment-asset-form"),
   investmentAssetEditId: document.getElementById("investment-asset-edit-id"),
   investmentAssetAccount: document.getElementById("investment-asset-account"),
@@ -421,6 +459,13 @@ const INFO_TOPICS = {
       "Use Income when money enters an account, such as salary, support, repayment, or other received funds.",
       "Use Outcome when money leaves an account for spending, bills, or purchases. Use Transfer when money moves between accounts, between household members, or into a saving target.",
       "Use balance correction only when the recorded account balance needs to match reality."
+    ]
+  },
+  "transaction-fee": {
+    title: "Transaction fee",
+    paragraphs: [
+      "Use this when the bank, e-wallet, or transfer service charges a separate fee.",
+      "NestPlan records the fee as its own Admin Fee outcome from the same source account and with the same note."
     ]
   },
   balance: {
@@ -543,6 +588,12 @@ function bindEvents() {
   els.transactionFeeEnabled.addEventListener("change", syncTransactionFeeField);
   els.transactionForm.addEventListener("submit", handleTransactionSubmit);
   els.transactionCancelBtn.addEventListener("click", resetTransactionForm);
+  [
+    els.dashboardLedgerKindFilter,
+    els.dashboardLedgerAccountFilter,
+    els.dashboardLedgerCategoryFilter
+  ].forEach(select => select?.addEventListener("change", handleDashboardLedgerFilterChange));
+  els.dashboardLedgerClearBtn?.addEventListener("click", clearDashboardLedgerFilters);
   els.historyList.addEventListener("click", handleHistoryActions);
   els.ledgerNav.addEventListener("click", handleLedgerNavActions);
   els.dashboardBillRemindersList?.addEventListener("click", handleDashboardBillReminderActions);
@@ -585,7 +636,18 @@ function bindEvents() {
   els.planningTabBudgets.addEventListener("click", () => setPlanningTab("budgets"));
   els.planningTabSavings.addEventListener("click", () => setPlanningTab("savings"));
   els.planningTabBills.addEventListener("click", () => setPlanningTab("bills"));
+  els.planningTabLedger?.addEventListener("click", () => setPlanningTab("ledger"));
   els.planningTabPerformance.addEventListener("click", () => setPlanningTab("performance"));
+  [
+    els.ledgerPageKindFilter,
+    els.ledgerPageAccountFilter,
+    els.ledgerPageCategoryFilter,
+    els.ledgerPageDateFrom,
+    els.ledgerPageDateTo,
+    els.ledgerPageSort
+  ].forEach(input => input?.addEventListener("change", handlePlanningLedgerFilterChange));
+  els.ledgerPageClearBtn?.addEventListener("click", clearPlanningLedgerFilters);
+  els.ledgerLoadMoreBtn?.addEventListener("click", handleLedgerLoadMore);
   els.budgetCycleType.addEventListener("change", syncBudgetForm);
   els.budgetCategoryList.addEventListener("change", updateBudgetCategorySummary);
   els.budgetForm.addEventListener("submit", handleBudgetSubmit);
@@ -599,14 +661,14 @@ function bindEvents() {
   els.billCancelBtn.addEventListener("click", resetBillForm);
   els.billsList.addEventListener("click", handleBillListActions);
   els.billRemindersList.addEventListener("click", handleBillReminderActions);
-  els.investmentUseAssets.addEventListener("change", syncInvestmentForm);
+  els.investmentUseAssets?.addEventListener("change", syncInvestmentForm);
   els.investmentForm.addEventListener("submit", handleInvestmentSubmit);
   els.investmentCancelBtn.addEventListener("click", resetInvestmentForm);
   els.investmentsList.addEventListener("click", handleInvestmentListActions);
   els.investmentMovementType.addEventListener("change", populateInvestmentSelects);
   els.investmentMovementForm.addEventListener("submit", handleInvestmentMovementSubmit);
-  els.investmentAssetForm.addEventListener("submit", handleInvestmentAssetSubmit);
-  els.investmentAssetCancelBtn.addEventListener("click", resetInvestmentAssetForm);
+  els.investmentAssetForm?.addEventListener("submit", handleInvestmentAssetSubmit);
+  els.investmentAssetCancelBtn?.addEventListener("click", resetInvestmentAssetForm);
 }
 
 function bindMoneyInputs() {
@@ -648,6 +710,21 @@ function resetLedgerView() {
   state.ledgerMonthOffset = 0;
   state.openHistoryMenuId = null;
   state.openBillMenuId = null;
+  state.dashboardLedgerFilters = {
+    kind: "",
+    accountId: "",
+    categoryId: ""
+  };
+  state.planningLedgerLoaded = false;
+  state.planningLedgerVisibleCount = 50;
+  state.planningLedgerFilters = {
+    kind: "",
+    accountId: "",
+    categoryId: "",
+    dateFrom: "",
+    dateTo: ""
+  };
+  state.planningLedgerSort = "created-desc";
 }
 
 function clearHouseholdContextState() {
@@ -699,6 +776,7 @@ async function handleAuthStateChanged(user) {
   resetStateForAuth(user);
 
   if (!user) {
+    setAuthBusy(false);
     renderScreens();
     return;
   }
@@ -710,16 +788,20 @@ async function handleAuthStateChanged(user) {
   try {
     if (isMasterAdminRoute()) {
       await loadMasterAdminSession(user);
+      setAuthBusy(false);
       return;
     }
 
     if (await shouldGateEmailVerification(user)) {
       renderEmailVerification();
+      setAuthBusy(false);
       return;
     }
 
     await loadUserSession(user);
+    setAuthBusy(false);
   } catch (error) {
+    setAuthBusy(false);
     renderFatalError(error);
   }
 }
@@ -833,6 +915,7 @@ async function refreshMasterAdminDashboard() {
     return;
   }
 
+  setButtonLoading(els.masterAdminRefreshBtn, true, "Refreshing...");
   setMessage(els.masterCodeMessage, "");
   setMessage(els.masterOverrideMessage, "");
   setMessage(els.masterBlockedDomainMessage, "");
@@ -850,6 +933,8 @@ async function refreshMasterAdminDashboard() {
     renderMasterAdminScreen();
   } catch (error) {
     renderMasterAdminScreen(getUserErrorMessage(error), "error");
+  } finally {
+    setButtonLoading(els.masterAdminRefreshBtn, false);
   }
 }
 
@@ -885,7 +970,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510d");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -1206,10 +1291,13 @@ async function removeDefaultCategory({ id }) {
 async function handleLoginSubmit(event) {
   event.preventDefault();
   setMessage(els.loginMessage, "");
+  setAuthBusy(true);
+  setMessage(els.loginMessage, "Signing in and loading your dashboard...", "success");
 
   try {
     await signInWithEmailAndPassword(auth, normalizeEmail(els.loginEmail.value), els.loginPassword.value);
   } catch (error) {
+    setAuthBusy(false);
     setMessage(els.loginMessage, getUserErrorMessage(error), "error");
   }
 }
@@ -1421,6 +1509,8 @@ async function finalizeVerifiedRegistration() {
 async function handleMasterCodeSubmit(event) {
   event.preventDefault();
   setMessage(els.masterCodeMessage, "");
+  const submitButton = els.masterCodeForm.querySelector("button[type='submit']");
+  setButtonLoading(submitButton, true, "Creating...");
 
   try {
     const response = await createRegistrationCode({
@@ -1434,6 +1524,8 @@ async function handleMasterCodeSubmit(event) {
     await refreshMasterAdminDashboard();
   } catch (error) {
     setMessage(els.masterCodeMessage, getRegistrationErrorMessage(error), "error");
+  } finally {
+    setButtonLoading(submitButton, false);
   }
 }
 
@@ -2420,8 +2512,7 @@ async function handleInvestmentSubmit(event) {
   setMessage(els.investmentMessage, "");
 
   const name = cleanText(els.investmentName.value);
-  const useAssetBreakdown = els.investmentUseAssets.checked;
-  const currentValueMinor = useAssetBreakdown ? 0 : (parseMinorInput(els.investmentCurrentValue.value) || 0);
+  const currentValueMinor = parseMinorInput(els.investmentCurrentValue.value) || 0;
   const note = cleanText(els.investmentNote.value);
   const editingInvestment = state.editInvestmentId
     ? state.investmentAccounts.find(item => item.id === state.editInvestmentId)
@@ -2436,25 +2527,28 @@ async function handleInvestmentSubmit(event) {
   const payload = {
     name,
     note,
-    useAssetBreakdown,
+    useAssetBreakdown: false,
     currentValueMinor,
     ...buildScopedPayload(scopeType),
     updatedAt: serverTimestamp()
   };
 
+  setButtonLoading(els.investmentSubmitBtn, true, editingInvestment ? "Updating..." : "Saving...");
   try {
     if (editingInvestment) {
       await updateDoc(doc(db, "households", state.household.id, "investmentAccounts", editingInvestment.id), payload);
-      await addInvestmentEvent({
-        investment: editingInvestment,
-        eventType: "valuation",
-        amountMinor: currentValueMinor,
-        note: "Investment value updated.",
-        ledgerTransactionId: null,
-        transactionGroupId: null
-      });
+      if (Number(editingInvestment.currentValueMinor || 0) !== currentValueMinor) {
+        await addInvestmentEvent({
+          investment: { ...editingInvestment, ...payload },
+          eventType: "valuation_update",
+          amountMinor: currentValueMinor,
+          note: "Investment value updated.",
+          ledgerTransactionId: null,
+          transactionGroupId: null
+        });
+      }
       resetInvestmentForm({ clearMessage: false });
-      setMessage(els.investmentMessage, "Investment updated.", "success");
+      setMessage(els.investmentMessage, "Portfolio updated.", "success");
     } else {
       await setDoc(doc(collection(db, "households", state.household.id, "investmentAccounts")), {
         ...payload,
@@ -2464,10 +2558,12 @@ async function handleInvestmentSubmit(event) {
         archivedAt: null
       });
       resetInvestmentForm({ clearMessage: false });
-      setMessage(els.investmentMessage, getPlanningCreateMessage("Investment", scopeType), "success");
+      setMessage(els.investmentMessage, getPlanningCreateMessage("Portfolio", scopeType), "success");
     }
   } catch (error) {
     setMessage(els.investmentMessage, getUserErrorMessage(error), "error");
+  } finally {
+    setButtonLoading(els.investmentSubmitBtn, false);
   }
 }
 
@@ -2512,7 +2608,7 @@ function openInvestmentEditor(investment) {
   setMoneyInputValue(els.investmentCurrentValue, investment.currentValueMinor || 0);
   els.investmentUseAssets.checked = Boolean(investment.useAssetBreakdown);
   els.investmentNote.value = investment.note || "";
-  els.investmentSubmitBtn.textContent = "Update investment";
+  els.investmentSubmitBtn.textContent = "Update portfolio";
   els.investmentCancelBtn.classList.remove("hidden");
   syncInvestmentForm();
   scrollEditorIntoView(els.investmentForm);
@@ -2540,17 +2636,18 @@ async function handleInvestmentMovementSubmit(event) {
   setMessage(els.investmentMovementMessage, "");
 
   const investment = state.investmentAccounts.find(item => item.id === els.investmentMovementAccount.value && item.status === "active");
-  const ledgerAccount = getOwnedActiveAccounts().find(item => item.id === els.investmentMovementLedgerAccount.value);
+  const ledgerAccount = getInvestmentMovementAccountOptions(investment, els.investmentMovementType.value)
+    .find(item => item.id === els.investmentMovementLedgerAccount.value);
   const eventType = els.investmentMovementType.value;
   const amountMinor = parseMinorInput(els.investmentMovementAmount.value);
-  const note = cleanText(els.investmentMovementNote.value) || (eventType === "withdrawal" ? "Investment withdrawal" : "Investment contribution");
+  const note = cleanText(els.investmentMovementNote.value) || (eventType === "withdrawal" ? "Investment withdrawal" : "Investment deposit");
 
   if (!investment || !matchesPlanningScope(investment)) {
     setMessage(els.investmentMovementMessage, "Choose a visible investment account.", "error");
     return;
   }
   if (!ledgerAccount) {
-    setMessage(els.investmentMovementMessage, "Choose one of your active ledger accounts.", "error");
+    setMessage(els.investmentMovementMessage, "Choose an available cash account.", "error");
     return;
   }
   if (!amountMinor) {
@@ -2558,13 +2655,17 @@ async function handleInvestmentMovementSubmit(event) {
     return;
   }
 
+  setButtonLoading(els.investmentMovementSubmitBtn, true, "Saving...");
   try {
     const category = getInvestmentCategory(eventType);
     if (!category) {
       throw new Error("Investment system categories are not ready yet. Wait a moment, then try again.");
     }
-    if (eventType === "contribution") {
+    if (eventType === "deposit") {
       assertRegularAccountSpendAllowed(ledgerAccount.id, amountMinor);
+    }
+    if (eventType === "withdrawal" && Number(investment.currentValueMinor || 0) < amountMinor) {
+      throw new Error("This withdrawal is higher than the current investment value.");
     }
 
     const transactionRef = doc(collection(db, "households", state.household.id, "transactions"));
@@ -2576,18 +2677,15 @@ async function handleInvestmentMovementSubmit(event) {
       note,
       transactionAt: Timestamp.fromDate(new Date()),
       account: ledgerAccount,
-      category
+      category,
+      investmentAccountId: investment.id
     }));
 
-    const nextValueMinor = investment.useAssetBreakdown
-      ? Number(investment.currentValueMinor || 0)
-      : Math.max(0, Number(investment.currentValueMinor || 0) + (eventType === "withdrawal" ? -amountMinor : amountMinor));
-    if (!investment.useAssetBreakdown) {
-      batch.update(doc(db, "households", state.household.id, "investmentAccounts", investment.id), {
-        currentValueMinor: nextValueMinor,
-        updatedAt: serverTimestamp()
-      });
-    }
+    const nextValueMinor = Math.max(0, Number(investment.currentValueMinor || 0) + (eventType === "withdrawal" ? -amountMinor : amountMinor));
+    batch.update(doc(db, "households", state.household.id, "investmentAccounts", investment.id), {
+      currentValueMinor: nextValueMinor,
+      updatedAt: serverTimestamp()
+    });
     batch.set(doc(collection(db, "households", state.household.id, "investmentEvents")), buildInvestmentEventPayload({
       investment,
       eventType,
@@ -2602,9 +2700,11 @@ async function handleInvestmentMovementSubmit(event) {
     els.investmentMovementForm.reset();
     setMoneyInputValue(els.investmentMovementAmount, 0);
     populateInvestmentSelects();
-    setMessage(els.investmentMovementMessage, "Investment movement saved and recorded in the ledger.", "success");
+    setMessage(els.investmentMovementMessage, "Investment movement saved.", "success");
   } catch (error) {
     setMessage(els.investmentMovementMessage, getUserErrorMessage(error), "error");
+  } finally {
+    setButtonLoading(els.investmentMovementSubmitBtn, false);
   }
 }
 
@@ -3299,6 +3399,62 @@ function handleLedgerNavActions(event) {
 
   state.openHistoryMenuId = null;
   renderTransactions();
+}
+
+function handleDashboardLedgerFilterChange() {
+  state.dashboardLedgerFilters = {
+    kind: els.dashboardLedgerKindFilter?.value || "",
+    accountId: els.dashboardLedgerAccountFilter?.value || "",
+    categoryId: els.dashboardLedgerCategoryFilter?.value || ""
+  };
+  state.ledgerMode = "recent";
+  state.openHistoryMenuId = null;
+  renderTransactions();
+}
+
+function clearDashboardLedgerFilters() {
+  state.dashboardLedgerFilters = {
+    kind: "",
+    accountId: "",
+    categoryId: ""
+  };
+  renderLedgerFilterControls();
+  renderTransactions();
+}
+
+function handlePlanningLedgerFilterChange() {
+  state.planningLedgerLoaded = true;
+  state.planningLedgerVisibleCount = 50;
+  state.planningLedgerFilters = {
+    kind: els.ledgerPageKindFilter?.value || "",
+    accountId: els.ledgerPageAccountFilter?.value || "",
+    categoryId: els.ledgerPageCategoryFilter?.value || "",
+    dateFrom: els.ledgerPageDateFrom?.value || "",
+    dateTo: els.ledgerPageDateTo?.value || ""
+  };
+  state.planningLedgerSort = els.ledgerPageSort?.value || "created-desc";
+  renderPlanningLedger();
+}
+
+function clearPlanningLedgerFilters() {
+  state.planningLedgerLoaded = true;
+  state.planningLedgerVisibleCount = 50;
+  state.planningLedgerFilters = {
+    kind: "",
+    accountId: "",
+    categoryId: "",
+    dateFrom: "",
+    dateTo: ""
+  };
+  state.planningLedgerSort = "created-desc";
+  renderLedgerFilterControls();
+  renderPlanningLedger();
+}
+
+function handleLedgerLoadMore() {
+  state.planningLedgerLoaded = true;
+  state.planningLedgerVisibleCount += 50;
+  renderPlanningLedger();
 }
 
 function handleDocumentClick(event) {
@@ -4200,6 +4356,8 @@ function renderApp() {
   renderBillsList();
   renderPerformanceView();
   renderInvestmentsView();
+  renderLedgerFilterControls();
+  renderPlanningLedger();
   renderAccountsList();
   renderCategories();
   renderCategorySeedAccess();
@@ -4317,13 +4475,13 @@ function renderSummaries() {
 
   const visibleBalance = visibleAccounts.reduce((sum, account) => sum + (balances.get(account.id) || 0), 0);
   const inflow = monthRows.reduce((sum, row) => {
-    if (["income", "adjustment_increase"].includes(row.postingKind)) {
+    if (isMonthlyIncomeRow(row)) {
       return sum + Number(row.amountMinor || 0);
     }
     return sum;
   }, 0);
   const outflow = monthRows.reduce((sum, row) => {
-    if (["outcome", "adjustment_decrease"].includes(row.postingKind)) {
+    if (isMonthlyExpenseRow(row)) {
       return sum + Number(row.amountMinor || 0);
     }
     return sum;
@@ -4338,6 +4496,14 @@ function renderSummaries() {
     els.summaryOutflowLabel.textContent = `${currentMonthLabel} expense`;
   }
   els.summaryOutflow.textContent = formatRupiah(outflow);
+}
+
+function isMonthlyIncomeRow(row) {
+  return row.postingKind === "income" && !isInvestmentCategoryId(row.categoryId);
+}
+
+function isMonthlyExpenseRow(row) {
+  return row.postingKind === "outcome" && !isInvestmentCategoryId(row.categoryId);
 }
 
 function getBudgetStatusCopy(summary) {
@@ -4460,6 +4626,9 @@ function renderDashboardBillReminders() {
 
 function setPlanningTab(tab) {
   state.planningTab = tab;
+  if (tab === "ledger") {
+    state.planningLedgerLoaded = true;
+  }
   renderApp();
 }
 
@@ -4467,10 +4636,12 @@ function renderPlanningState() {
   els.planningTabBudgets.classList.toggle("active", state.planningTab === "budgets");
   els.planningTabSavings.classList.toggle("active", state.planningTab === "savings");
   els.planningTabBills.classList.toggle("active", state.planningTab === "bills");
+  els.planningTabLedger?.classList.toggle("active", state.planningTab === "ledger");
   els.planningTabPerformance.classList.toggle("active", state.planningTab === "performance");
   els.planningBudgetsPanel.classList.toggle("hidden", state.planningTab !== "budgets");
   els.planningSavingsPanel.classList.toggle("hidden", state.planningTab !== "savings");
   els.planningBillsPanel.classList.toggle("hidden", state.planningTab !== "bills");
+  els.planningLedgerPanel?.classList.toggle("hidden", state.planningTab !== "ledger");
 }
 
 function renderBudgetsList() {
@@ -4734,10 +4905,15 @@ function renderInvestmentsView() {
   }
 
   const investments = getVisibleInvestments();
+  const totalSummary = buildInvestmentScopeSummary(investments);
+  els.investmentTotalValue.textContent = formatRupiah(totalSummary.currentValueMinor);
+  els.investmentNetInvested.textContent = formatRupiah(totalSummary.netInvestedMinor);
+  els.investmentGainLoss.textContent = `${totalSummary.gainLossMinor >= 0 ? "+" : "-"}${formatRupiah(Math.abs(totalSummary.gainLossMinor))}`;
+  els.investmentGainLoss.className = `summary-value ${totalSummary.gainLossMinor >= 0 ? "income" : "outcome"}`;
+
   els.investmentsList.innerHTML = investments.length
     ? investments.map(investment => {
         const summary = buildInvestmentSummary(investment);
-        const assets = getInvestmentAssets(investment.id);
         return `
           <article class="list-row">
             <div class="list-row-head">
@@ -4746,7 +4922,7 @@ function renderInvestmentsView() {
                 <div class="list-row-meta">
                   <span>${escapeHtml(resolvePlanningScopeLabel(investment))}</span>
                   <span>|</span>
-                  <span>${escapeHtml(investment.useAssetBreakdown ? "Asset breakdown" : "Manual value")}</span>
+                  <span>Owner: ${escapeHtml(getMemberName(getInvestmentOwnerUserId(investment)))}</span>
                 </div>
                 ${investment.note ? `<p class="status-copy">${escapeHtml(investment.note)}</p>` : ""}
               </div>
@@ -4761,32 +4937,44 @@ function renderInvestmentsView() {
                 <strong>${escapeHtml(formatRupiah(summary.currentValueMinor))}</strong>
               </div>
               <div class="metric-chip">
-                <span>Contributed</span>
-                <strong>${escapeHtml(formatRupiah(summary.totalContributedMinor))}</strong>
+                <span>Net invested</span>
+                <strong>${escapeHtml(formatRupiah(summary.netInvestedMinor))}</strong>
               </div>
-              <div class="metric-chip ${summary.unrealizedMinor >= 0 ? "metric-good" : "metric-over"}">
-                <span>Unrealized</span>
-                <strong>${escapeHtml(formatRupiah(summary.unrealizedMinor))}</strong>
+              <div class="metric-chip ${summary.gainLossMinor >= 0 ? "metric-good" : "metric-over"}">
+                <span>Gain / loss</span>
+                <strong>${escapeHtml(`${summary.gainLossMinor >= 0 ? "+" : "-"}${formatRupiah(Math.abs(summary.gainLossMinor))}`)}</strong>
               </div>
             </div>
-            ${assets.length ? `
-              <div class="investment-asset-list">
-                ${assets.map(asset => `
-                  <div class="investment-asset-row">
-                    <span><strong>${escapeHtml(asset.name)}</strong> ${asset.assetType ? `| ${escapeHtml(asset.assetType)}` : ""}</span>
-                    <span>${escapeHtml(formatRupiah(asset.currentValueMinor || 0))}</span>
-                    <span>
-                      <button class="text-btn" type="button" data-action="edit-investment-asset" data-id="${escapeHtml(asset.id)}">Edit</button>
-                      <button class="text-btn danger" type="button" data-action="archive-investment-asset" data-id="${escapeHtml(asset.id)}">Archive</button>
-                    </span>
-                  </div>
-                `).join("")}
-              </div>
-            ` : ""}
           </article>
         `;
       }).join("")
-    : `<div class="empty-card"><h4>No investments yet</h4><p>Create an investment account to track contributions, withdrawals, and manual value updates.</p></div>`;
+    : `<div class="empty-card"><h4>No investments yet</h4><p>Create a portfolio to track deposits, withdrawals, and manual value updates.</p></div>`;
+
+  if (els.investmentActivityList) {
+    const visibleInvestmentIds = new Set(investments.map(investment => investment.id));
+    const events = state.investmentEvents
+      .filter(event => visibleInvestmentIds.has(event.investmentAccountId) && event.status !== "deleted")
+      .sort((left, right) => getTimestampSortValue(right.createdAt) - getTimestampSortValue(left.createdAt))
+      .slice(0, 20);
+    els.investmentActivityList.innerHTML = events.length
+      ? events.map(event => `
+          <article class="list-row compact-row">
+            <div class="list-row-head">
+              <div>
+                <p class="list-row-title">${escapeHtml(getInvestmentEventLabel(event.eventType))}</p>
+                <div class="list-row-meta">
+                  <span>${escapeHtml(event.investmentAccountNameSnapshot || getInvestmentName(event.investmentAccountId))}</span>
+                  <span>|</span>
+                  <span>${escapeHtml(formatDateTime(event.createdAt))}</span>
+                  ${event.note ? `<span>|</span><span>${escapeHtml(event.note)}</span>` : ""}
+                </div>
+              </div>
+              <p class="history-amount ${event.eventType === "withdrawal" ? "income" : event.eventType === "deposit" || event.eventType === "contribution" ? "outcome" : "transfer"}">${escapeHtml(formatRupiah(event.amountMinor || 0))}</p>
+            </div>
+          </article>
+        `).join("")
+      : `<div class="empty-card"><h4>No investment activity yet</h4><p>Deposits, withdrawals, and value updates will appear here.</p></div>`;
+  }
 }
 
 function populateBudgetCategoryOptions() {
@@ -4847,23 +5035,39 @@ function populateInvestmentSelects() {
   }
 
   const investments = getVisibleInvestments();
+  const selectedInvestmentId = els.investmentMovementAccount.value;
+  const selectedLedgerAccountId = els.investmentMovementLedgerAccount.value;
   const investmentOptions = investments
     .map(investment => `<option value="${investment.id}">${escapeHtml(investment.name)}</option>`)
     .join("");
-  const ownedAccountOptions = getOwnedActiveAccounts()
+  els.investmentMovementAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
+  if (selectedInvestmentId) {
+    setSelectValue(els.investmentMovementAccount, selectedInvestmentId);
+  }
+
+  const selectedInvestment = investments.find(investment => investment.id === els.investmentMovementAccount.value);
+  const accountOptions = getInvestmentMovementAccountOptions(selectedInvestment, els.investmentMovementType.value)
     .map(account => `<option value="${account.id}">${escapeHtml(getAccountOptionLabel(account))}</option>`)
     .join("");
-
-  els.investmentMovementAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
-  els.investmentAssetAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
-  els.investmentMovementLedgerAccount.innerHTML = ownedAccountOptions || `<option value="">No owned accounts</option>`;
+  els.investmentMovementLedgerAccount.innerHTML = accountOptions || `<option value="">No available accounts</option>`;
+  if (selectedLedgerAccountId) {
+    setSelectValue(els.investmentMovementLedgerAccount, selectedLedgerAccountId);
+  }
+  if (els.investmentMovementLedgerLabel) {
+    els.investmentMovementLedgerLabel.textContent = els.investmentMovementType.value === "withdrawal"
+      ? "Return account"
+      : "Source account";
+  }
+  if (els.investmentAssetAccount) {
+    els.investmentAssetAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
+  }
 }
 
 function syncInvestmentForm() {
   if (!els.investmentCurrentValue) {
     return;
   }
-  els.investmentCurrentValue.disabled = els.investmentUseAssets.checked;
+  els.investmentCurrentValue.disabled = false;
 }
 
 function syncBudgetForm() {
@@ -4935,7 +5139,7 @@ function resetInvestmentForm(options = {}) {
   els.investmentEditId.value = "";
   els.investmentForm.reset();
   setMoneyInputValue(els.investmentCurrentValue, 0);
-  els.investmentSubmitBtn.textContent = "Save investment";
+  els.investmentSubmitBtn.textContent = "Save portfolio";
   els.investmentCancelBtn.classList.add("hidden");
   if (clearMessage) {
     setMessage(els.investmentMessage, "");
@@ -5005,24 +5209,23 @@ function getInvestmentEvents(investmentId) {
 function buildInvestmentSummary(investment) {
   const events = getInvestmentEvents(investment.id);
   const totalContributedMinor = events
-    .filter(event => event.eventType === "contribution")
+    .filter(event => event.eventType === "contribution" || event.eventType === "deposit")
     .reduce((sum, event) => sum + Number(event.amountMinor || 0), 0);
   const totalWithdrawnMinor = events
     .filter(event => event.eventType === "withdrawal")
     .reduce((sum, event) => sum + Number(event.amountMinor || 0), 0);
-  const assetValueMinor = getInvestmentAssets(investment.id)
-    .reduce((sum, asset) => sum + Number(asset.currentValueMinor || 0), 0);
-  const currentValueMinor = investment.useAssetBreakdown
-    ? assetValueMinor
-    : Number(investment.currentValueMinor || 0);
+  const currentValueMinor = Number(investment.currentValueMinor || 0);
   const netContributedMinor = totalContributedMinor - totalWithdrawnMinor;
+  const gainLossMinor = currentValueMinor + totalWithdrawnMinor - totalContributedMinor;
 
   return {
     currentValueMinor,
     totalContributedMinor,
     totalWithdrawnMinor,
     netContributedMinor,
-    unrealizedMinor: currentValueMinor - netContributedMinor
+    netInvestedMinor: netContributedMinor,
+    gainLossMinor,
+    unrealizedMinor: gainLossMinor
   };
 }
 
@@ -5030,6 +5233,62 @@ function getInvestmentCategory(eventType) {
   return eventType === "withdrawal"
     ? getSystemCategoryByKey("investment_withdrawal")
     : getSystemCategoryByKey("investment_deposit");
+}
+
+function buildInvestmentScopeSummary(investments = getVisibleInvestments()) {
+  return investments.reduce((summary, investment) => {
+    const item = buildInvestmentSummary(investment);
+    summary.currentValueMinor += item.currentValueMinor;
+    summary.totalContributedMinor += item.totalContributedMinor;
+    summary.totalWithdrawnMinor += item.totalWithdrawnMinor;
+    summary.netInvestedMinor += item.netInvestedMinor;
+    summary.gainLossMinor += item.gainLossMinor;
+    return summary;
+  }, {
+    currentValueMinor: 0,
+    totalContributedMinor: 0,
+    totalWithdrawnMinor: 0,
+    netInvestedMinor: 0,
+    gainLossMinor: 0
+  });
+}
+
+function getInvestmentOwnerUserId(investment) {
+  return investment?.ownerUserId || investment?.createdByUserId || "";
+}
+
+function getInvestmentMovementAccountOptions(investment, eventType) {
+  if (!investment) {
+    return [];
+  }
+  if (eventType === "withdrawal") {
+    if (investment.scopeType === "household") {
+      return getOwnedActiveAccounts();
+    }
+    const ownerUserId = getInvestmentOwnerUserId(investment);
+    return getActiveAccounts().filter(account => account.primaryOwnerUserId === ownerUserId);
+  }
+  return getOwnedActiveAccounts();
+}
+
+function getInvestmentName(investmentId = "") {
+  return state.investmentAccounts.find(item => item.id === investmentId)?.name || "Investment";
+}
+
+function getInvestmentEventLabel(eventType = "") {
+  if (eventType === "deposit" || eventType === "contribution") {
+    return "Investment deposit";
+  }
+  if (eventType === "withdrawal") {
+    return "Investment withdrawal";
+  }
+  if (eventType === "valuation" || eventType === "valuation_update") {
+    return "Value update";
+  }
+  if (eventType === "archive") {
+    return "Archived";
+  }
+  return "Investment activity";
 }
 
 function buildInvestmentEventPayload({ investment, eventType, amountMinor, note, ledgerAccount = null, ledgerTransactionId = null, transactionGroupId = null }) {
@@ -5245,6 +5504,14 @@ function isSavingCategory(category) {
 
 function isProtectedSystemCategory(category) {
   return Boolean(category?.systemKey && PROTECTED_SYSTEM_CATEGORY_KEYS.has(category.systemKey));
+}
+
+function getCategorySystemKey(categoryId = "") {
+  return state.categories.find(category => category.id === categoryId)?.systemKey || "";
+}
+
+function isInvestmentCategoryId(categoryId = "") {
+  return INVESTMENT_CATEGORY_KEYS.has(getCategorySystemKey(categoryId));
 }
 
 function getSystemCategoryByKey(systemKey) {
@@ -6346,7 +6613,7 @@ function renderCategories() {
 
 function renderTransactions() {
   const entries = getLedgerEntriesForCurrentMode();
-  const totalVisibleEntries = getVisibleGroupedEntries().length;
+  const totalVisibleEntries = filterLedgerEntries(getVisibleGroupedEntries(), state.dashboardLedgerFilters).length;
   const scopeLabel = state.scope === "personal" ? "personal filter" : "household filter";
   els.historyList.innerHTML = "";
   renderLedgerNav();
@@ -6373,29 +6640,155 @@ function renderTransactions() {
   });
 }
 
-function buildHistoryMarkup(entry) {
-  const typePillClass = entry.kind === "transfer"
-    ? "transfer"
-    : entry.kind === "income"
-      ? "income"
-      : entry.kind === "adjustment" && entry.postingKind === "adjustment_increase"
-        ? "adjustment-increase"
-        : entry.kind === "adjustment" && entry.postingKind === "adjustment_decrease"
-          ? "adjustment-decrease"
-          : "outcome";
+function renderLedgerFilterControls() {
+  renderDashboardLedgerFilters();
+  renderPlanningLedgerFilters();
+}
 
+function renderDashboardLedgerFilters() {
+  if (!els.dashboardLedgerKindFilter) {
+    return;
+  }
+
+  renderLedgerKindOptions(els.dashboardLedgerKindFilter, state.dashboardLedgerFilters.kind, { includeInvestment: true });
+  renderLedgerAccountOptions(els.dashboardLedgerAccountFilter, state.dashboardLedgerFilters.accountId);
+  renderLedgerCategoryOptions(els.dashboardLedgerCategoryFilter, state.dashboardLedgerFilters.categoryId);
+}
+
+function renderPlanningLedgerFilters() {
+  if (!els.ledgerPageKindFilter) {
+    return;
+  }
+
+  renderLedgerKindOptions(els.ledgerPageKindFilter, state.planningLedgerFilters.kind, { includeInvestment: true });
+  renderLedgerAccountOptions(els.ledgerPageAccountFilter, state.planningLedgerFilters.accountId);
+  renderLedgerCategoryOptions(els.ledgerPageCategoryFilter, state.planningLedgerFilters.categoryId);
+  els.ledgerPageDateFrom.value = state.planningLedgerFilters.dateFrom || "";
+  els.ledgerPageDateTo.value = state.planningLedgerFilters.dateTo || "";
+  els.ledgerPageSort.value = state.planningLedgerSort;
+}
+
+function renderLedgerKindOptions(select, value = "", options = {}) {
+  if (!select) {
+    return;
+  }
+
+  const kinds = [
+    ["", "All types"],
+    ["income", "Income"],
+    ["outcome", "Outcome"],
+    ["transfer", "Transfer"],
+    ["adjustment", "Balance correction"]
+  ];
+  if (options.includeInvestment) {
+    kinds.push(["investment", "Investment movement"]);
+  }
+  select.innerHTML = kinds
+    .map(([kind, label]) => `<option value="${escapeHtml(kind)}">${escapeHtml(label)}</option>`)
+    .join("");
+  setSelectValue(select, value);
+}
+
+function renderLedgerAccountOptions(select, value = "") {
+  if (!select) {
+    return;
+  }
+
+  const accounts = getVisibleAccounts();
+  select.innerHTML = [
+    `<option value="">All accounts</option>`,
+    ...accounts.map(account => `<option value="${escapeHtml(account.id)}">${escapeHtml(getAccountOptionLabel(account))}</option>`)
+  ].join("");
+  setSelectValue(select, value);
+}
+
+function renderLedgerCategoryOptions(select, value = "") {
+  if (!select) {
+    return;
+  }
+
+  const categories = state.categories
+    .filter(category => category.status === "active")
+    .sort((left, right) => (left.name || "").localeCompare(right.name || ""));
+  select.innerHTML = [
+    `<option value="">All categories</option>`,
+    ...categories.map(category => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`)
+  ].join("");
+  setSelectValue(select, value);
+}
+
+function renderPlanningLedger() {
+  if (!els.ledgerTable) {
+    return;
+  }
+
+  if (!state.planningLedgerLoaded) {
+    els.ledgerPageMeta.textContent = "Open the Ledger tab to load ledger rows.";
+    els.ledgerTable.innerHTML = `<p class="status-copy">Ledger rows load when this tab is opened.</p>`;
+    els.ledgerLoadMoreBtn?.classList.add("hidden");
+    return;
+  }
+
+  const entries = getPlanningLedgerEntries();
+  const visibleEntries = entries.slice(0, state.planningLedgerVisibleCount);
+  els.ledgerPageMeta.textContent = `Showing ${visibleEntries.length} of ${entries.length} matching ${entries.length === 1 ? "entry" : "entries"}.`;
+  els.ledgerLoadMoreBtn?.classList.toggle("hidden", visibleEntries.length >= entries.length);
+
+  if (!visibleEntries.length) {
+    els.ledgerTable.innerHTML = `<div class="empty-card"><h4>No matching ledger rows</h4><p>Adjust the filters or create transactions first.</p></div>`;
+    return;
+  }
+
+  els.ledgerTable.innerHTML = `
+    <div class="ledger-table">
+      <div class="ledger-table-row ledger-table-head">
+        <span>Transaction Date</span>
+        <span>Created</span>
+        <span>Type</span>
+        <span>Account</span>
+        <span>Category / Route</span>
+        <span>Note</span>
+        <span>Amount</span>
+      </div>
+      ${visibleEntries.map(buildLedgerTableRow).join("")}
+    </div>
+  `;
+}
+
+function buildLedgerTableRow(entry) {
+  const route = entry.kind === "transfer"
+    ? `${entry.fromAccountName} to ${entry.toAccountName}`
+    : entry.kind === "adjustment"
+      ? entry.accountName
+      : entry.categoryName || "-";
+  const account = entry.kind === "transfer"
+    ? entry.fromAccountName
+    : entry.accountName || "-";
+  const typeLabel = isInvestmentEntry(entry)
+    ? getInvestmentEntryLabel(entry)
+    : entry.kind === "adjustment"
+      ? "Balance correction"
+      : entry.kindLabel;
+  const amountPrefix = getLedgerAmountPrefix(entry);
+  const amountClass = getLedgerAmountClass(entry);
+
+  return `
+    <div class="ledger-table-row">
+      <span data-label="Transaction Date">${escapeHtml(formatDate(entry.transactionAt))}</span>
+      <span data-label="Created">${escapeHtml(formatDateTime(entry.createdAt))}</span>
+      <span data-label="Type">${escapeHtml(typeLabel)}</span>
+      <span data-label="Account">${escapeHtml(account)}</span>
+      <span data-label="Category / Route">${escapeHtml(route)}</span>
+      <span data-label="Note">${escapeHtml(entry.note || "-")}</span>
+      <span data-label="Amount" class="history-amount ${amountClass}">${escapeHtml(`${amountPrefix}${formatRupiah(entry.amountMinor)}`)}</span>
+    </div>
+  `;
+}
+
+function buildHistoryMarkup(entry) {
+  const typePillClass = getLedgerAmountClass(entry);
   const amountClass = entry.kind === "adjustment" ? "adjustment" : typePillClass;
-  const isPersonalScope = state.scope === "personal";
-  const transferDirection = entry.kind === "transfer" ? getTransferDirectionForCurrentUser(entry) : "neutral";
-  const amountPrefix = entry.kind === "income" || entry.postingKind === "adjustment_increase"
-    ? "+"
-    : entry.kind === "transfer"
-      ? isPersonalScope && transferDirection === "out"
-        ? "-"
-        : isPersonalScope && transferDirection === "in"
-          ? "+"
-          : ""
-      : "-";
+  const amountPrefix = getLedgerAmountPrefix(entry);
 
   const normalizedTitle = entry.kind === "transfer"
     ? `${entry.fromAccountName} to ${entry.toAccountName}`
@@ -6787,6 +7180,7 @@ function syncTransactionFeeField() {
   const kind = els.transactionKind.value;
   const showToggle = !state.editTransactionGroupId && (kind === "outcome" || kind === "transfer");
   els.transactionFeeToggleField.classList.toggle("hidden", !showToggle);
+  els.transactionFeeHelpBtn.classList.toggle("hidden", !showToggle);
   els.transactionFeeField.classList.toggle("hidden", !showToggle || !els.transactionFeeEnabled.checked);
   if (!showToggle) {
     els.transactionFeeEnabled.checked = false;
@@ -7053,7 +7447,7 @@ function getVisibleGroupedEntries() {
 }
 
 function getLedgerEntriesForCurrentMode() {
-  const visibleEntries = getVisibleGroupedEntries()
+  const visibleEntries = filterLedgerEntries(getVisibleGroupedEntries(), state.dashboardLedgerFilters)
     .sort((a, b) => getTimestampSortValue(b.createdAt) - getTimestampSortValue(a.createdAt));
 
   if (state.ledgerMode === "month") {
@@ -7061,6 +7455,101 @@ function getLedgerEntriesForCurrentMode() {
   }
 
   return visibleEntries.slice(0, 10);
+}
+
+function getPlanningLedgerEntries() {
+  return filterLedgerEntries(getVisibleGroupedEntries(), state.planningLedgerFilters)
+    .sort((left, right) => {
+      const field = state.planningLedgerSort.startsWith("transaction") ? "transactionAt" : "createdAt";
+      const leftValue = getTimestampSortValue(left[field]);
+      const rightValue = getTimestampSortValue(right[field]);
+      return state.planningLedgerSort.endsWith("-asc")
+        ? leftValue - rightValue
+        : rightValue - leftValue;
+    });
+}
+
+function filterLedgerEntries(entries, filters = {}) {
+  return entries.filter(entry => {
+    if (filters.kind) {
+      if (filters.kind === "investment") {
+        if (!isInvestmentEntry(entry)) {
+          return false;
+        }
+      } else if (entry.kind !== filters.kind) {
+        return false;
+      }
+    }
+
+    if (filters.accountId && !entry.rows.some(row => row.accountId === filters.accountId || row.counterpartyAccountId === filters.accountId)) {
+      return false;
+    }
+
+    if (filters.categoryId && !entry.rows.some(row => row.categoryId === filters.categoryId)) {
+      return false;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      const transactionMillis = getTimestampSortValue(entry.transactionAt);
+      if (filters.dateFrom && transactionMillis < dateFromDateInput(filters.dateFrom).getTime()) {
+        return false;
+      }
+      if (filters.dateTo) {
+        const endDate = dateFromDateInput(filters.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        if (transactionMillis > endDate.getTime()) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+}
+
+function isInvestmentEntry(entry) {
+  return Boolean(entry?.investmentAccountId)
+    || entry?.rows?.some(row => isInvestmentCategoryId(row.categoryId) || row.investmentAccountId);
+}
+
+function getInvestmentEntryLabel(entry) {
+  const row = entry?.rows?.find(item => isInvestmentCategoryId(item.categoryId) || item.investmentAccountId);
+  const systemKey = getCategorySystemKey(row?.categoryId || "");
+  return systemKey === "investment_withdrawal" ? "Investment withdrawal" : "Investment deposit";
+}
+
+function getLedgerAmountClass(entry) {
+  if (entry.kind === "transfer") {
+    return "transfer";
+  }
+  if (entry.kind === "income") {
+    return "income";
+  }
+  if (entry.kind === "adjustment" && entry.postingKind === "adjustment_increase") {
+    return "adjustment-increase";
+  }
+  if (entry.kind === "adjustment" && entry.postingKind === "adjustment_decrease") {
+    return "adjustment-decrease";
+  }
+  return "outcome";
+}
+
+function getLedgerAmountPrefix(entry) {
+  const isPersonalScope = state.scope === "personal";
+  const transferDirection = entry.kind === "transfer" ? getTransferDirectionForCurrentUser(entry) : "neutral";
+  if (entry.kind === "income" || entry.postingKind === "adjustment_increase") {
+    return "+";
+  }
+  if (entry.kind === "transfer") {
+    if (isPersonalScope && transferDirection === "out") {
+      return "-";
+    }
+    if (isPersonalScope && transferDirection === "in") {
+      return "+";
+    }
+    return "";
+  }
+  return "-";
 }
 
 function renderLedgerNav() {
@@ -7136,7 +7625,7 @@ function canEditAccount(account) {
 }
 
 function canDeleteEntry(entry) {
-  return Boolean(entry && state.authUser && entry.createdByUserId === state.authUser.uid);
+  return Boolean(entry && state.authUser && entry.createdByUserId === state.authUser.uid && !isInvestmentEntry(entry));
 }
 
 function canEditEntry(entry) {
@@ -7233,7 +7722,7 @@ function getActiveRawTransactions() {
   return state.transactionsRaw.filter(transaction => transaction.status !== "deleted");
 }
 
-function buildSingleRow({ id, kind, amountMinor, note, transactionAt, account, category, savingGoalId = null, recurringBillId = null, recurringBillOccurrenceId = null }) {
+function buildSingleRow({ id, kind, amountMinor, note, transactionAt, account, category, savingGoalId = null, recurringBillId = null, recurringBillOccurrenceId = null, investmentAccountId = null }) {
   return {
     transactionGroupId: id,
     postingKind: kind,
@@ -7252,6 +7741,7 @@ function buildSingleRow({ id, kind, amountMinor, note, transactionAt, account, c
     note,
     createdByUserId: state.authUser.uid,
     savingGoalId,
+    investmentAccountId,
     recurringBillId,
     recurringBillOccurrenceId,
     status: "active",
@@ -7281,6 +7771,7 @@ function buildTransferRow({ id, groupId, postingKind, amountMinor, note, transac
     note,
     createdByUserId: state.authUser.uid,
     savingGoalId,
+    investmentAccountId: null,
     recurringBillId: null,
     recurringBillOccurrenceId: null,
     status: "active",
@@ -7310,6 +7801,7 @@ function buildAdjustmentRow({ id, account, amountMinor, postingKind, note }) {
     note,
     createdByUserId: state.authUser.uid,
     savingGoalId: null,
+    investmentAccountId: null,
     recurringBillId: null,
     recurringBillOccurrenceId: null,
     status: "active",
@@ -7500,6 +7992,9 @@ function setSettingsMode(mode) {
 
 function setView(view) {
   state.currentView = view;
+  if (view === "planning" && state.planningTab === "ledger") {
+    state.planningLedgerLoaded = true;
+  }
   renderApp();
 }
 
@@ -7622,6 +8117,7 @@ function setAuthBusy(isBusy) {
     els.loginPassword,
     els.loginPasswordToggle,
     els.forgotPasswordBtn,
+    els.loginForm.querySelector("button[type='submit']"),
     els.registrationCodeEmail,
     els.registrationCode,
     els.registrationCodeForm.querySelector("button[type='submit']"),
@@ -7633,12 +8129,25 @@ function setAuthBusy(isBusy) {
     els.signupModeCreate,
     els.signupModeJoin,
     els.signupHouseholdName,
-    els.signupInviteCode
+    els.signupInviteCode,
+    els.signupForm.querySelector("button[type='submit']")
   ].forEach(element => {
     if (element) {
       element.disabled = isBusy;
     }
   });
+}
+
+function setButtonLoading(button, isLoading, loadingText = "Working...") {
+  if (!button) {
+    return;
+  }
+  if (!button.dataset.defaultText) {
+    button.dataset.defaultText = button.textContent;
+  }
+  button.disabled = isLoading;
+  button.classList.toggle("is-loading", isLoading);
+  button.textContent = isLoading ? loadingText : button.dataset.defaultText;
 }
 
 function formatMoneyInput(input) {
@@ -7687,25 +8196,25 @@ function sanitizeFilenamePart(value = "") {
 }
 
 function buildCsv(rows) {
-  const headers = [
-    "displayKindLabel",
-    "postingKind",
-    "transactionAtFormatted",
-    "createdAtFormatted",
-    "amountMinor",
-    "currencyCode",
-    "createdByDisplayName",
-    "accountName",
-    "accountOwnerDisplayName",
-    "counterpartyAccountName",
-    "counterpartyAccountOwnerDisplayName",
-    "categoryName",
-    "note"
+  const columns = [
+    { label: "Transaction type", field: "displayKindLabel" },
+    { label: "Posting type", field: "postingKind" },
+    { label: "Transaction date", field: "transactionAtFormatted" },
+    { label: "Created date", field: "createdAtFormatted" },
+    { label: "Amount", field: "amountMinor" },
+    { label: "Currency", field: "currencyCode" },
+    { label: "Created by", field: "createdByDisplayName" },
+    { label: "Account", field: "accountName" },
+    { label: "Account owner", field: "accountOwnerDisplayName" },
+    { label: "Counterparty account", field: "counterpartyAccountName" },
+    { label: "Counterparty owner", field: "counterpartyAccountOwnerDisplayName" },
+    { label: "Category", field: "categoryName" },
+    { label: "Note", field: "note" }
   ];
 
   return [
-    headers.join(","),
-    ...rows.map(row => headers.map(header => csvEscape(readExportField(row, header))).join(","))
+    columns.map(column => csvEscape(column.label)).join(","),
+    ...rows.map(row => columns.map(column => csvEscape(readExportField(row, column.field))).join(","))
   ].join("\n");
 }
 

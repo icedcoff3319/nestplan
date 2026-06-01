@@ -327,6 +327,37 @@ textarea:focus {
   gap: 10px;
 }
 
+.fee-label-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(111, 129, 104, 0.16);
+  border-radius: 999px;
+  background: rgba(239, 244, 233, 0.84);
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.inline-check input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.inline-fee-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .ghost-icon-btn {
   position: absolute;
   top: 50%;
@@ -388,6 +419,14 @@ textarea:focus {
 .primary-btn {
   background: var(--primary);
   color: #f8faf6;
+}
+
+.primary-btn.is-loading,
+.secondary-btn.is-loading,
+.danger-btn.is-loading,
+.ghost-btn.is-loading {
+  cursor: wait;
+  opacity: 0.74;
 }
 
 .primary-btn:hover,
@@ -571,6 +610,13 @@ textarea:focus {
 #app-screen textarea {
   min-height: 46px;
   padding: 11px 13px;
+}
+
+#app-screen .inline-check input {
+  min-height: 13px;
+  width: 13px;
+  height: 13px;
+  padding: 0;
 }
 
 #app-screen select {
@@ -1258,6 +1304,87 @@ textarea:focus {
   gap: var(--space-3);
 }
 
+.ledger-filter-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.ledger-filter-row select,
+.ledger-filter-row .ghost-btn {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.ledger-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.ledger-planning-grid {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+}
+
+.ledger-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(111, 129, 104, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.ledger-table {
+  display: grid;
+  min-width: 900px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.ledger-table-row {
+  display: grid;
+  grid-template-columns: 0.85fr 1fr 0.72fr 1.05fr 1.15fr 1.25fr 0.95fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(111, 129, 104, 0.1);
+}
+
+.ledger-table-row:last-child {
+  border-bottom: 0;
+}
+
+.ledger-table-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 32px;
+  background: rgba(239, 241, 230, 0.96);
+  color: var(--text-strong);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ledger-table .history-amount {
+  margin: 0;
+  justify-self: end;
+  font-size: 12px;
+}
+
+.investment-summary-grid {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
 .admin-table-wrap {
   display: block;
   overflow-x: auto;
@@ -1350,6 +1477,44 @@ textarea:focus {
 @media (max-width: 719px) {
   .investment-asset-row {
     grid-template-columns: 1fr;
+  }
+
+  .ledger-filter-row,
+  .ledger-filter-grid,
+  .ledger-planning-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger-table {
+    min-width: 0;
+  }
+
+  .ledger-table-head {
+    display: none;
+  }
+
+  .ledger-table-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .ledger-table-row > span[data-label] {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    white-space: normal;
+  }
+
+  .ledger-table-row > span[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    color: var(--text-faint);
+    font-weight: 800;
+  }
+
+  .ledger-table .history-amount {
+    justify-self: stretch;
   }
 }
 
@@ -1730,6 +1895,10 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .investment-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .dashboard-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1746,7 +1915,8 @@ textarea:focus {
   .management-grid,
   .settings-grid,
   .planning-grid,
-  .performance-grid {
+  .performance-grid,
+  .ledger-planning-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

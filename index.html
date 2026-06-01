@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510c" />
+  <link rel="stylesheet" href="./styles.css?v=20260510d" />
 </head>
 <body>
   <main class="app-shell">
@@ -529,8 +529,19 @@
 
               <div class="field-grid two-up">
                 <div class="field-group">
-                  <label for="transaction-amount">Amount</label>
+                  <div class="label-with-action fee-label-row">
+                    <label for="transaction-amount">Amount</label>
+                    <label id="transaction-fee-toggle-field" class="inline-check hidden" for="transaction-fee-enabled">
+                      <input id="transaction-fee-enabled" type="checkbox" />
+                      <span>Add fee</span>
+                    </label>
+                    <button class="icon-btn subtle app-info-btn hidden" id="transaction-fee-help-btn" type="button" data-info-topic="transaction-fee" aria-label="Explain transaction fee">i</button>
+                  </div>
                   <input id="transaction-amount" type="text" inputmode="numeric" placeholder="45.000" required />
+                  <div id="transaction-fee-field" class="inline-fee-field hidden">
+                    <label for="transaction-fee-amount">Fee amount</label>
+                    <input id="transaction-fee-amount" type="text" inputmode="numeric" placeholder="2.500" />
+                  </div>
                 </div>
                 <div id="transaction-category-field" class="field-group">
                   <div class="label-with-action">
@@ -563,16 +574,6 @@
               <div id="transaction-use-saving-field" class="field-group hidden">
                 <label for="transaction-use-saving">Use Saving</label>
                 <select id="transaction-use-saving"></select>
-              </div>
-
-              <label id="transaction-fee-toggle-field" class="toggle-field compact-toggle hidden" for="transaction-fee-enabled">
-                <input id="transaction-fee-enabled" type="checkbox" />
-                <span>Add transaction fee</span>
-              </label>
-
-              <div id="transaction-fee-field" class="field-group hidden">
-                <label for="transaction-fee-amount">Fee amount</label>
-                <input id="transaction-fee-amount" type="text" inputmode="numeric" placeholder="2.500" />
               </div>
 
               <div id="entry-fields" class="field-stack compact-form">
@@ -654,6 +655,13 @@
 
             <div id="ledger-nav" class="list-row-meta"></div>
 
+            <div id="dashboard-ledger-filters" class="ledger-filter-row">
+              <select id="dashboard-ledger-kind-filter" aria-label="Filter recent ledger by type"></select>
+              <select id="dashboard-ledger-account-filter" aria-label="Filter recent ledger by account"></select>
+              <select id="dashboard-ledger-category-filter" aria-label="Filter recent ledger by category"></select>
+              <button id="dashboard-ledger-clear-btn" class="ghost-btn small-btn" type="button">Clear</button>
+            </div>
+
             <div id="history-list" class="transactions-list">
               <p class="status-copy">Loading entries...</p>
             </div>
@@ -675,6 +683,7 @@
               <button id="planning-tab-budgets" class="segment-btn active" type="button" data-planning-tab="budgets">Budgets</button>
               <button id="planning-tab-savings" class="segment-btn" type="button" data-planning-tab="savings">Savings</button>
               <button id="planning-tab-bills" class="segment-btn" type="button" data-planning-tab="bills">Bills</button>
+              <button id="planning-tab-ledger" class="segment-btn" type="button" data-planning-tab="ledger">Ledger</button>
               <button id="planning-tab-performance" class="segment-btn" type="button" data-planning-tab="performance">Performance</button>
             </div>
           </section>
@@ -896,6 +905,68 @@
               </section>
             </div>
           </section>
+
+          <section id="planning-ledger-panel" class="planning-panel hidden">
+            <div class="planning-grid ledger-planning-grid">
+              <section class="card">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Ledger filters</h3>
+                    <p class="card-subtle">Review older activity with filters and sorting without crowding the dashboard.</p>
+                  </div>
+                </div>
+                <div class="ledger-filter-grid">
+                  <div class="field-group">
+                    <label for="ledger-page-kind-filter">Type</label>
+                    <select id="ledger-page-kind-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-account-filter">Account</label>
+                    <select id="ledger-page-account-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-category-filter">Category</label>
+                    <select id="ledger-page-category-filter"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-date-from">From</label>
+                    <input id="ledger-page-date-from" type="date" />
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-date-to">To</label>
+                    <input id="ledger-page-date-to" type="date" />
+                  </div>
+                  <div class="field-group">
+                    <label for="ledger-page-sort">Sort</label>
+                    <select id="ledger-page-sort">
+                      <option value="created-desc">Created newest</option>
+                      <option value="created-asc">Created oldest</option>
+                      <option value="transaction-desc">Transaction newest</option>
+                      <option value="transaction-asc">Transaction oldest</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="action-row">
+                  <button id="ledger-page-clear-btn" class="ghost-btn" type="button">Clear filters</button>
+                </div>
+              </section>
+
+              <section class="card card-span-2">
+                <div class="card-header space-between">
+                  <div>
+                    <h3 class="card-title">Ledger table</h3>
+                    <p id="ledger-page-meta" class="card-subtle">Open this tab to load ledger rows.</p>
+                  </div>
+                </div>
+                <div id="ledger-table" class="ledger-table-wrap">
+                  <p class="status-copy">Ledger rows load when this tab is opened.</p>
+                </div>
+                <div class="action-row">
+                  <button id="ledger-load-more-btn" class="ghost-btn hidden" type="button">Load more</button>
+                </div>
+              </section>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -963,42 +1034,55 @@
             <div class="card-header">
               <div>
                 <h3 class="card-title">Investments</h3>
-                <p class="card-subtle">Track investment accounts manually, record contributions and withdrawals through the ledger, and keep room for a detailed investment ledger later.</p>
+                <p class="card-subtle">Track portfolio value separately from daily cash while keeping deposits and withdrawals visible in the ledger.</p>
               </div>
             </div>
+          </section>
+
+          <section class="summary-cards investment-summary-grid">
+            <article class="summary-stat">
+              <span class="summary-label">Current value</span>
+              <p id="investment-total-value" class="summary-value net">Rp0</p>
+            </article>
+            <article class="summary-stat">
+              <span class="summary-label">Net invested</span>
+              <p id="investment-net-invested" class="summary-value income">Rp0</p>
+            </article>
+            <article class="summary-stat">
+              <span class="summary-label">Gain / loss</span>
+              <p id="investment-gain-loss" class="summary-value net">Rp0</p>
+            </article>
           </section>
 
           <div class="planning-grid">
             <section class="card">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Investment account</h3>
-                  <p id="investment-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New investment accounts created here belong to you only.</p>
+                  <h3 class="card-title">Portfolio</h3>
+                  <p id="investment-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New portfolios created here belong to you only.</p>
                 </div>
               </div>
 
               <form id="investment-form" class="field-stack compact-form">
                 <input id="investment-edit-id" type="hidden" />
                 <div class="field-group">
-                  <label for="investment-name">Investment name</label>
-                  <input id="investment-name" type="text" placeholder="Brokerage account" required />
+                  <label for="investment-name">Portfolio name</label>
+                  <input id="investment-name" type="text" placeholder="Brokerage, gold, mutual fund" required />
                 </div>
-                <div class="field-grid two-up">
-                  <div class="field-group">
-                    <label for="investment-current-value">Current value</label>
-                    <input id="investment-current-value" type="text" inputmode="numeric" placeholder="0" />
-                  </div>
-                  <label class="toggle-field compact-toggle" for="investment-use-assets">
-                    <input id="investment-use-assets" type="checkbox" />
-                    <span>Use asset breakdown</span>
-                  </label>
+                <div class="field-group">
+                  <label for="investment-current-value">Current value</label>
+                  <input id="investment-current-value" type="text" inputmode="numeric" placeholder="0" />
                 </div>
+                <label class="toggle-field compact-toggle hidden" for="investment-use-assets" aria-hidden="true">
+                  <input id="investment-use-assets" type="checkbox" />
+                  <span>Use asset breakdown</span>
+                </label>
                 <div class="field-group">
                   <label for="investment-note">Note</label>
                   <input id="investment-note" type="text" placeholder="Manual tracker" />
                 </div>
                 <div class="action-row">
-                  <button id="investment-submit-btn" class="primary-btn" type="submit">Save investment</button>
+                  <button id="investment-submit-btn" class="primary-btn" type="submit">Save portfolio</button>
                   <button id="investment-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
                 </div>
                 <div id="investment-message" class="message" aria-live="polite"></div>
@@ -1009,7 +1093,7 @@
               <div class="card-header">
                 <div>
                   <h3 class="card-title">Visible investments</h3>
-                  <p class="card-subtle">Personal investments show in My view. Shared investments show in Household view.</p>
+                  <p class="card-subtle">Personal portfolios show in My view. Shared portfolios show in Household view.</p>
                 </div>
               </div>
               <div id="investments-list" class="stack-list">
@@ -1020,8 +1104,8 @@
             <section class="card">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Contribution or withdrawal</h3>
-                  <p class="card-subtle">These actions create normal ledger rows using the investment system categories.</p>
+                  <h3 class="card-title">Deposit or withdrawal</h3>
+                  <p class="card-subtle">Cash movements affect account balance but stay separate from monthly income, expenses, and budgets.</p>
                 </div>
               </div>
 
@@ -1034,14 +1118,14 @@
                   <div class="field-group">
                     <label for="investment-movement-type">Type</label>
                     <select id="investment-movement-type">
-                      <option value="contribution">Contribution</option>
+                      <option value="deposit">Deposit</option>
                       <option value="withdrawal">Withdrawal</option>
                     </select>
                   </div>
                 </div>
                 <div class="field-grid two-up">
                   <div class="field-group">
-                    <label for="investment-movement-ledger-account">Ledger account</label>
+                    <label id="investment-movement-ledger-label" for="investment-movement-ledger-account">Cash account</label>
                     <select id="investment-movement-ledger-account"></select>
                   </div>
                   <div class="field-group">
@@ -1051,9 +1135,9 @@
                 </div>
                 <div class="field-group">
                   <label for="investment-movement-note">Note</label>
-                  <input id="investment-movement-note" type="text" placeholder="Monthly contribution" />
+                  <input id="investment-movement-note" type="text" placeholder="Monthly deposit" />
                 </div>
-                <button class="primary-btn" type="submit">Save movement</button>
+                <button id="investment-movement-submit-btn" class="primary-btn" type="submit">Save movement</button>
                 <div id="investment-movement-message" class="message" aria-live="polite"></div>
               </form>
             </section>
@@ -1061,11 +1145,16 @@
             <section class="card">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Asset breakdown</h3>
-                  <p class="card-subtle">Optional detail for investments that should derive value from individual assets.</p>
+                  <h3 class="card-title">Investment history</h3>
+                  <p class="card-subtle">Deposits, withdrawals, and manual value updates are kept here for review.</p>
                 </div>
               </div>
+              <div id="investment-activity-list" class="stack-list">
+                <p class="status-copy">No investment activity yet.</p>
+              </div>
+            </section>
 
+            <section class="hidden" aria-hidden="true">
               <form id="investment-asset-form" class="field-stack compact-form">
                 <input id="investment-asset-edit-id" type="hidden" />
                 <div class="field-grid two-up">
@@ -1378,7 +1467,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510c";
+    window.__nestplanBuild = "20260510d";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1493,7 +1582,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510c").catch(function (error) {
+    import("./app.js?v=20260510d").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");
