@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "nestplan-863e5"
+    "default": "nestplan-863e5",
+    "production": "nestplan-863e5",
+    "staging": "nestplan-staging-863e5"
   }
 }

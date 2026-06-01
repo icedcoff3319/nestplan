@@ -5,6 +5,30 @@ export const MAX_HOUSEHOLDS = 3;
 export const INVITE_EXPIRY_HOURS = 24;
 export const DEFAULT_CATEGORY_SEED_VERSION = 1;
 
+export const SYSTEM_CATEGORY_SEEDS = [
+  {
+    id: "system-admin-fee",
+    systemKey: "admin_fee",
+    direction: "outcome",
+    name: "Admin Fee",
+    description: "Admin and transfer fees."
+  },
+  {
+    id: "system-investment-deposit",
+    systemKey: "investment_deposit",
+    direction: "outcome",
+    name: "Investment - Deposit",
+    description: "Money moved into an investment account."
+  },
+  {
+    id: "system-investment-withdrawal",
+    systemKey: "investment_withdrawal",
+    direction: "income",
+    name: "Investment - Withdrawal",
+    description: "Money withdrawn from an investment account."
+  }
+];
+
 export const DEFAULT_CATEGORY_SEED = [
   {
     direction: "outcome",
@@ -114,36 +138,7 @@ export const DEFAULT_CATEGORY_SEED = [
 ];
 
 export const GREETINGS = [
-  "A little clarity goes a long way.",
-  "One quiet check-in is enough.",
-  "Let today be simple.",
-  "Keep it steady.",
-  "Small entries, clear mind.",
-  "A calm look at what moved.",
-  "Start with one number.",
-  "Keep your money in view.",
-  "A softer kind of discipline.",
-  "Take stock, then move gently.",
-  "A clear month begins with small moments.",
-  "Keep track without the noise.",
-  "Make room for clarity.",
-  "A steady record is still progress.",
-  "Return to what matters.",
-  "One entry at a time.",
-  "Let the numbers settle.",
-  "Stay close to the rhythm.",
-  "A quiet habit builds a lot.",
-  "Keep this month in sight.",
-  "Slow down and notice.",
-  "A little order feels good.",
-  "Keep it light, keep it clear.",
-  "Ground yourself in the details.",
-  "This is your small checkpoint.",
-  "Clarity can be gentle.",
-  "Keep the month honest.",
-  "Start here, stay steady.",
-  "A calm record is still a strong one.",
-  "Just enough structure for today."
+  "Keep it steady."
 ];
 
 export const ENTRY_KINDS = [

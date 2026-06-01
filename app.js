@@ -6,6 +6,7 @@ import {
   db,
   deleteDoc,
   doc,
+  firebaseEnvironment,
   getDoc,
   getDocs,
   onAuthStateChanged,
@@ -22,8 +23,9 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260503d";
+} from "./firebase-client.js?v=20260510b";
 import {
+  CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
   DEFAULT_CATEGORY_SEED,
   DEFAULT_CATEGORY_SEED_VERSION,
@@ -31,13 +33,20 @@ import {
   GREETINGS,
   INVITE_EXPIRY_HOURS,
   MAX_HOUSEHOLDS,
+  SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260503d";
+} from "./constants.js?v=20260510b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
 const ADMIN_ROUTE_PARAM = "admin";
 const REGISTRATION_CODE_LENGTH = 8;
+const INVESTMENT_CATEGORY_KEYS = new Set(["investment_deposit", "investment_withdrawal"]);
+const PROTECTED_SYSTEM_CATEGORY_KEYS = new Set([
+  "saving",
+  "admin_fee",
+  ...INVESTMENT_CATEGORY_KEYS
+]);
 
 const state = {
   authUser: null,
@@ -55,7 +64,11 @@ const state = {
   savingGoalEvents: [],
   recurringBills: [],
   recurringBillOccurrences: [],
+  investmentAccounts: [],
+  investmentAssets: [],
+  investmentEvents: [],
   greetingQuotes: [],
+  defaultCategoryLibrary: [],
   scope: DEFAULT_SCOPE,
   currentView: "dashboard",
   planningTab: "budgets",
@@ -71,7 +84,8 @@ const state = {
     codes: [],
     overrides: [],
     blockedDomains: [],
-    greetingQuotes: []
+    greetingQuotes: [],
+    defaultCategories: []
   },
   signupMode: "create",
   setupMode: "create",
@@ -82,6 +96,8 @@ const state = {
   editBudgetId: null,
   editSavingGoalId: null,
   editBillId: null,
+  editInvestmentId: null,
+  editInvestmentAssetId: null,
   sessionGreeting: GREETINGS[0],
   openHistoryMenuId: null,
   openBillMenuId: null,
@@ -91,7 +107,7 @@ const state = {
   authFlowLock: false,
   ledgerMode: "recent",
   ledgerMonthOffset: 0,
-  ensuringSavingCategory: false
+  ensuringSystemCategories: false
 };
 
 const els = {
@@ -154,6 +170,15 @@ const els = {
   masterGreetingSeedBtn: document.getElementById("master-greeting-seed-btn"),
   masterGreetingMessage: document.getElementById("master-greeting-message"),
   masterGreetingList: document.getElementById("master-greeting-list"),
+  masterDefaultCategoryForm: document.getElementById("master-default-category-form"),
+  masterDefaultCategoryEditId: document.getElementById("master-default-category-edit-id"),
+  masterDefaultCategoryName: document.getElementById("master-default-category-name"),
+  masterDefaultCategoryDirection: document.getElementById("master-default-category-direction"),
+  masterDefaultCategoryDescription: document.getElementById("master-default-category-description"),
+  masterDefaultCategorySubmitBtn: document.getElementById("master-default-category-submit-btn"),
+  masterDefaultCategoryCancelBtn: document.getElementById("master-default-category-cancel-btn"),
+  masterDefaultCategoryMessage: document.getElementById("master-default-category-message"),
+  masterDefaultCategoryList: document.getElementById("master-default-category-list"),
   setupUserLabel: document.getElementById("setup-user-label"),
   setupAvatar: document.getElementById("setup-avatar"),
   setupLogoutBtn: document.getElementById("setup-logout-btn"),
@@ -175,7 +200,7 @@ const els = {
   navDashboard: document.getElementById("nav-dashboard"),
   navPlanning: document.getElementById("nav-planning"),
   navManagement: document.getElementById("nav-management"),
-  navPerformance: document.getElementById("nav-performance"),
+  navInvestments: document.getElementById("nav-investments"),
   navSettings: document.getElementById("nav-settings"),
   settingsGearBtn: document.getElementById("settings-gear-btn"),
   scopeCopy: document.getElementById("scope-copy"),
@@ -194,6 +219,7 @@ const els = {
   planningView: document.getElementById("planning-view"),
   managementView: document.getElementById("management-view"),
   performanceView: document.getElementById("performance-view"),
+  investmentsView: document.getElementById("investments-view"),
   settingsView: document.getElementById("settings-view"),
   accountForm: document.getElementById("account-form"),
   accountEditId: document.getElementById("account-edit-id"),
@@ -242,6 +268,10 @@ const els = {
   transactionAccountField: document.getElementById("transaction-account-field"),
   transactionUseSavingField: document.getElementById("transaction-use-saving-field"),
   transactionUseSaving: document.getElementById("transaction-use-saving"),
+  transactionFeeToggleField: document.getElementById("transaction-fee-toggle-field"),
+  transactionFeeEnabled: document.getElementById("transaction-fee-enabled"),
+  transactionFeeField: document.getElementById("transaction-fee-field"),
+  transactionFeeAmount: document.getElementById("transaction-fee-amount"),
   entryFields: document.getElementById("entry-fields"),
   transferFields: document.getElementById("transfer-fields"),
   transactionCategory: document.getElementById("transaction-category"),
@@ -271,6 +301,9 @@ const els = {
   settingsHouseholdSwitcher: document.getElementById("settings-household-switcher"),
   settingsPasswordResetBtn: document.getElementById("settings-password-reset-btn"),
   profileMessage: document.getElementById("profile-message"),
+  householdRenameForm: document.getElementById("household-rename-form"),
+  householdRenameName: document.getElementById("household-rename-name"),
+  householdRenameMessage: document.getElementById("household-rename-message"),
   settingsModeCreate: document.getElementById("settings-mode-create"),
   settingsModeJoin: document.getElementById("settings-mode-join"),
   settingsCreateForm: document.getElementById("settings-create-form"),
@@ -286,6 +319,7 @@ const els = {
   planningTabBudgets: document.getElementById("planning-tab-budgets"),
   planningTabSavings: document.getElementById("planning-tab-savings"),
   planningTabBills: document.getElementById("planning-tab-bills"),
+  planningTabPerformance: document.getElementById("planning-tab-performance"),
   planningBudgetsPanel: document.getElementById("planning-budgets-panel"),
   planningSavingsPanel: document.getElementById("planning-savings-panel"),
   planningBillsPanel: document.getElementById("planning-bills-panel"),
@@ -339,6 +373,34 @@ const els = {
   performanceBudgetsList: document.getElementById("performance-budgets-list"),
   performanceSavingsList: document.getElementById("performance-savings-list"),
   performanceBillsList: document.getElementById("performance-bills-list"),
+  investmentScopeCopy: document.getElementById("investment-scope-copy"),
+  investmentForm: document.getElementById("investment-form"),
+  investmentEditId: document.getElementById("investment-edit-id"),
+  investmentName: document.getElementById("investment-name"),
+  investmentCurrentValue: document.getElementById("investment-current-value"),
+  investmentUseAssets: document.getElementById("investment-use-assets"),
+  investmentNote: document.getElementById("investment-note"),
+  investmentSubmitBtn: document.getElementById("investment-submit-btn"),
+  investmentCancelBtn: document.getElementById("investment-cancel-btn"),
+  investmentMessage: document.getElementById("investment-message"),
+  investmentsList: document.getElementById("investments-list"),
+  investmentMovementForm: document.getElementById("investment-movement-form"),
+  investmentMovementAccount: document.getElementById("investment-movement-account"),
+  investmentMovementType: document.getElementById("investment-movement-type"),
+  investmentMovementLedgerAccount: document.getElementById("investment-movement-ledger-account"),
+  investmentMovementAmount: document.getElementById("investment-movement-amount"),
+  investmentMovementNote: document.getElementById("investment-movement-note"),
+  investmentMovementMessage: document.getElementById("investment-movement-message"),
+  investmentAssetForm: document.getElementById("investment-asset-form"),
+  investmentAssetEditId: document.getElementById("investment-asset-edit-id"),
+  investmentAssetAccount: document.getElementById("investment-asset-account"),
+  investmentAssetType: document.getElementById("investment-asset-type"),
+  investmentAssetName: document.getElementById("investment-asset-name"),
+  investmentAssetValue: document.getElementById("investment-asset-value"),
+  investmentAssetNote: document.getElementById("investment-asset-note"),
+  investmentAssetSubmitBtn: document.getElementById("investment-asset-submit-btn"),
+  investmentAssetCancelBtn: document.getElementById("investment-asset-cancel-btn"),
+  investmentAssetMessage: document.getElementById("investment-asset-message"),
   infoModal: document.getElementById("info-modal"),
   infoModalCloseBtn: document.getElementById("info-modal-close-btn"),
   infoModalTitle: document.getElementById("info-modal-title"),
@@ -393,7 +455,11 @@ const moneyInputs = [
   els.accountOpeningBalance,
   els.adjustActualBalance,
   els.budgetAmount,
-  els.savingTargetAmount
+  els.savingTargetAmount,
+  els.transactionFeeAmount,
+  els.investmentCurrentValue,
+  els.investmentMovementAmount,
+  els.investmentAssetValue
 ].filter(Boolean);
 
 els.transactionDate.value = toDateInput(new Date());
@@ -428,6 +494,9 @@ function bindEvents() {
   els.masterGreetingForm.addEventListener("submit", handleMasterGreetingSubmit);
   els.masterGreetingSeedBtn.addEventListener("click", handleMasterGreetingSeed);
   els.masterGreetingList.addEventListener("click", handleMasterGreetingListActions);
+  els.masterDefaultCategoryForm.addEventListener("submit", handleMasterDefaultCategorySubmit);
+  els.masterDefaultCategoryCancelBtn.addEventListener("click", resetMasterDefaultCategoryForm);
+  els.masterDefaultCategoryList.addEventListener("click", handleMasterDefaultCategoryListActions);
   els.signupModeCreate.addEventListener("click", () => setSignupMode("create"));
   els.signupModeJoin.addEventListener("click", () => setSignupMode("join"));
 
@@ -443,7 +512,7 @@ function bindEvents() {
   els.navDashboard.addEventListener("click", () => setView("dashboard"));
   els.navPlanning.addEventListener("click", () => setView("planning"));
   els.navManagement.addEventListener("click", () => setView("management"));
-  els.navPerformance.addEventListener("click", () => setView("performance"));
+  els.navInvestments.addEventListener("click", () => setView("investments"));
   els.navSettings?.addEventListener("click", () => setView("settings"));
   els.settingsGearBtn?.addEventListener("click", () => setView("settings"));
   els.householdSwitcher.addEventListener("change", handleActiveHouseholdChange);
@@ -471,6 +540,7 @@ function bindEvents() {
     toAccountOptionValue: els.transferToAccount.value
   }));
   els.transferToAccount.addEventListener("change", () => syncTransactionPlanningFields());
+  els.transactionFeeEnabled.addEventListener("change", syncTransactionFeeField);
   els.transactionForm.addEventListener("submit", handleTransactionSubmit);
   els.transactionCancelBtn.addEventListener("click", resetTransactionForm);
   els.historyList.addEventListener("click", handleHistoryActions);
@@ -503,6 +573,7 @@ function bindEvents() {
 
   els.profileForm.addEventListener("submit", handleProfileSubmit);
   els.settingsPasswordResetBtn.addEventListener("click", handleSettingsPasswordReset);
+  els.householdRenameForm.addEventListener("submit", handleHouseholdRenameSubmit);
   els.settingsModeCreate.addEventListener("click", () => setSettingsMode("create"));
   els.settingsModeJoin.addEventListener("click", () => setSettingsMode("join"));
   els.settingsCreateForm.addEventListener("submit", handleSettingsCreateHousehold);
@@ -514,6 +585,7 @@ function bindEvents() {
   els.planningTabBudgets.addEventListener("click", () => setPlanningTab("budgets"));
   els.planningTabSavings.addEventListener("click", () => setPlanningTab("savings"));
   els.planningTabBills.addEventListener("click", () => setPlanningTab("bills"));
+  els.planningTabPerformance.addEventListener("click", () => setPlanningTab("performance"));
   els.budgetCycleType.addEventListener("change", syncBudgetForm);
   els.budgetCategoryList.addEventListener("change", updateBudgetCategorySummary);
   els.budgetForm.addEventListener("submit", handleBudgetSubmit);
@@ -527,6 +599,14 @@ function bindEvents() {
   els.billCancelBtn.addEventListener("click", resetBillForm);
   els.billsList.addEventListener("click", handleBillListActions);
   els.billRemindersList.addEventListener("click", handleBillReminderActions);
+  els.investmentUseAssets.addEventListener("change", syncInvestmentForm);
+  els.investmentForm.addEventListener("submit", handleInvestmentSubmit);
+  els.investmentCancelBtn.addEventListener("click", resetInvestmentForm);
+  els.investmentsList.addEventListener("click", handleInvestmentListActions);
+  els.investmentMovementType.addEventListener("change", populateInvestmentSelects);
+  els.investmentMovementForm.addEventListener("submit", handleInvestmentMovementSubmit);
+  els.investmentAssetForm.addEventListener("submit", handleInvestmentAssetSubmit);
+  els.investmentAssetCancelBtn.addEventListener("click", resetInvestmentAssetForm);
 }
 
 function bindMoneyInputs() {
@@ -583,6 +663,10 @@ function clearHouseholdContextState() {
   state.savingGoalEvents = [];
   state.recurringBills = [];
   state.recurringBillOccurrences = [];
+  state.investmentAccounts = [];
+  state.investmentAssets = [];
+  state.investmentEvents = [];
+  state.defaultCategoryLibrary = [];
   state.greetingQuotes = [];
   state.openHistoryMenuId = null;
   state.openBillMenuId = null;
@@ -648,6 +732,7 @@ async function loadUserSession(user) {
 
   await ensureUserProfile(user);
   await loadGreetingQuotes();
+  await loadDefaultCategoryLibrary();
 
   if (!state.userProfile.householdIds.length) {
     state.households = [];
@@ -702,6 +787,19 @@ async function loadGreetingQuotes() {
   }
 }
 
+async function loadDefaultCategoryLibrary() {
+  try {
+    const snapshot = await getDocs(collection(db, "appDefaultCategories"));
+    state.defaultCategoryLibrary = snapshot.docs
+      .map(snapshotItem => ({ id: snapshotItem.id, ...snapshotItem.data() }))
+      .filter(item => item.status === "active" && cleanText(item.name))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } catch (error) {
+    console.warn("Could not load default category library:", error);
+    state.defaultCategoryLibrary = [];
+  }
+}
+
 async function loadMasterAdminSession(user) {
   state.authUser = user;
   state.masterAdmin.checked = false;
@@ -739,6 +837,7 @@ async function refreshMasterAdminDashboard() {
   setMessage(els.masterOverrideMessage, "");
   setMessage(els.masterBlockedDomainMessage, "");
   setMessage(els.masterGreetingMessage, "");
+  setMessage(els.masterDefaultCategoryMessage, "");
   try {
     const response = await getMasterAdminDashboard();
     state.masterAdmin.checked = true;
@@ -747,6 +846,7 @@ async function refreshMasterAdminDashboard() {
     state.masterAdmin.overrides = response.emailOverrides || [];
     state.masterAdmin.blockedDomains = response.blockedDomains || [];
     state.masterAdmin.greetingQuotes = response.greetingQuotes || [];
+    state.masterAdmin.defaultCategories = response.defaultCategories || [];
     renderMasterAdminScreen();
   } catch (error) {
     renderMasterAdminScreen(getUserErrorMessage(error), "error");
@@ -785,7 +885,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260503d");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510b");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -826,11 +926,12 @@ async function assertMasterAdminClient() {
 
 async function getMasterAdminDashboard() {
   await assertMasterAdminClient();
-  const [codesSnap, overridesSnap, blockedDomainsSnap, greetingQuotesSnap] = await Promise.all([
+  const [codesSnap, overridesSnap, blockedDomainsSnap, greetingQuotesSnap, defaultCategoriesSnap] = await Promise.all([
     getDocs(collection(db, "registrationCodes")),
     getDocs(collection(db, "emailPolicyOverrides")),
     getDocs(collection(db, "emailPolicyBlockedDomains")),
-    getDocs(collection(db, "appGreetingQuotes"))
+    getDocs(collection(db, "appGreetingQuotes")),
+    getDocs(collection(db, "appDefaultCategories"))
   ]);
 
   return {
@@ -849,6 +950,10 @@ async function getMasterAdminDashboard() {
     greetingQuotes: greetingQuotesSnap.docs
       .map(snapshot => serializeGreetingQuote(snapshot.id, snapshot.data()))
       .sort((a, b) => (a.text || "").localeCompare(b.text || ""))
+      .slice(0, 60),
+    defaultCategories: defaultCategoriesSnap.docs
+      .map(snapshot => serializeDefaultCategory(snapshot.id, snapshot.data()))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
       .slice(0, 60)
   };
 }
@@ -1056,6 +1161,46 @@ async function removeGreetingQuote({ id }) {
   }
 
   await deleteDoc(doc(db, "appGreetingQuotes", id));
+}
+
+async function saveDefaultCategory({ id, name, direction, description }) {
+  await assertMasterAdminClient();
+  const cleanName = cleanText(name);
+  if (!cleanName) {
+    throw new Error("Category name is required.");
+  }
+  if (!CATEGORY_DIRECTIONS.some(item => item.value === direction)) {
+    throw new Error("Choose a valid category direction.");
+  }
+
+  const payload = {
+    name: cleanName,
+    direction,
+    description: cleanText(description),
+    status: "active",
+    createdByUserId: state.authUser.uid,
+    createdByEmail: normalizeEmail(state.authUser.email || ""),
+    updatedAt: serverTimestamp()
+  };
+
+  if (id) {
+    await updateDoc(doc(db, "appDefaultCategories", id), payload);
+    return;
+  }
+
+  await setDoc(doc(collection(db, "appDefaultCategories")), {
+    ...payload,
+    createdAt: serverTimestamp()
+  });
+}
+
+async function removeDefaultCategory({ id }) {
+  await assertMasterAdminClient();
+  if (!id) {
+    throw new Error("Choose a category first.");
+  }
+
+  await deleteDoc(doc(db, "appDefaultCategories", id));
 }
 
 async function handleLoginSubmit(event) {
@@ -1350,6 +1495,25 @@ async function handleMasterGreetingSeed() {
   }
 }
 
+async function handleMasterDefaultCategorySubmit(event) {
+  event.preventDefault();
+  setMessage(els.masterDefaultCategoryMessage, "");
+
+  try {
+    await saveDefaultCategory({
+      id: cleanText(els.masterDefaultCategoryEditId.value),
+      name: els.masterDefaultCategoryName.value,
+      direction: els.masterDefaultCategoryDirection.value,
+      description: els.masterDefaultCategoryDescription.value
+    });
+    resetMasterDefaultCategoryForm();
+    setMessage(els.masterDefaultCategoryMessage, "Default category saved.", "success");
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterDefaultCategoryMessage, getRegistrationErrorMessage(error), "error");
+  }
+}
+
 async function handleSetupCreateHousehold(event) {
   event.preventDefault();
   setMessage(els.setupMessage, "");
@@ -1466,6 +1630,32 @@ async function handleSettingsPasswordReset() {
     setMessage(els.profileMessage, "Password reset email sent. This recovery path only works when you can access the inbox.", "success");
   } catch (error) {
     setMessage(els.profileMessage, error.message, "error");
+  }
+}
+
+async function handleHouseholdRenameSubmit(event) {
+  event.preventDefault();
+  setMessage(els.householdRenameMessage, "");
+
+  if (state.member?.role !== "admin") {
+    setMessage(els.householdRenameMessage, "Only the household admin can rename this household.", "error");
+    return;
+  }
+
+  const name = cleanText(els.householdRenameName.value);
+  if (!name) {
+    setMessage(els.householdRenameMessage, "Household name is required.", "error");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "households", state.household.id), {
+      name,
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.householdRenameMessage, "Household renamed.", "success");
+  } catch (error) {
+    setMessage(els.householdRenameMessage, getUserErrorMessage(error), "error");
   }
 }
 
@@ -1657,6 +1847,46 @@ async function handleMasterGreetingListActions(event) {
     await refreshMasterAdminDashboard();
   } catch (error) {
     setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
+  }
+}
+
+async function handleMasterDefaultCategoryListActions(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) {
+    return;
+  }
+
+  const id = button.dataset.id;
+  const category = state.masterAdmin.defaultCategories.find(item => item.id === id);
+  if (!id || !category) {
+    return;
+  }
+
+  if (button.dataset.action === "edit-default-category") {
+    els.masterDefaultCategoryEditId.value = category.id;
+    els.masterDefaultCategoryName.value = category.name;
+    els.masterDefaultCategoryDirection.value = category.direction;
+    els.masterDefaultCategoryDescription.value = category.description || "";
+    els.masterDefaultCategorySubmitBtn.textContent = "Update category";
+    els.masterDefaultCategoryCancelBtn.classList.remove("hidden");
+    scrollEditorIntoView(els.masterDefaultCategoryForm);
+    return;
+  }
+
+  if (button.dataset.action !== "remove-default-category") {
+    return;
+  }
+
+  if (!window.confirm("Remove this default category?")) {
+    return;
+  }
+
+  try {
+    await removeDefaultCategory({ id });
+    setMessage(els.masterDefaultCategoryMessage, "Default category removed.", "success");
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterDefaultCategoryMessage, getRegistrationErrorMessage(error), "error");
   }
 }
 
@@ -1939,8 +2169,8 @@ async function handleBillSubmit(event) {
     setMessage(els.billMessage, "Choose an active category.", "error");
     return;
   }
-  if (isSavingCategory(category)) {
-    setMessage(els.billMessage, "The system Saving category cannot be used for recurring bills.", "error");
+  if (isProtectedSystemCategory(category)) {
+    setMessage(els.billMessage, "System categories cannot be used for recurring bills.", "error");
     return;
   }
   if (!anchorDateValue) {
@@ -2185,6 +2415,307 @@ async function deleteOrArchiveBill(bill) {
   }
 }
 
+async function handleInvestmentSubmit(event) {
+  event.preventDefault();
+  setMessage(els.investmentMessage, "");
+
+  const name = cleanText(els.investmentName.value);
+  const useAssetBreakdown = els.investmentUseAssets.checked;
+  const currentValueMinor = useAssetBreakdown ? 0 : (parseMinorInput(els.investmentCurrentValue.value) || 0);
+  const note = cleanText(els.investmentNote.value);
+  const editingInvestment = state.editInvestmentId
+    ? state.investmentAccounts.find(item => item.id === state.editInvestmentId)
+    : null;
+  const scopeType = editingInvestment?.scopeType || getCurrentPlanningScopeType();
+
+  if (!name) {
+    setMessage(els.investmentMessage, "Investment name is required.", "error");
+    return;
+  }
+
+  const payload = {
+    name,
+    note,
+    useAssetBreakdown,
+    currentValueMinor,
+    ...buildScopedPayload(scopeType),
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    if (editingInvestment) {
+      await updateDoc(doc(db, "households", state.household.id, "investmentAccounts", editingInvestment.id), payload);
+      await addInvestmentEvent({
+        investment: editingInvestment,
+        eventType: "valuation",
+        amountMinor: currentValueMinor,
+        note: "Investment value updated.",
+        ledgerTransactionId: null,
+        transactionGroupId: null
+      });
+      resetInvestmentForm({ clearMessage: false });
+      setMessage(els.investmentMessage, "Investment updated.", "success");
+    } else {
+      await setDoc(doc(collection(db, "households", state.household.id, "investmentAccounts")), {
+        ...payload,
+        status: "active",
+        createdByUserId: state.authUser.uid,
+        createdAt: serverTimestamp(),
+        archivedAt: null
+      });
+      resetInvestmentForm({ clearMessage: false });
+      setMessage(els.investmentMessage, getPlanningCreateMessage("Investment", scopeType), "success");
+    }
+  } catch (error) {
+    setMessage(els.investmentMessage, getUserErrorMessage(error), "error");
+  }
+}
+
+function handleInvestmentListActions(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) {
+    return;
+  }
+
+  if (button.dataset.action === "edit-investment-asset" || button.dataset.action === "archive-investment-asset") {
+    const asset = state.investmentAssets.find(item => item.id === button.dataset.id);
+    if (!asset) {
+      return;
+    }
+    if (button.dataset.action === "edit-investment-asset") {
+      openInvestmentAssetEditor(asset);
+    } else {
+      void archiveInvestmentAsset(asset);
+    }
+    return;
+  }
+
+  const investment = state.investmentAccounts.find(item => item.id === button.dataset.id);
+  if (!investment || !matchesPlanningScope(investment)) {
+    return;
+  }
+
+  if (button.dataset.action === "edit-investment") {
+    openInvestmentEditor(investment);
+    return;
+  }
+
+  if (button.dataset.action === "archive-investment") {
+    void archiveInvestment(investment);
+  }
+}
+
+function openInvestmentEditor(investment) {
+  state.editInvestmentId = investment.id;
+  els.investmentEditId.value = investment.id;
+  els.investmentName.value = investment.name || "";
+  setMoneyInputValue(els.investmentCurrentValue, investment.currentValueMinor || 0);
+  els.investmentUseAssets.checked = Boolean(investment.useAssetBreakdown);
+  els.investmentNote.value = investment.note || "";
+  els.investmentSubmitBtn.textContent = "Update investment";
+  els.investmentCancelBtn.classList.remove("hidden");
+  syncInvestmentForm();
+  scrollEditorIntoView(els.investmentForm);
+}
+
+async function archiveInvestment(investment) {
+  if (!window.confirm("Archive this investment account? Existing history will remain visible in exports later.")) {
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "households", state.household.id, "investmentAccounts", investment.id), {
+      status: "archived",
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.investmentMessage, "Investment archived.", "success");
+  } catch (error) {
+    setMessage(els.investmentMessage, getUserErrorMessage(error), "error");
+  }
+}
+
+async function handleInvestmentMovementSubmit(event) {
+  event.preventDefault();
+  setMessage(els.investmentMovementMessage, "");
+
+  const investment = state.investmentAccounts.find(item => item.id === els.investmentMovementAccount.value && item.status === "active");
+  const ledgerAccount = getOwnedActiveAccounts().find(item => item.id === els.investmentMovementLedgerAccount.value);
+  const eventType = els.investmentMovementType.value;
+  const amountMinor = parseMinorInput(els.investmentMovementAmount.value);
+  const note = cleanText(els.investmentMovementNote.value) || (eventType === "withdrawal" ? "Investment withdrawal" : "Investment contribution");
+
+  if (!investment || !matchesPlanningScope(investment)) {
+    setMessage(els.investmentMovementMessage, "Choose a visible investment account.", "error");
+    return;
+  }
+  if (!ledgerAccount) {
+    setMessage(els.investmentMovementMessage, "Choose one of your active ledger accounts.", "error");
+    return;
+  }
+  if (!amountMinor) {
+    setMessage(els.investmentMovementMessage, "Amount is required.", "error");
+    return;
+  }
+
+  try {
+    const category = getInvestmentCategory(eventType);
+    if (!category) {
+      throw new Error("Investment system categories are not ready yet. Wait a moment, then try again.");
+    }
+    if (eventType === "contribution") {
+      assertRegularAccountSpendAllowed(ledgerAccount.id, amountMinor);
+    }
+
+    const transactionRef = doc(collection(db, "households", state.household.id, "transactions"));
+    const batch = writeBatch(db);
+    batch.set(transactionRef, buildSingleRow({
+      id: transactionRef.id,
+      kind: eventType === "withdrawal" ? "income" : "outcome",
+      amountMinor,
+      note,
+      transactionAt: Timestamp.fromDate(new Date()),
+      account: ledgerAccount,
+      category
+    }));
+
+    const nextValueMinor = investment.useAssetBreakdown
+      ? Number(investment.currentValueMinor || 0)
+      : Math.max(0, Number(investment.currentValueMinor || 0) + (eventType === "withdrawal" ? -amountMinor : amountMinor));
+    if (!investment.useAssetBreakdown) {
+      batch.update(doc(db, "households", state.household.id, "investmentAccounts", investment.id), {
+        currentValueMinor: nextValueMinor,
+        updatedAt: serverTimestamp()
+      });
+    }
+    batch.set(doc(collection(db, "households", state.household.id, "investmentEvents")), buildInvestmentEventPayload({
+      investment,
+      eventType,
+      amountMinor,
+      note,
+      ledgerAccount,
+      ledgerTransactionId: transactionRef.id,
+      transactionGroupId: transactionRef.id
+    }));
+    await batch.commit();
+
+    els.investmentMovementForm.reset();
+    setMoneyInputValue(els.investmentMovementAmount, 0);
+    populateInvestmentSelects();
+    setMessage(els.investmentMovementMessage, "Investment movement saved and recorded in the ledger.", "success");
+  } catch (error) {
+    setMessage(els.investmentMovementMessage, getUserErrorMessage(error), "error");
+  }
+}
+
+async function handleInvestmentAssetSubmit(event) {
+  event.preventDefault();
+  setMessage(els.investmentAssetMessage, "");
+
+  const investment = state.investmentAccounts.find(item => item.id === els.investmentAssetAccount.value && item.status === "active");
+  const name = cleanText(els.investmentAssetName.value);
+  const assetType = cleanText(els.investmentAssetType.value);
+  const currentValueMinor = parseMinorInput(els.investmentAssetValue.value);
+  const note = cleanText(els.investmentAssetNote.value);
+  const editingAsset = state.editInvestmentAssetId
+    ? state.investmentAssets.find(item => item.id === state.editInvestmentAssetId)
+    : null;
+
+  if (!investment || !matchesPlanningScope(investment)) {
+    setMessage(els.investmentAssetMessage, "Choose a visible investment account.", "error");
+    return;
+  }
+  if (!investment.useAssetBreakdown) {
+    setMessage(els.investmentAssetMessage, "Turn on asset breakdown for this investment before adding assets.", "error");
+    return;
+  }
+  if (!name) {
+    setMessage(els.investmentAssetMessage, "Asset name is required.", "error");
+    return;
+  }
+  if (!currentValueMinor) {
+    setMessage(els.investmentAssetMessage, "Asset value is required.", "error");
+    return;
+  }
+
+  const payload = {
+    investmentAccountId: investment.id,
+    investmentAccountNameSnapshot: investment.name,
+    name,
+    assetType,
+    currentValueMinor,
+    note,
+    ...buildScopedPayload(investment.scopeType, investment.ownerUserId || null),
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    if (editingAsset) {
+      await updateDoc(doc(db, "households", state.household.id, "investmentAssets", editingAsset.id), payload);
+      await addInvestmentEvent({
+        investment,
+        eventType: "asset_update",
+        amountMinor: currentValueMinor,
+        note: `Asset updated: ${name}`,
+        ledgerTransactionId: null,
+        transactionGroupId: null
+      });
+      resetInvestmentAssetForm({ clearMessage: false });
+      setMessage(els.investmentAssetMessage, "Asset updated.", "success");
+    } else {
+      await setDoc(doc(collection(db, "households", state.household.id, "investmentAssets")), {
+        ...payload,
+        status: "active",
+        createdByUserId: state.authUser.uid,
+        createdAt: serverTimestamp(),
+        archivedAt: null
+      });
+      await addInvestmentEvent({
+        investment,
+        eventType: "asset_update",
+        amountMinor: currentValueMinor,
+        note: `Asset added: ${name}`,
+        ledgerTransactionId: null,
+        transactionGroupId: null
+      });
+      resetInvestmentAssetForm({ clearMessage: false });
+      setMessage(els.investmentAssetMessage, "Asset saved.", "success");
+    }
+  } catch (error) {
+    setMessage(els.investmentAssetMessage, getUserErrorMessage(error), "error");
+  }
+}
+
+function openInvestmentAssetEditor(asset) {
+  state.editInvestmentAssetId = asset.id;
+  els.investmentAssetEditId.value = asset.id;
+  setSelectValue(els.investmentAssetAccount, asset.investmentAccountId);
+  els.investmentAssetName.value = asset.name || "";
+  els.investmentAssetType.value = asset.assetType || "";
+  setMoneyInputValue(els.investmentAssetValue, asset.currentValueMinor || 0);
+  els.investmentAssetNote.value = asset.note || "";
+  els.investmentAssetSubmitBtn.textContent = "Update asset";
+  els.investmentAssetCancelBtn.classList.remove("hidden");
+  scrollEditorIntoView(els.investmentAssetForm);
+}
+
+async function archiveInvestmentAsset(asset) {
+  if (!window.confirm("Archive this investment asset?")) {
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "households", state.household.id, "investmentAssets", asset.id), {
+      status: "archived",
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.investmentAssetMessage, "Asset archived.", "success");
+  } catch (error) {
+    setMessage(els.investmentAssetMessage, getUserErrorMessage(error), "error");
+  }
+}
+
 async function handleAccountSubmit(event) {
   event.preventDefault();
   setMessage(els.accountMessage, "");
@@ -2411,8 +2942,8 @@ function handleCategoryListActions(event) {
   }
 
   if (button.dataset.action === "edit-category") {
-    if (isSavingCategory(category)) {
-      setMessage(els.categoryMessage, "The system Saving category is managed by the app and cannot be edited.", "error");
+    if (isProtectedSystemCategory(category)) {
+      setMessage(els.categoryMessage, "System categories are managed by the app and cannot be edited.", "error");
       return;
     }
     state.editCategoryId = category.id;
@@ -2433,8 +2964,8 @@ function handleCategoryListActions(event) {
 
 async function archiveCategory(categoryId) {
   const category = state.categories.find(item => item.id === categoryId);
-  if (isSavingCategory(category)) {
-    setMessage(els.categoryMessage, "The system Saving category is required for saving goals and cannot be archived.", "error");
+  if (isProtectedSystemCategory(category)) {
+    setMessage(els.categoryMessage, "System categories are required by NestPlan and cannot be archived.", "error");
     return;
   }
 
@@ -2470,6 +3001,7 @@ async function handleTransactionSubmit(event) {
 
   const kind = els.transactionKind.value;
   const amountMinor = parseMinorInput(els.transactionAmount.value);
+  const feeMinor = getTransactionFeeMinor();
   const note = getTransactionNoteValue(kind);
   const transactionAt = Timestamp.fromDate(new Date(`${els.transactionDate.value}T12:00:00`));
 
@@ -2480,19 +3012,21 @@ async function handleTransactionSubmit(event) {
 
   try {
     if (kind === "transfer") {
-      await saveTransferTransaction({ amountMinor, note, transactionAt });
+      await saveTransferTransaction({ amountMinor, feeMinor, note, transactionAt });
     } else {
-      await saveSingleTransaction({ kind, amountMinor, note, transactionAt });
+      await saveSingleTransaction({ kind, amountMinor, feeMinor, note, transactionAt });
     }
 
-    setMessage(els.transactionMessage, state.editTransactionGroupId ? "Transaction updated." : "Transaction saved.", "success");
+    const budgetWarning = buildBudgetWarningAfterSave({ kind, amountMinor, transactionAt });
+    const successMessage = state.editTransactionGroupId ? "Transaction updated." : "Transaction saved.";
+    setMessage(els.transactionMessage, budgetWarning ? `${successMessage} ${budgetWarning}` : successMessage, budgetWarning ? "error" : "success");
     resetTransactionForm();
   } catch (error) {
     setMessage(els.transactionMessage, error.message, "error");
   }
 }
 
-async function saveSingleTransaction({ kind, amountMinor, note, transactionAt }) {
+async function saveSingleTransaction({ kind, amountMinor, feeMinor = 0, note, transactionAt }) {
   const accountSelection = resolveTransactionAccountSelection(els.transactionAccount.value);
   const account = accountSelection.account;
   const category = state.categories.find(item => item.id === els.transactionCategory.value && item.status === "active");
@@ -2511,8 +3045,13 @@ async function saveSingleTransaction({ kind, amountMinor, note, transactionAt })
     if (planningSelection.savingGoalId && !isSavingCategory(category)) {
       const goal = state.savingGoals.find(item => item.id === planningSelection.savingGoalId && item.status !== "archived");
       assertSavingSpendAllowed(goal, amountMinor, baseRows);
+      if (feeMinor) {
+        assertRegularAccountSpendAllowed(account.id, feeMinor, baseRows);
+      }
     } else {
-      assertRegularAccountSpendAllowed(account.id, amountMinor, baseRows);
+      assertRegularAccountSpendAllowed(account.id, amountMinor + feeMinor, baseRows);
+    } else if (feeMinor) {
+      assertRegularAccountSpendAllowed(account.id, feeMinor, baseRows);
     }
   }
 
@@ -2558,8 +3097,10 @@ async function saveSingleTransaction({ kind, amountMinor, note, transactionAt })
     return;
   }
 
-  const transactionRef = doc(collection(db, "households", state.household.id, "transactions"));
-  await setDoc(transactionRef, buildSingleRow({
+  const transactionCollection = collection(db, "households", state.household.id, "transactions");
+  const transactionRef = doc(transactionCollection);
+  const batch = writeBatch(db);
+  batch.set(transactionRef, buildSingleRow({
     id: transactionRef.id,
     kind,
     amountMinor,
@@ -2571,6 +3112,14 @@ async function saveSingleTransaction({ kind, amountMinor, note, transactionAt })
     recurringBillId: planningSelection.recurringBillId,
     recurringBillOccurrenceId: planningSelection.recurringBillOccurrenceId
   }));
+  maybeAddFeeRowToBatch(batch, {
+    transactionCollection,
+    feeMinor,
+    note: planningSelection.note,
+    transactionAt,
+    account
+  });
+  await batch.commit();
   await syncRecurringBillOccurrenceAfterSave({
     transactionId: transactionRef.id,
     transactionGroupId: transactionRef.id,
@@ -2580,7 +3129,7 @@ async function saveSingleTransaction({ kind, amountMinor, note, transactionAt })
   });
 }
 
-async function saveTransferTransaction({ amountMinor, note, transactionAt }) {
+async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transactionAt }) {
   const fromAccount = state.accounts.find(item => item.id === els.transferFromAccount.value && item.status === "active");
   const toSelection = resolveTransferDestinationSelection(els.transferToAccount.value);
   const toAccount = toSelection.account;
@@ -2595,11 +3144,12 @@ async function saveTransferTransaction({ amountMinor, note, transactionAt }) {
     throw new Error("Transfers must start from one of your own accounts.");
   }
 
-  if (fromAccount.id === toAccount.id) {
+  const isSavingReserveTransfer = Boolean(savingGoal && savingGoal.linkedAccountId === fromAccount.id && toAccount.id === fromAccount.id);
+  if (fromAccount.id === toAccount.id && !isSavingReserveTransfer) {
     throw new Error("Transfer source and destination must be different.");
   }
 
-  assertRegularAccountSpendAllowed(fromAccount.id, amountMinor, baseRows);
+  assertRegularAccountSpendAllowed(fromAccount.id, amountMinor + feeMinor, baseRows);
 
   if (state.editTransactionGroupId) {
     const entry = getGroupedEntriesAll().find(item => item.groupId === state.editTransactionGroupId);
@@ -2676,6 +3226,14 @@ async function saveTransferTransaction({ amountMinor, note, transactionAt }) {
     counterpartyAccount: fromAccount,
     savingGoalId: savingGoal?.id || null
   }));
+
+  maybeAddFeeRowToBatch(batch, {
+    transactionCollection,
+    feeMinor,
+    note: cleanText(note),
+    transactionAt,
+    account: fromAccount
+  });
 
   await batch.commit();
 }
@@ -3124,6 +3682,7 @@ async function loadHouseholdContext(householdId) {
 
   subscribe(collection(db, "households", householdId, "categories"), categoriesSnap => {
     state.categories = toSortedDocs(categoriesSnap.docs, docData => (docData.name || "").toLowerCase());
+    void ensureSystemCategories();
   });
 
   subscribe(collection(db, "households", householdId, "transactions"), transactionsSnap => {
@@ -3171,6 +3730,31 @@ async function loadHouseholdContext(householdId) {
       .sort((a, b) => getTimestampSortValue(b.completedAt || b.createdAt) - getTimestampSortValue(a.completedAt || a.createdAt));
   }, () => {
     state.recurringBillOccurrences = [];
+  });
+
+  subscribeScopedOptional("investment accounts", "investmentAccounts", investmentDocs => {
+    state.investmentAccounts = toSortedDocs(
+      investmentDocs,
+      docData => (docData.name || "").toLowerCase()
+    );
+  }, () => {
+    state.investmentAccounts = [];
+  });
+
+  subscribeScopedOptional("investment assets", "investmentAssets", assetDocs => {
+    state.investmentAssets = toSortedDocs(
+      assetDocs,
+      docData => (docData.name || "").toLowerCase()
+    );
+  }, () => {
+    state.investmentAssets = [];
+  });
+
+  subscribeScopedOptional("investment events", "investmentEvents", eventDocs => {
+    state.investmentEvents = eventDocs
+      .sort((a, b) => getTimestampSortValue(b.createdAt) - getTimestampSortValue(a.createdAt));
+  }, () => {
+    state.investmentEvents = [];
   });
 
   try {
@@ -3402,7 +3986,11 @@ function renderMasterAdminScreen(message = "", type = "") {
     els.masterOverrideEmail,
     els.masterBlockedDomain,
     els.masterGreetingText,
-    els.masterGreetingSeedBtn
+    els.masterGreetingSeedBtn,
+    els.masterDefaultCategoryName,
+    els.masterDefaultCategoryDirection,
+    els.masterDefaultCategoryDescription,
+    els.masterDefaultCategoryCancelBtn
   ].forEach(element => {
     if (element) {
       element.disabled = disabled;
@@ -3413,6 +4001,7 @@ function renderMasterAdminScreen(message = "", type = "") {
   els.masterOverrideForm.querySelector("button[type='submit']").disabled = disabled;
   els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = disabled;
   els.masterGreetingForm.querySelector("button[type='submit']").disabled = disabled;
+  els.masterDefaultCategoryForm.querySelector("button[type='submit']").disabled = disabled;
 
   if (message) {
     setMessage(els.masterCodeMessage, message, type);
@@ -3422,6 +4011,7 @@ function renderMasterAdminScreen(message = "", type = "") {
   renderMasterEmailOverrides();
   renderMasterBlockedDomains();
   renderMasterGreetingQuotes();
+  renderMasterDefaultCategories();
 }
 
 function renderMasterRegistrationCodes() {
@@ -3553,6 +4143,40 @@ function renderMasterGreetingQuotes() {
   `;
 }
 
+function renderMasterDefaultCategories() {
+  if (!state.masterAdmin.authorized) {
+    els.masterDefaultCategoryList.innerHTML = `<p class="status-copy">Master admin access is required.</p>`;
+    return;
+  }
+
+  if (!state.masterAdmin.defaultCategories.length) {
+    els.masterDefaultCategoryList.innerHTML = `<p class="status-copy">No default categories yet.</p>`;
+    return;
+  }
+
+  els.masterDefaultCategoryList.innerHTML = `
+    <div class="admin-table compact-admin-table">
+      <div class="admin-table-row default-category-row admin-table-head">
+        <span>Name</span>
+        <span>Direction</span>
+        <span>Description</span>
+        <span></span>
+      </div>
+      ${state.masterAdmin.defaultCategories.map(item => `
+        <div class="admin-table-row default-category-row">
+          <span class="admin-table-strong">${escapeHtml(item.name || "")}</span>
+          <span>${escapeHtml(item.direction || "")}</span>
+          <span>${escapeHtml(item.description || "-")}</span>
+          <span>
+            <button class="ghost-btn small-btn" type="button" data-action="edit-default-category" data-id="${escapeHtml(item.id || "")}">Edit</button>
+            <button class="ghost-btn small-btn" type="button" data-action="remove-default-category" data-id="${escapeHtml(item.id || "")}">Remove</button>
+          </span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderSetup() {
   renderScreens();
   els.setupUserLabel.textContent = state.authUser ? `Signed in as ${state.authUser.email}` : "";
@@ -3577,6 +4201,7 @@ function renderApp() {
   renderBillRemindersList();
   renderBillsList();
   renderPerformanceView();
+  renderInvestmentsView();
   renderAccountsList();
   renderCategories();
   renderCategorySeedAccess();
@@ -3591,12 +4216,16 @@ function renderApp() {
   populateSavingSelects();
   populateBillCategorySelects();
   populateTransactionSelects();
+  populateInvestmentSelects();
+  syncTransactionFeeField();
+  syncInvestmentForm();
+  renderHouseholdRenameAccess();
 }
 
 function renderHeader() {
   els.greetingText.textContent = state.sessionGreeting;
   els.householdLabel.textContent = "";
-  els.userLabel.textContent = `Signed in as ${state.authUser?.email || ""}`;
+  els.userLabel.textContent = `Signed in as ${state.authUser?.email || ""}${firebaseEnvironment === "staging" ? " | staging" : ""}`;
   if (els.userAvatar) {
     els.userAvatar.textContent = getInitials(getDisplayName());
   }
@@ -3605,7 +4234,7 @@ function renderHeader() {
   els.navDashboard.classList.toggle("active", state.currentView === "dashboard");
   els.navPlanning.classList.toggle("active", state.currentView === "planning");
   els.navManagement.classList.toggle("active", state.currentView === "management");
-  els.navPerformance.classList.toggle("active", state.currentView === "performance");
+  els.navInvestments.classList.toggle("active", state.currentView === "investments");
   els.navSettings?.classList.toggle("active", state.currentView === "settings");
   if (els.scopeCopy) {
     els.scopeCopy.textContent = state.scope === "personal"
@@ -3627,6 +4256,24 @@ function renderHouseholdSwitchers() {
   syncHouseholdSwitcherValue();
 }
 
+function renderHouseholdRenameAccess() {
+  if (!els.householdRenameForm) {
+    return;
+  }
+  const isAdmin = state.member?.role === "admin";
+  if (document.activeElement !== els.householdRenameName) {
+    els.householdRenameName.value = state.household?.name || "";
+  }
+  els.householdRenameName.disabled = !isAdmin;
+  els.householdRenameForm.querySelector("button[type='submit']").disabled = !isAdmin;
+  if (isAdmin && els.householdRenameMessage.textContent === "Only the household admin can rename this household.") {
+    setMessage(els.householdRenameMessage, "");
+  }
+  if (!isAdmin && !els.householdRenameMessage.textContent) {
+    setMessage(els.householdRenameMessage, "Only the household admin can rename this household.", "error");
+  }
+}
+
 function syncHouseholdSwitcherValue() {
   const activeHouseholdId = state.household?.id || state.userProfile?.activeHouseholdId || "";
   els.householdSwitcher.value = activeHouseholdId;
@@ -3640,7 +4287,8 @@ function renderViewState() {
   els.dashboardView.classList.toggle("hidden", state.currentView !== "dashboard" || showOnboarding);
   els.planningView.classList.toggle("hidden", state.currentView !== "planning");
   els.managementView.classList.toggle("hidden", state.currentView !== "management");
-  els.performanceView.classList.toggle("hidden", state.currentView !== "performance");
+  els.performanceView.classList.toggle("hidden", state.currentView !== "planning" || state.planningTab !== "performance");
+  els.investmentsView.classList.toggle("hidden", state.currentView !== "investments");
   els.settingsView.classList.toggle("hidden", state.currentView !== "settings");
 }
 
@@ -3821,6 +4469,7 @@ function renderPlanningState() {
   els.planningTabBudgets.classList.toggle("active", state.planningTab === "budgets");
   els.planningTabSavings.classList.toggle("active", state.planningTab === "savings");
   els.planningTabBills.classList.toggle("active", state.planningTab === "bills");
+  els.planningTabPerformance.classList.toggle("active", state.planningTab === "performance");
   els.planningBudgetsPanel.classList.toggle("hidden", state.planningTab !== "budgets");
   els.planningSavingsPanel.classList.toggle("hidden", state.planningTab !== "savings");
   els.planningBillsPanel.classList.toggle("hidden", state.planningTab !== "bills");
@@ -4081,6 +4730,67 @@ function renderPerformanceView() {
     : `<div class="empty-card"><h4>No bill data yet</h4><p>Create recurring bills in Planning to monitor due and completed periods here.</p></div>`;
 }
 
+function renderInvestmentsView() {
+  if (!els.investmentsList) {
+    return;
+  }
+
+  const investments = getVisibleInvestments();
+  els.investmentsList.innerHTML = investments.length
+    ? investments.map(investment => {
+        const summary = buildInvestmentSummary(investment);
+        const assets = getInvestmentAssets(investment.id);
+        return `
+          <article class="list-row">
+            <div class="list-row-head">
+              <div>
+                <p class="list-row-title">${escapeHtml(investment.name)}</p>
+                <div class="list-row-meta">
+                  <span>${escapeHtml(resolvePlanningScopeLabel(investment))}</span>
+                  <span>|</span>
+                  <span>${escapeHtml(investment.useAssetBreakdown ? "Asset breakdown" : "Manual value")}</span>
+                </div>
+                ${investment.note ? `<p class="status-copy">${escapeHtml(investment.note)}</p>` : ""}
+              </div>
+              <div class="list-row-actions">
+                <button class="text-btn" type="button" data-action="edit-investment" data-id="${escapeHtml(investment.id)}">Edit</button>
+                <button class="text-btn danger" type="button" data-action="archive-investment" data-id="${escapeHtml(investment.id)}">Archive</button>
+              </div>
+            </div>
+            <div class="planning-metric-grid">
+              <div class="metric-chip">
+                <span>Current value</span>
+                <strong>${escapeHtml(formatRupiah(summary.currentValueMinor))}</strong>
+              </div>
+              <div class="metric-chip">
+                <span>Contributed</span>
+                <strong>${escapeHtml(formatRupiah(summary.totalContributedMinor))}</strong>
+              </div>
+              <div class="metric-chip ${summary.unrealizedMinor >= 0 ? "metric-good" : "metric-over"}">
+                <span>Unrealized</span>
+                <strong>${escapeHtml(formatRupiah(summary.unrealizedMinor))}</strong>
+              </div>
+            </div>
+            ${assets.length ? `
+              <div class="investment-asset-list">
+                ${assets.map(asset => `
+                  <div class="investment-asset-row">
+                    <span><strong>${escapeHtml(asset.name)}</strong> ${asset.assetType ? `| ${escapeHtml(asset.assetType)}` : ""}</span>
+                    <span>${escapeHtml(formatRupiah(asset.currentValueMinor || 0))}</span>
+                    <span>
+                      <button class="text-btn" type="button" data-action="edit-investment-asset" data-id="${escapeHtml(asset.id)}">Edit</button>
+                      <button class="text-btn danger" type="button" data-action="archive-investment-asset" data-id="${escapeHtml(asset.id)}">Archive</button>
+                    </span>
+                  </div>
+                `).join("")}
+              </div>
+            ` : ""}
+          </article>
+        `;
+      }).join("")
+    : `<div class="empty-card"><h4>No investments yet</h4><p>Create an investment account to track contributions, withdrawals, and manual value updates.</p></div>`;
+}
+
 function populateBudgetCategoryOptions() {
   const selectedIds = new Set(
     state.editBudgetId
@@ -4131,6 +4841,31 @@ function populateBillCategorySelects() {
   if (editingBill?.categoryId) {
     setSelectValue(els.billCategory, editingBill.categoryId);
   }
+}
+
+function populateInvestmentSelects() {
+  if (!els.investmentMovementAccount) {
+    return;
+  }
+
+  const investments = getVisibleInvestments();
+  const investmentOptions = investments
+    .map(investment => `<option value="${investment.id}">${escapeHtml(investment.name)}</option>`)
+    .join("");
+  const ownedAccountOptions = getOwnedActiveAccounts()
+    .map(account => `<option value="${account.id}">${escapeHtml(getAccountOptionLabel(account))}</option>`)
+    .join("");
+
+  els.investmentMovementAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
+  els.investmentAssetAccount.innerHTML = investmentOptions || `<option value="">No visible investments</option>`;
+  els.investmentMovementLedgerAccount.innerHTML = ownedAccountOptions || `<option value="">No owned accounts</option>`;
+}
+
+function syncInvestmentForm() {
+  if (!els.investmentCurrentValue) {
+    return;
+  }
+  els.investmentCurrentValue.disabled = els.investmentUseAssets.checked;
 }
 
 function syncBudgetForm() {
@@ -4193,6 +4928,41 @@ function resetBillForm(options = {}) {
   populateBillCategorySelects();
 }
 
+function resetInvestmentForm(options = {}) {
+  const { clearMessage = true } = options;
+  if (!els.investmentForm) {
+    return;
+  }
+  state.editInvestmentId = null;
+  els.investmentEditId.value = "";
+  els.investmentForm.reset();
+  setMoneyInputValue(els.investmentCurrentValue, 0);
+  els.investmentSubmitBtn.textContent = "Save investment";
+  els.investmentCancelBtn.classList.add("hidden");
+  if (clearMessage) {
+    setMessage(els.investmentMessage, "");
+  }
+  syncInvestmentForm();
+  populateInvestmentSelects();
+}
+
+function resetInvestmentAssetForm(options = {}) {
+  const { clearMessage = true } = options;
+  if (!els.investmentAssetForm) {
+    return;
+  }
+  state.editInvestmentAssetId = null;
+  els.investmentAssetEditId.value = "";
+  els.investmentAssetForm.reset();
+  setMoneyInputValue(els.investmentAssetValue, 0);
+  els.investmentAssetSubmitBtn.textContent = "Save asset";
+  els.investmentAssetCancelBtn.classList.add("hidden");
+  if (clearMessage) {
+    setMessage(els.investmentAssetMessage, "");
+  }
+  populateInvestmentSelects();
+}
+
 function resetHouseholdLocalForms() {
   resetAccountForm();
   resetCategoryForm();
@@ -4200,6 +4970,8 @@ function resetHouseholdLocalForms() {
   resetBudgetForm();
   resetSavingForm();
   resetBillForm();
+  resetInvestmentForm();
+  resetInvestmentAssetForm();
 }
 
 function getVisibleBudgets() {
@@ -4211,11 +4983,87 @@ function getVisibleSavingGoals() {
 }
 
 function getActiveManualCategoryCount() {
-  return state.categories.filter(category => category.status === "active" && !isSavingCategory(category)).length;
+  return state.categories.filter(category => category.status === "active" && !isProtectedSystemCategory(category)).length;
 }
 
 function getVisibleBills() {
   return getVisiblePlanningItems(state.recurringBills);
+}
+
+function getVisibleInvestments() {
+  return getVisiblePlanningItems(state.investmentAccounts);
+}
+
+function getInvestmentAssets(investmentId) {
+  return state.investmentAssets
+    .filter(asset => asset.investmentAccountId === investmentId && asset.status !== "archived")
+    .sort((left, right) => (left.name || "").localeCompare(right.name || ""));
+}
+
+function getInvestmentEvents(investmentId) {
+  return state.investmentEvents.filter(event => event.investmentAccountId === investmentId && event.status !== "deleted");
+}
+
+function buildInvestmentSummary(investment) {
+  const events = getInvestmentEvents(investment.id);
+  const totalContributedMinor = events
+    .filter(event => event.eventType === "contribution")
+    .reduce((sum, event) => sum + Number(event.amountMinor || 0), 0);
+  const totalWithdrawnMinor = events
+    .filter(event => event.eventType === "withdrawal")
+    .reduce((sum, event) => sum + Number(event.amountMinor || 0), 0);
+  const assetValueMinor = getInvestmentAssets(investment.id)
+    .reduce((sum, asset) => sum + Number(asset.currentValueMinor || 0), 0);
+  const currentValueMinor = investment.useAssetBreakdown
+    ? assetValueMinor
+    : Number(investment.currentValueMinor || 0);
+  const netContributedMinor = totalContributedMinor - totalWithdrawnMinor;
+
+  return {
+    currentValueMinor,
+    totalContributedMinor,
+    totalWithdrawnMinor,
+    netContributedMinor,
+    unrealizedMinor: currentValueMinor - netContributedMinor
+  };
+}
+
+function getInvestmentCategory(eventType) {
+  return eventType === "withdrawal"
+    ? getSystemCategoryByKey("investment_withdrawal")
+    : getSystemCategoryByKey("investment_deposit");
+}
+
+function buildInvestmentEventPayload({ investment, eventType, amountMinor, note, ledgerAccount = null, ledgerTransactionId = null, transactionGroupId = null }) {
+  return {
+    investmentAccountId: investment.id,
+    investmentAccountNameSnapshot: investment.name,
+    eventType,
+    amountMinor,
+    note: cleanText(note),
+    ledgerAccountId: ledgerAccount?.id || null,
+    ledgerAccountNameSnapshot: ledgerAccount?.name || null,
+    ledgerTransactionId,
+    transactionGroupId,
+    scopeType: investment.scopeType,
+    ownerUserId: investment.ownerUserId || null,
+    status: "active",
+    createdByUserId: state.authUser.uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+}
+
+async function addInvestmentEvent({ investment, eventType, amountMinor, note, ledgerAccount = null, ledgerTransactionId = null, transactionGroupId = null }) {
+  await setDoc(doc(collection(db, "households", state.household.id, "investmentEvents")), buildInvestmentEventPayload({
+    investment,
+    eventType,
+    amountMinor,
+    note,
+    ledgerAccount,
+    ledgerTransactionId,
+    transactionGroupId
+  }));
 }
 
 function getVisiblePlanningItems(items, options = {}) {
@@ -4284,6 +5132,9 @@ function renderPlanningScopeCopy() {
   const billScopeType = state.editBillId
     ? state.recurringBills.find(item => item.id === state.editBillId)?.scopeType || getCurrentPlanningScopeType()
     : getCurrentPlanningScopeType();
+  const investmentScopeType = state.editInvestmentId
+    ? state.investmentAccounts.find(item => item.id === state.editInvestmentId)?.scopeType || getCurrentPlanningScopeType()
+    : getCurrentPlanningScopeType();
 
   if (els.budgetScopeCopy) {
     els.budgetScopeCopy.textContent = getPlanningScopeDescription(budgetScopeType, "budgets");
@@ -4293,6 +5144,9 @@ function renderPlanningScopeCopy() {
   }
   if (els.billScopeCopy) {
     els.billScopeCopy.textContent = getPlanningScopeDescription(billScopeType, "recurring bills");
+  }
+  if (els.investmentScopeCopy) {
+    els.investmentScopeCopy.textContent = getPlanningScopeDescription(investmentScopeType, "investment accounts");
   }
 }
 
@@ -4369,7 +5223,7 @@ function getEligibleAccountsForScope(scopeType = "personal") {
 
 function getBudgetEligibleCategories() {
   return getActiveCategories().filter(category => {
-    if (isSavingCategory(category)) {
+    if (isProtectedSystemCategory(category)) {
       return false;
     }
     return ["outcome", "both"].includes(category.direction);
@@ -4391,26 +5245,44 @@ function isSavingCategory(category) {
   return category.systemKey === "saving" || cleanText(category.name || "").toLowerCase() === "saving";
 }
 
-async function ensureSavingCategoryExists() {
-  if (state.ensuringSavingCategory || !state.household?.id || !state.authUser || !state.member || getSavingCategory()) {
+function isProtectedSystemCategory(category) {
+  return Boolean(category?.systemKey && PROTECTED_SYSTEM_CATEGORY_KEYS.has(category.systemKey));
+}
+
+function getSystemCategoryByKey(systemKey) {
+  return state.categories.find(category => category.status === "active" && category.systemKey === systemKey) || null;
+}
+
+async function ensureSystemCategories() {
+  if (state.ensuringSystemCategories || !state.household?.id || !state.authUser || !state.member) {
     return;
   }
 
-  state.ensuringSavingCategory = true;
+  const missingSeeds = SYSTEM_CATEGORY_SEEDS.filter(seed => !getSystemCategoryByKey(seed.systemKey));
+  if (!missingSeeds.length) {
+    return;
+  }
+
+  state.ensuringSystemCategories = true;
   try {
-    await setDoc(doc(db, "households", state.household.id, "categories", "system-saving"), {
-      name: "Saving",
-      direction: "outcome",
-      systemKey: "saving",
-      status: "active",
-      createdByUserId: state.authUser.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+    const batch = writeBatch(db);
+    missingSeeds.forEach(seed => {
+      batch.set(doc(db, "households", state.household.id, "categories", seed.id), {
+        name: seed.name,
+        description: seed.description,
+        direction: seed.direction,
+        systemKey: seed.systemKey,
+        status: "active",
+        createdByUserId: state.authUser.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    });
+    await batch.commit();
   } catch (error) {
-    console.warn("Could not ensure the Saving category exists:", error);
+    console.warn("Could not ensure system categories:", error);
   } finally {
-    state.ensuringSavingCategory = false;
+    state.ensuringSystemCategories = false;
   }
 }
 
@@ -4583,11 +5455,11 @@ function getEligibleSavingsForAccount(accountId = "") {
     .filter(goal => goal.status !== "archived" && goal.linkedAccountId === accountId);
 }
 
-function buildBudgetSummary(budget) {
-  const { startDate, endDate, periodLabel } = getBudgetPeriodWindow(budget);
+function getBudgetSpentMinor(budget, rows = getActiveRawTransactions()) {
+  const { startDate, endDate } = getBudgetPeriodWindow(budget);
   const startMillis = startDate.getTime();
   const endMillis = endDate.getTime();
-  const spentMinor = getActiveRawTransactions().reduce((sum, row) => {
+  return rows.reduce((sum, row) => {
     if (row.postingKind !== "outcome") {
       return sum;
     }
@@ -4603,6 +5475,11 @@ function buildBudgetSummary(budget) {
     }
     return sum + Number(row.amountMinor || 0);
   }, 0);
+}
+
+function buildBudgetSummary(budget, rows = getActiveRawTransactions()) {
+  const { periodLabel } = getBudgetPeriodWindow(budget);
+  const spentMinor = getBudgetSpentMinor(budget, rows);
   const amountMinor = Number(budget.amountMinor || 0);
   const remainingMinor = amountMinor - spentMinor;
   const ratio = amountMinor > 0 ? spentMinor / amountMinor : 0;
@@ -4668,6 +5545,40 @@ function getBudgetPeriodWindow(budget) {
     endDate: windowEnd,
     periodLabel: `${formatDate(Timestamp.fromDate(windowStart))} - ${formatDate(Timestamp.fromDate(windowEnd))}`
   };
+}
+
+function buildBudgetWarningAfterSave({ kind, amountMinor, transactionAt }) {
+  if (kind !== "outcome") {
+    return "";
+  }
+
+  const categoryId = els.transactionCategory.value;
+  if (!categoryId) {
+    return "";
+  }
+
+  const projectedRows = [
+    ...getActiveRawTransactions(),
+    {
+      postingKind: "outcome",
+      categoryId,
+      amountMinor,
+      transactionAt,
+      createdByUserId: state.authUser?.uid,
+      accountPrimaryOwnerUserIdSnapshot: state.authUser?.uid,
+      counterpartyAccountPrimaryOwnerUserIdSnapshot: null
+    }
+  ];
+  const overBudgets = getVisibleBudgets()
+    .map(budget => buildBudgetSummary(budget, projectedRows))
+    .filter(summary => summary.state === "over")
+    .map(summary => summary.name);
+
+  if (!overBudgets.length) {
+    return "";
+  }
+
+  return `Budget warning: ${overBudgets.join(", ")} ${overBudgets.length === 1 ? "is" : "are"} over budget.`;
 }
 
 function buildSavingSummary(goal) {
@@ -5017,6 +5928,16 @@ function isCompatibleSeedMatch(category, seed) {
   return category.direction === seed.direction || category.direction === "both";
 }
 
+function getDefaultCategorySeeds() {
+  return state.defaultCategoryLibrary.length
+    ? state.defaultCategoryLibrary.map(item => ({
+        name: item.name,
+        direction: item.direction,
+        description: item.description || ""
+      }))
+    : DEFAULT_CATEGORY_SEED;
+}
+
 function renderCategorySeedAccess() {
   if (!els.categoryDefaultsBtn || !els.categoryDefaultsNote) {
     return;
@@ -5049,14 +5970,15 @@ async function applyDefaultCategories() {
   let createdCount = 0;
   let updatedCount = 0;
   const activeCategoryCount = getActiveManualCategoryCount();
-  const missingSeedsCount = DEFAULT_CATEGORY_SEED.filter(seed => !state.categories.some(category => isCompatibleSeedMatch(category, seed))).length;
+  const categorySeeds = getDefaultCategorySeeds();
+  const missingSeedsCount = categorySeeds.filter(seed => !state.categories.some(category => isCompatibleSeedMatch(category, seed))).length;
 
   if (activeCategoryCount + missingSeedsCount > 50) {
     setMessage(els.categoryMessage, "The starter set would exceed the 50 active category limit. Archive some categories first.", "error");
     return;
   }
 
-  DEFAULT_CATEGORY_SEED.forEach(seed => {
+  categorySeeds.forEach(seed => {
     const matchingActive = state.categories.find(category => isCompatibleSeedMatch(category, seed));
     if (matchingActive) {
       if (!cleanText(matchingActive.description || "")) {
@@ -5114,7 +6036,7 @@ function getCategoryHelperGroups() {
 
   const groups = new Map();
   getActiveCategories()
-    .filter(category => !isSavingCategory(category) && isCategoryAllowedForKind(category, kind))
+    .filter(category => !isProtectedSystemCategory(category) && isCategoryAllowedForKind(category, kind))
     .sort((left, right) => (left.name || "").localeCompare(right.name || ""))
     .forEach(category => {
       const groupLabel = category.name.includes(" - ")
@@ -5248,7 +6170,7 @@ function prefillRecurringBillTransaction(reminder) {
   els.transactionKind.value = "outcome";
   els.transactionRecurringBillId.value = reminder.bill.id;
   els.transactionRecurringBillOccurrenceId.value = getOccurrenceDocId(reminder.bill.id, reminder.occurrenceKey);
-  els.transactionDate.value = toDateInput(reminder.dueDate);
+  els.transactionDate.value = toDateInput(new Date());
   els.transactionNote.value = reminder.bill.note || reminder.bill.name;
   syncTransactionForm({
     categoryId: reminder.bill.categoryId
@@ -5358,6 +6280,8 @@ function renderAccounts() {
     visibleAccounts.forEach(account => {
       const owner = getMemberName(account.primaryOwnerUserId);
       const canEdit = canEditAccount(account);
+      const activeMinor = balances.get(account.id) || 0;
+      const lockedMinor = getReservedSavingMinorForAccount(account.id);
       const item = document.createElement("article");
       item.className = "list-row";
       item.innerHTML = `
@@ -5367,7 +6291,9 @@ function renderAccounts() {
             <div class="list-row-meta">
               <span>${escapeHtml(owner)}</span>
               <span>•</span>
-              <span>${formatRupiah(balances.get(account.id) || 0)}</span>
+              <span>Active: ${escapeHtml(formatRupiah(activeMinor))}</span>
+              <span>|</span>
+              <span>Locked: ${escapeHtml(formatRupiah(lockedMinor))}</span>
             </div>
           </div>
           <div class="list-row-actions">
@@ -5394,7 +6320,7 @@ function renderCategories() {
   }
 
   categories.forEach(category => {
-    const systemLocked = isSavingCategory(category);
+    const systemLocked = isProtectedSystemCategory(category);
     const description = cleanText(category.description || "");
     const item = document.createElement("article");
     item.className = "list-row";
@@ -5707,7 +6633,7 @@ function populateTransactionSelects(selected = {}) {
   const categoryOptions = activeCategories
     .filter(category => (
       isCategoryAllowedForKind(category, kind)
-      && (!isSavingCategory(category) || category.id === selectedCategoryId)
+      && (!isProtectedSystemCategory(category) || category.id === selectedCategoryId)
     ))
     .map(category => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
     .join("");
@@ -5726,7 +6652,9 @@ function populateTransactionSelects(selected = {}) {
     ...getSelectableSavingsForTransferDestination({ includeGoalId: selected.transferSavingGoalId }).map(goal => `<option value="${buildSavingAccountOptionValue(goal.id)}">${escapeHtml(getSavingAccountOptionLabel(goal))}</option>`)
   ].join("");
 
-  els.transactionCategory.innerHTML = categoryOptions || `<option value="">No categories available</option>`;
+  els.transactionCategory.innerHTML = categoryOptions
+    ? `<option value="">Choose category</option>${categoryOptions}`
+    : `<option value="">No categories available</option>`;
   els.transactionAccount.innerHTML = accountOptions || `<option value="">No accounts available</option>`;
   els.transferFromAccount.innerHTML = transferFromOptions || `<option value="">No accounts available</option>`;
   els.transferToAccount.innerHTML = transferToOptions || `<option value="">No accounts available</option>`;
@@ -5789,6 +6717,7 @@ function syncTransactionForm(selected = {}) {
     closeCategoryHelperModal();
   }
   populateTransactionSelects(selected);
+  syncTransactionFeeField();
 }
 
 function syncTransactionPlanningFields(selected = {}) {
@@ -5843,6 +6772,55 @@ function getTransactionNoteValue(kind) {
   }
 
   return cleanText(els.transactionNote.value);
+}
+
+function getTransactionFeeMinor() {
+  if (state.editTransactionGroupId || !els.transactionFeeEnabled.checked) {
+    return 0;
+  }
+  const kind = els.transactionKind.value;
+  if (kind !== "outcome" && kind !== "transfer") {
+    return 0;
+  }
+  return parseMinorInput(els.transactionFeeAmount.value) || 0;
+}
+
+function syncTransactionFeeField() {
+  const kind = els.transactionKind.value;
+  const showToggle = !state.editTransactionGroupId && (kind === "outcome" || kind === "transfer");
+  els.transactionFeeToggleField.classList.toggle("hidden", !showToggle);
+  els.transactionFeeField.classList.toggle("hidden", !showToggle || !els.transactionFeeEnabled.checked);
+  if (!showToggle) {
+    els.transactionFeeEnabled.checked = false;
+    els.transactionFeeAmount.value = "";
+  }
+}
+
+function getAdminFeeCategory() {
+  return getSystemCategoryByKey("admin_fee");
+}
+
+function maybeAddFeeRowToBatch(batch, { transactionCollection, feeMinor, note, transactionAt, account }) {
+  if (!feeMinor) {
+    return null;
+  }
+
+  const category = getAdminFeeCategory();
+  if (!category) {
+    throw new Error("Admin Fee category is not ready yet. Wait a moment, then try again.");
+  }
+
+  const feeRef = doc(transactionCollection);
+  batch.set(feeRef, buildSingleRow({
+    id: feeRef.id,
+    kind: "outcome",
+    amountMinor: feeMinor,
+    note: cleanText(note),
+    transactionAt,
+    account,
+    category
+  }));
+  return feeRef.id;
 }
 
 function resolveSingleTransactionPlanningSelection(kind, category, account, accountSelection = null) {
@@ -6374,6 +7352,8 @@ function resetTransactionForm() {
   els.transactionKind.disabled = false;
   els.transactionDate.value = toDateInput(new Date());
   els.transferNote.value = "";
+  els.transactionFeeEnabled.checked = false;
+  els.transactionFeeAmount.value = "";
   els.transactionSubmitBtn.textContent = "Save transaction";
   els.transactionCancelBtn.classList.add("hidden");
   els.transactionCardTitle.textContent = "Create transaction";
@@ -6419,6 +7399,10 @@ function resetStateForAuth(user) {
   state.savingGoalEvents = [];
   state.recurringBills = [];
   state.recurringBillOccurrences = [];
+  state.investmentAccounts = [];
+  state.investmentAssets = [];
+  state.investmentEvents = [];
+  state.defaultCategoryLibrary = [];
   state.scope = DEFAULT_SCOPE;
   state.currentView = "dashboard";
   state.planningTab = "budgets";
@@ -6428,19 +7412,22 @@ function resetStateForAuth(user) {
   state.editBudgetId = null;
   state.editSavingGoalId = null;
   state.editBillId = null;
+  state.editInvestmentId = null;
+  state.editInvestmentAssetId = null;
   state.openHistoryMenuId = null;
   state.openBillMenuId = null;
   state.dashboardBillDismissStorageKey = "";
   state.dismissedDashboardBillReminderIds = new Set();
   state.exportCsvContent = "";
-  state.ensuringSavingCategory = false;
+  state.ensuringSystemCategories = false;
   state.masterAdmin = {
     checked: false,
     authorized: false,
     codes: [],
     overrides: [],
     blockedDomains: [],
-    greetingQuotes: []
+    greetingQuotes: [],
+    defaultCategories: []
   };
   resetLedgerView();
   resetAccessForms();
@@ -6450,6 +7437,8 @@ function resetStateForAuth(user) {
   resetBudgetForm();
   resetSavingForm();
   resetBillForm();
+  resetInvestmentForm();
+  resetInvestmentAssetForm();
 }
 
 function switchAuthMode(mode) {
@@ -6903,6 +7892,26 @@ function serializeGreetingQuote(id, data = {}) {
     createdAtSort: getTimestampSortValue(data.createdAt),
     createdAtFormatted: formatDateTime(data.createdAt)
   };
+}
+
+function serializeDefaultCategory(id, data = {}) {
+  return {
+    id,
+    name: data.name || "",
+    direction: data.direction || "outcome",
+    description: data.description || "",
+    status: data.status || "active",
+    createdAtSort: getTimestampSortValue(data.createdAt),
+    createdAtFormatted: formatDateTime(data.createdAt)
+  };
+}
+
+function resetMasterDefaultCategoryForm() {
+  els.masterDefaultCategoryForm.reset();
+  els.masterDefaultCategoryEditId.value = "";
+  els.masterDefaultCategoryDirection.value = "outcome";
+  els.masterDefaultCategorySubmitBtn.textContent = "Save category";
+  els.masterDefaultCategoryCancelBtn.classList.add("hidden");
 }
 
 function ensureHouseholdCapacity(existingIds = getAccessibleHouseholdIds()) {

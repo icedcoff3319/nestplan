@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260503d" />
+  <link rel="stylesheet" href="./styles.css?v=20260510b" />
 </head>
 <body>
   <main class="app-shell">
@@ -283,6 +283,55 @@
         <section class="card">
           <div class="card-header">
             <div>
+              <h3 class="card-title">Default category setup</h3>
+              <p class="card-subtle">Manage the starter category library used when households merge default categories.</p>
+            </div>
+          </div>
+
+          <form id="master-default-category-form" class="field-stack compact-form">
+            <input id="master-default-category-edit-id" type="hidden" />
+            <div class="field-group">
+              <label for="master-default-category-name">Category name</label>
+              <input id="master-default-category-name" type="text" placeholder="Essentials - Food" required />
+            </div>
+            <div class="field-grid two-up">
+              <div class="field-group">
+                <label for="master-default-category-direction">Direction</label>
+                <select id="master-default-category-direction">
+                  <option value="outcome">Outcome</option>
+                  <option value="income">Income</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="master-default-category-description">Description</label>
+                <input id="master-default-category-description" type="text" placeholder="Everyday spending." />
+              </div>
+            </div>
+            <div class="action-row">
+              <button id="master-default-category-submit-btn" class="secondary-btn" type="submit">Save category</button>
+              <button id="master-default-category-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+            </div>
+          </form>
+
+          <div id="master-default-category-message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Default categories</h3>
+              <p class="card-subtle">The current starter list for future household setup.</p>
+            </div>
+          </div>
+          <div id="master-default-category-list" class="stack-list admin-table-wrap scroll-10">
+            <p class="status-copy">No default categories yet.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
               <h3 class="card-title">Greeting library</h3>
               <p class="card-subtle">Add short sentences that can appear at the top of the app.</p>
             </div>
@@ -422,7 +471,7 @@
             <button id="nav-dashboard" class="view-nav-btn active" type="button" data-view="dashboard">Dashboard</button>
             <button id="nav-planning" class="view-nav-btn" type="button" data-view="planning">Planning</button>
             <button id="nav-management" class="view-nav-btn" type="button" data-view="management">Accounts & Categories</button>
-            <button id="nav-performance" class="view-nav-btn" type="button" data-view="performance">Performance</button>
+            <button id="nav-investments" class="view-nav-btn" type="button" data-view="investments">Investments</button>
           </div>
         </div>
         <p id="scope-copy" class="card-subtle header-scope-copy hidden">Showing your owned accounts and the activity you created or touched.</p>
@@ -514,6 +563,16 @@
               <div id="transaction-use-saving-field" class="field-group hidden">
                 <label for="transaction-use-saving">Use Saving</label>
                 <select id="transaction-use-saving"></select>
+              </div>
+
+              <label id="transaction-fee-toggle-field" class="toggle-field compact-toggle hidden" for="transaction-fee-enabled">
+                <input id="transaction-fee-enabled" type="checkbox" />
+                <span>Add transaction fee</span>
+              </label>
+
+              <div id="transaction-fee-field" class="field-group hidden">
+                <label for="transaction-fee-amount">Fee amount</label>
+                <input id="transaction-fee-amount" type="text" inputmode="numeric" placeholder="2.500" />
               </div>
 
               <div id="entry-fields" class="field-stack compact-form">
@@ -616,6 +675,7 @@
               <button id="planning-tab-budgets" class="segment-btn active" type="button" data-planning-tab="budgets">Budgets</button>
               <button id="planning-tab-savings" class="segment-btn" type="button" data-planning-tab="savings">Savings</button>
               <button id="planning-tab-bills" class="segment-btn" type="button" data-planning-tab="bills">Bills</button>
+              <button id="planning-tab-performance" class="segment-btn" type="button" data-planning-tab="performance">Performance</button>
             </div>
           </section>
 
@@ -897,6 +957,152 @@
         </div>
       </section>
 
+      <section id="investments-view" class="screen hidden">
+        <div class="planning-shell">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Investments</h3>
+                <p class="card-subtle">Track investment accounts manually, record contributions and withdrawals through the ledger, and keep room for a detailed investment ledger later.</p>
+              </div>
+            </div>
+          </section>
+
+          <div class="planning-grid">
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Investment account</h3>
+                  <p id="investment-scope-copy" class="status-copy planning-scope-copy">Current view: My view. New investment accounts created here belong to you only.</p>
+                </div>
+              </div>
+
+              <form id="investment-form" class="field-stack compact-form">
+                <input id="investment-edit-id" type="hidden" />
+                <div class="field-group">
+                  <label for="investment-name">Investment name</label>
+                  <input id="investment-name" type="text" placeholder="Brokerage account" required />
+                </div>
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-current-value">Current value</label>
+                    <input id="investment-current-value" type="text" inputmode="numeric" placeholder="0" />
+                  </div>
+                  <label class="toggle-field compact-toggle" for="investment-use-assets">
+                    <input id="investment-use-assets" type="checkbox" />
+                    <span>Use asset breakdown</span>
+                  </label>
+                </div>
+                <div class="field-group">
+                  <label for="investment-note">Note</label>
+                  <input id="investment-note" type="text" placeholder="Manual tracker" />
+                </div>
+                <div class="action-row">
+                  <button id="investment-submit-btn" class="primary-btn" type="submit">Save investment</button>
+                  <button id="investment-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+                </div>
+                <div id="investment-message" class="message" aria-live="polite"></div>
+              </form>
+            </section>
+
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Visible investments</h3>
+                  <p class="card-subtle">Personal investments show in My view. Shared investments show in Household view.</p>
+                </div>
+              </div>
+              <div id="investments-list" class="stack-list">
+                <p class="status-copy">No investments yet.</p>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Contribution or withdrawal</h3>
+                  <p class="card-subtle">These actions create normal ledger rows using the investment system categories.</p>
+                </div>
+              </div>
+
+              <form id="investment-movement-form" class="field-stack compact-form">
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-movement-account">Investment</label>
+                    <select id="investment-movement-account"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="investment-movement-type">Type</label>
+                    <select id="investment-movement-type">
+                      <option value="contribution">Contribution</option>
+                      <option value="withdrawal">Withdrawal</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-movement-ledger-account">Ledger account</label>
+                    <select id="investment-movement-ledger-account"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="investment-movement-amount">Amount</label>
+                    <input id="investment-movement-amount" type="text" inputmode="numeric" placeholder="100.000" required />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="investment-movement-note">Note</label>
+                  <input id="investment-movement-note" type="text" placeholder="Monthly contribution" />
+                </div>
+                <button class="primary-btn" type="submit">Save movement</button>
+                <div id="investment-movement-message" class="message" aria-live="polite"></div>
+              </form>
+            </section>
+
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Asset breakdown</h3>
+                  <p class="card-subtle">Optional detail for investments that should derive value from individual assets.</p>
+                </div>
+              </div>
+
+              <form id="investment-asset-form" class="field-stack compact-form">
+                <input id="investment-asset-edit-id" type="hidden" />
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-asset-account">Investment</label>
+                    <select id="investment-asset-account"></select>
+                  </div>
+                  <div class="field-group">
+                    <label for="investment-asset-type">Asset type</label>
+                    <input id="investment-asset-type" type="text" placeholder="Stock, fund, gold" />
+                  </div>
+                </div>
+                <div class="field-grid two-up">
+                  <div class="field-group">
+                    <label for="investment-asset-name">Asset name</label>
+                    <input id="investment-asset-name" type="text" placeholder="BBCA" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="investment-asset-value">Current value</label>
+                    <input id="investment-asset-value" type="text" inputmode="numeric" placeholder="0" required />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="investment-asset-note">Note</label>
+                  <input id="investment-asset-note" type="text" placeholder="Manual value update" />
+                </div>
+                <div class="action-row">
+                  <button id="investment-asset-submit-btn" class="primary-btn" type="submit">Save asset</button>
+                  <button id="investment-asset-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
+                </div>
+                <div id="investment-asset-message" class="message" aria-live="polite"></div>
+              </form>
+            </section>
+          </div>
+        </div>
+      </section>
+
       <section id="management-view" class="screen hidden">
         <div class="management-grid">
           <section class="card">
@@ -1035,6 +1241,24 @@
           <section class="card">
             <div class="card-header">
               <div>
+                <h3 class="card-title">Rename household</h3>
+                <p class="card-subtle">Household admins can update the active household name.</p>
+              </div>
+            </div>
+
+            <form id="household-rename-form" class="field-stack compact-form">
+              <div class="field-group">
+                <label for="household-rename-name">Household name</label>
+                <input id="household-rename-name" type="text" placeholder="Household name" />
+              </div>
+              <button class="primary-btn" type="submit">Rename household</button>
+              <div id="household-rename-message" class="message" aria-live="polite"></div>
+            </form>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
                 <h3 class="card-title">Create or join household</h3>
                 <p class="card-subtle">You can belong to up to 3 households. Create a new one or join with a 24-hour invite code.</p>
               </div>
@@ -1154,7 +1378,17 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260503d";
+    window.__nestplanBuild = "20260510b";
+    // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
+    window.__nestplanStagingFirebaseConfig = {
+      apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
+      authDomain: "nestplan-staging-863e5.firebaseapp.com",
+      projectId: "nestplan-staging-863e5",
+      storageBucket: "nestplan-staging-863e5.firebasestorage.app",
+      messagingSenderId: "997760138193",
+      appId: "1:997760138193:web:4bbb21092f9ca5f342bef0",
+      measurementId: "G-WBK051D7FB",
+    };
     window.__nestplanBootReady = false;
     window.__nestplanBootError = "";
 
@@ -1259,7 +1493,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260503d").catch(function (error) {
+    import("./app.js?v=20260510b").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");

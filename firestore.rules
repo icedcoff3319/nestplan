@@ -194,6 +194,19 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function validDefaultCategoryWrite() {
+      return isMasterAdmin()
+        && hasNonEmptyString(request.resource.data.name)
+        && request.resource.data.direction in ["income", "outcome", "both"]
+        && request.resource.data.description is string
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdByEmail == signedInEmailNormalized()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && hasTimestampOrNull(request.resource.data.get("archivedAt", null));
+    }
+
     function validHouseholdCreate() {
       return hasActiveUserProfile()
         && hasNonEmptyString(request.resource.data.name)
@@ -225,6 +238,21 @@ service cloud.firestore {
         && request.resource.data.settings.categoryDefaults.appliedAt is timestamp
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "settings",
+          "updatedAt"
+        ]);
+    }
+
+    function validHouseholdRenameUpdate(householdId) {
+      return isHouseholdAdmin(householdId)
+        && hasNonEmptyString(request.resource.data.name)
+        && request.resource.data.currencyCode == resource.data.currencyCode
+        && request.resource.data.timezone == resource.data.timezone
+        && request.resource.data.createdByUserId == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.settings == resource.data.settings
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "name",
           "updatedAt"
         ]);
     }
@@ -370,7 +398,35 @@ service cloud.firestore {
         && hasNonEmptyString(data.createdByUserId)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
-        && (data.get("systemKey", null) == null || data.systemKey == "saving");
+        && (
+          data.get("systemKey", null) == null
+          || data.systemKey in ["saving", "admin_fee", "investment_deposit", "investment_withdrawal"]
+        );
+    }
+
+    function validSystemCategoryCreate(categoryId) {
+      return (
+        categoryId == "system-saving"
+        && request.resource.data.systemKey == "saving"
+        && request.resource.data.name == "Saving"
+        && request.resource.data.direction == "outcome"
+      ) || (
+        categoryId == "system-admin-fee"
+        && request.resource.data.systemKey == "admin_fee"
+        && request.resource.data.name == "Admin Fee"
+        && request.resource.data.description == "Admin and transfer fees."
+        && request.resource.data.direction == "outcome"
+      ) || (
+        categoryId == "system-investment-deposit"
+        && request.resource.data.systemKey == "investment_deposit"
+        && request.resource.data.name == "Investment - Deposit"
+        && request.resource.data.direction == "outcome"
+      ) || (
+        categoryId == "system-investment-withdrawal"
+        && request.resource.data.systemKey == "investment_withdrawal"
+        && request.resource.data.name == "Investment - Withdrawal"
+        && request.resource.data.direction == "income"
+      );
     }
 
     function validCategoryCreate(householdId, categoryId) {
@@ -379,21 +435,18 @@ service cloud.firestore {
         && validCategoryFields(request.resource.data)
         && (
           request.resource.data.get("systemKey", null) == null
-          || (request.resource.data.systemKey == "saving" && categoryId == "system-saving")
+          || validSystemCategoryCreate(categoryId)
         );
     }
 
     function validCategoryUpdate(householdId, categoryId) {
       return isHouseholdMember(householdId)
-        && resource.data.get("systemKey", null) != "saving"
+        && resource.data.get("systemKey", null) == null
         && request.resource.data.createdByUserId == resource.data.createdByUserId
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.get("systemKey", null) == resource.data.get("systemKey", null)
         && validCategoryFields(request.resource.data)
-        && (
-          request.resource.data.get("systemKey", null) == null
-          || (request.resource.data.systemKey == "saving" && categoryId == "system-saving")
-        );
+        && request.resource.data.get("systemKey", null) == null;
     }
 
     function validAccountReference(householdId, accountId, nameSnapshot, ownerSnapshot) {
@@ -559,6 +612,12 @@ service cloud.firestore {
       );
     }
 
+    function validTransferCounterpartyPair(householdId, data) {
+      return data.counterpartyAccountId != data.accountId
+        || data.postingKind == "transfer_out"
+        || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId);
+    }
+
     function validRecurringBillReference(householdId, billId, occurrenceId) {
       return (billId == null && occurrenceId == null)
         || (
@@ -616,7 +675,7 @@ service cloud.firestore {
             && data.categoryId == null
             && data.categoryNameSnapshot == null
             && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
-            && data.counterpartyAccountId != data.accountId
+            && validTransferCounterpartyPair(householdId, data)
             && validTransferAccountUsage(householdId, data)
             && data.recurringBillId == null
             && data.recurringBillOccurrenceId == null
@@ -818,6 +877,89 @@ service cloud.firestore {
         && request.resource.data.voidedAt is timestamp;
     }
 
+    function investmentAccountScopeMatches(householdId, data) {
+      return hasNonEmptyString(data.investmentAccountId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId))
+        && get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.scopeType == data.scopeType
+        && get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data.ownerUserId == data.ownerUserId
+        && canReadScopedData(householdId, get(/databases/$(database)/documents/households/$(householdId)/investmentAccounts/$(data.investmentAccountId)).data);
+    }
+
+    function validInvestmentEventType(value) {
+      return value in ["contribution", "withdrawal", "valuation", "asset_update"];
+    }
+
+    function validInvestmentAccountFields(data) {
+      return hasNonEmptyString(data.name)
+        && data.note is string
+        && data.useAssetBreakdown is bool
+        && data.currentValueMinor is int
+        && data.currentValueMinor >= 0
+        && (data.status == "active" || data.status == "archived")
+        && data.updatedAt is timestamp
+        && hasTimestampOrNull(data.archivedAt);
+    }
+
+    function validInvestmentAccountCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && validInvestmentAccountFields(request.resource.data)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validInvestmentAccountUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && keepsScopedImmutableFields()
+        && validInvestmentAccountFields(request.resource.data);
+    }
+
+    function validInvestmentAssetFields(data) {
+      return hasNonEmptyString(data.investmentAccountId)
+        && data.investmentAccountNameSnapshot is string
+        && hasNonEmptyString(data.name)
+        && data.assetType is string
+        && data.currentValueMinor is int
+        && data.currentValueMinor >= 0
+        && data.note is string
+        && (data.status == "active" || data.status == "archived")
+        && data.updatedAt is timestamp
+        && hasTimestampOrNull(data.archivedAt);
+    }
+
+    function validInvestmentAssetCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && investmentAccountScopeMatches(householdId, request.resource.data)
+        && validInvestmentAssetFields(request.resource.data)
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validInvestmentAssetUpdate(householdId) {
+      return canUpdateScopedData(householdId)
+        && investmentAccountScopeMatches(householdId, request.resource.data)
+        && request.resource.data.investmentAccountId == resource.data.investmentAccountId
+        && keepsScopedImmutableFields()
+        && validInvestmentAssetFields(request.resource.data);
+    }
+
+    function validInvestmentEventCreate(householdId) {
+      return validScopedData(householdId, request.resource.data)
+        && investmentAccountScopeMatches(householdId, request.resource.data)
+        && validInvestmentEventType(request.resource.data.eventType)
+        && request.resource.data.amountMinor is int
+        && request.resource.data.amountMinor >= 0
+        && request.resource.data.note is string
+        && request.resource.data.investmentAccountNameSnapshot is string
+        && hasStringOrNull(request.resource.data.ledgerAccountId)
+        && hasStringOrNull(request.resource.data.ledgerAccountNameSnapshot)
+        && hasStringOrNull(request.resource.data.ledgerTransactionId)
+        && hasStringOrNull(request.resource.data.transactionGroupId)
+        && request.resource.data.status == "active"
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     match /users/{userId} {
       allow read: if isSelf(userId);
       allow create: if isSelf(userId)
@@ -889,10 +1031,16 @@ service cloud.firestore {
       allow delete: if isMasterAdmin();
     }
 
+    match /appDefaultCategories/{categoryId} {
+      allow read, list: if isSignedIn();
+      allow create, update: if validDefaultCategoryWrite();
+      allow delete: if isMasterAdmin();
+    }
+
     match /households/{householdId} {
       allow create: if isSignedIn() && validHouseholdCreate();
       allow read: if isHouseholdMember(householdId);
-      allow update: if validHouseholdSettingsUpdate(householdId);
+      allow update: if validHouseholdSettingsUpdate(householdId) || validHouseholdRenameUpdate(householdId);
       allow delete: if false;
 
       match /members/{userId} {
@@ -991,6 +1139,26 @@ service cloud.firestore {
         allow create: if validRecurringBillOccurrenceComplete(householdId);
         allow update: if validRecurringBillOccurrenceComplete(householdId) || validRecurringBillOccurrenceVoid(householdId);
         allow delete: if false;
+      }
+
+      match /investmentAccounts/{investmentId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validInvestmentAccountCreate(householdId);
+        allow update: if validInvestmentAccountUpdate(householdId);
+        allow delete: if false;
+      }
+
+      match /investmentAssets/{assetId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validInvestmentAssetCreate(householdId);
+        allow update: if validInvestmentAssetUpdate(householdId);
+        allow delete: if false;
+      }
+
+      match /investmentEvents/{eventId} {
+        allow read: if canReadScopedData(householdId, resource.data);
+        allow create: if validInvestmentEventCreate(householdId);
+        allow update, delete: if false;
       }
     }
 
