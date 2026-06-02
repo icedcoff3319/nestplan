@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510o";
+} from "./firebase-client.js?v=20260510p";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,11 +35,12 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510o";
+} from "./constants.js?v=20260510p";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
 const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
+const LAST_GREETING_STORAGE_KEY = "nestplan.lastGreeting.v1";
 const ADMIN_ROUTE_PARAM = "admin";
 const REGISTRATION_CODE_LENGTH = 8;
 const INVESTMENT_CATEGORY_KEYS = new Set(["investment_deposit", "investment_withdrawal"]);
@@ -1351,7 +1352,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510o");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510p");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -10474,8 +10475,30 @@ function pickGreeting() {
     .filter(item => item.status === "active" && cleanText(item.text))
     .map(item => cleanText(item.text));
   const source = dynamicGreetings.length ? dynamicGreetings : GREETINGS;
-  const index = Math.floor(Math.random() * source.length);
-  return source[index];
+  const previousGreeting = getLastGreeting();
+  const choices = source.length > 1
+    ? source.filter(text => text !== previousGreeting)
+    : source;
+  const index = Math.floor(Math.random() * choices.length);
+  const nextGreeting = choices[index] || source[0] || "Keep it steady.";
+  setLastGreeting(nextGreeting);
+  return nextGreeting;
+}
+
+function getLastGreeting() {
+  try {
+    return localStorage.getItem(LAST_GREETING_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function setLastGreeting(greeting) {
+  try {
+    localStorage.setItem(LAST_GREETING_STORAGE_KEY, greeting);
+  } catch (error) {
+    // Rotation still works within the current load if storage is unavailable.
+  }
 }
 
 function formatRupiah(value) {

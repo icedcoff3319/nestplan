@@ -128,7 +128,36 @@ export const DEFAULT_CATEGORY_SEED = [
 ];
 
 export const GREETINGS = [
-  "Keep it steady."
+  "A little clarity goes a long way.",
+  "One quiet check-in is enough.",
+  "Let today be simple.",
+  "Keep it steady.",
+  "Small entries, clear mind.",
+  "A calm look at what moved.",
+  "Start with one number.",
+  "Keep your money in view.",
+  "A softer kind of discipline.",
+  "Take stock, then move gently.",
+  "A clear month begins with small moments.",
+  "Keep track without the noise.",
+  "Make room for clarity.",
+  "A steady record is still progress.",
+  "Return to what matters.",
+  "One entry at a time.",
+  "Let the numbers settle.",
+  "Stay close to the rhythm.",
+  "A quiet habit builds a lot.",
+  "Keep this month in sight.",
+  "Slow down and notice.",
+  "A little order feels good.",
+  "Keep it light, keep it clear.",
+  "Ground yourself in the details.",
+  "This is your small checkpoint.",
+  "Clarity can be gentle.",
+  "Keep the month honest.",
+  "Start here, stay steady.",
+  "A calm record is still a strong one.",
+  "Just enough structure for today."
 ];
 
 export const ENTRY_KINDS = [
