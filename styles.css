@@ -1163,6 +1163,21 @@ textarea:focus {
   margin-bottom: var(--space-4);
 }
 
+.ledger-header-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.ledger-header-actions .inline-check {
+  white-space: nowrap;
+}
+
+.ledger-header-actions .icon-only-btn {
+  flex: 0 0 auto;
+}
+
 .action-row .primary-btn {
   flex: 1 1 240px;
 }

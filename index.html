@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510l" />
+  <link rel="stylesheet" href="./styles.css?v=20260510m" />
 </head>
 <body>
   <main class="app-shell">
@@ -652,12 +652,12 @@
                 <h3 class="card-title">Ledger history</h3>
                 <p id="history-meta" class="card-subtle">No entries loaded yet.</p>
               </div>
-              <div class="action-row compact-actions">
+              <div class="action-row compact-actions ledger-header-actions">
                 <label class="inline-check" for="dashboard-ledger-filter-toggle">
                   <input id="dashboard-ledger-filter-toggle" type="checkbox" />
                   <span>Filters</span>
                 </label>
-                <button id="export-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8681;</button>
+                <button id="export-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8595;</button>
               </div>
             </div>
 
@@ -1048,7 +1048,7 @@
                     <h3 class="card-title">Ledger table</h3>
                     <p id="ledger-page-meta" class="card-subtle">Open this tab to load ledger rows.</p>
                   </div>
-                  <button id="ledger-page-download-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8681;</button>
+                  <button id="ledger-page-download-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8595;</button>
                 </div>
                 <div id="ledger-table" class="ledger-table-wrap">
                   <p class="status-copy">Ledger rows load when this tab is opened.</p>
@@ -1424,7 +1424,7 @@
                 <label for="account-name">Account name</label>
                 <input id="account-name" type="text" placeholder="Bank/ewallet name" required />
               </div>
-              <div class="field-group">
+              <div id="account-opening-balance-field" class="field-group">
                 <label for="account-opening-balance">Opening balance</label>
                 <input id="account-opening-balance" type="text" inputmode="numeric" placeholder="0" />
               </div>
@@ -1703,7 +1703,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510l";
+    window.__nestplanBuild = "20260510m";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1818,7 +1818,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510l").catch(function (error) {
+    import("./app.js?v=20260510m").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");

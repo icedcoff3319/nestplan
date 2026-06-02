@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510l";
+} from "./firebase-client.js?v=20260510m";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510l";
+} from "./constants.js?v=20260510m";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1184,7 +1184,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510l");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510m");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -3221,7 +3221,6 @@ async function handleAccountSubmit(event) {
   setMessage(els.accountMessage, "");
 
   const name = cleanText(els.accountName.value);
-  const openingBalanceMinor = parseMinorInput(els.accountOpeningBalance.value);
   const editingAccount = state.editAccountId
     ? state.accounts.find(account => account.id === state.editAccountId)
     : null;
@@ -3237,15 +3236,20 @@ async function handleAccountSubmit(event) {
     return;
   }
 
+  if (state.editAccountId && !editingAccount) {
+    setMessage(els.accountMessage, "Choose an existing account to edit.", "error");
+    return;
+  }
+
   try {
     if (state.editAccountId) {
       await updateDoc(doc(db, "households", state.household.id, "accounts", state.editAccountId), {
         name,
-        openingBalanceMinor,
         updatedAt: serverTimestamp()
       });
-      setMessage(els.accountMessage, "Account updated.", "success");
+      setMessage(els.accountMessage, "Account name updated.", "success");
     } else {
+      const openingBalanceMinor = parseMinorInput(els.accountOpeningBalance.value);
       await setDoc(doc(collection(db, "households", state.household.id, "accounts")), {
         name,
         primaryOwnerUserId,
@@ -3286,8 +3290,9 @@ function handleAccountListActions(event) {
     els.accountEditId.value = account.id;
     els.accountName.value = account.name;
     setMoneyInputValue(els.accountOpeningBalance, account.openingBalanceMinor);
+    syncAccountOpeningBalanceField();
     syncAccountOwnerInput();
-    els.accountSubmitBtn.textContent = "Update account";
+    els.accountSubmitBtn.textContent = "Update account name";
     els.accountCancelBtn.classList.remove("hidden");
     return;
   }
@@ -6228,11 +6233,12 @@ function renderInvestmentsView() {
   }
 }
 
-function populateBudgetCategoryOptions() {
+function populateBudgetCategoryOptions(options = {}) {
   if (!els.budgetCategoryList) {
     return;
   }
-  const currentSelection = getSelectedBudgetCategoryIds();
+  const { preserveSelection = true } = options;
+  const currentSelection = preserveSelection ? getSelectedBudgetCategoryIds() : [];
   const selectedIds = new Set(
     state.editBudgetId
       ? sanitizeStringArray(state.budgets.find(item => item.id === state.editBudgetId)?.categoryIds)
@@ -6364,7 +6370,7 @@ function resetBudgetForm(options = {}) {
     els.budgetCategoryPicker.open = false;
   }
   syncBudgetForm();
-  populateBudgetCategoryOptions();
+  populateBudgetCategoryOptions({ preserveSelection: false });
 }
 
 function resetSavingForm(options = {}) {
@@ -8027,7 +8033,6 @@ function renderAccounts() {
           </div>
           <div class="list-row-actions">
             ${canEdit ? `<button class="text-btn" type="button" data-action="edit-account" data-id="${account.id}">Edit</button>` : ""}
-            <button class="text-btn" type="button" data-action="prefill-adjustment" data-id="${account.id}">Adjust</button>
             <button class="text-btn danger" type="button" data-action="archive-account" data-id="${account.id}">Archive</button>
           </div>
         </div>
@@ -8511,7 +8516,6 @@ function renderAccountsList() {
         </div>
         <div class="list-row-actions">
           ${canEdit ? `<button class="text-btn" type="button" data-action="edit-account" data-id="${account.id}">Edit</button>` : ""}
-          <button class="text-btn" type="button" data-action="prefill-adjustment" data-id="${account.id}">Adjust</button>
           <button class="text-btn danger" type="button" data-action="archive-account" data-id="${account.id}">Archive</button>
         </div>
       </div>
@@ -9343,9 +9347,22 @@ function resetAccountForm() {
   els.accountEditId.value = "";
   els.accountForm.reset();
   setMoneyInputValue(els.accountOpeningBalance, 0);
+  syncAccountOpeningBalanceField();
   els.accountSubmitBtn.textContent = "Save account";
   els.accountCancelBtn.classList.add("hidden");
   syncAccountOwnerInput();
+}
+
+function syncAccountOpeningBalanceField() {
+  const openingBalanceField = els.accountOpeningBalance?.closest(".field-group");
+  const isEditing = Boolean(state.editAccountId);
+
+  if (openingBalanceField) {
+    openingBalanceField.classList.toggle("hidden", isEditing);
+  }
+  if (els.accountOpeningBalance) {
+    els.accountOpeningBalance.disabled = isEditing;
+  }
 }
 
 function resetCategoryForm() {
