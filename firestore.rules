@@ -660,11 +660,20 @@ service cloud.firestore {
         && data.savingGoalId == null
       ) || (
         data.postingKind == "transfer_in"
-        && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
-        && accountOwnerUserId(accountDoc(householdId, data.counterpartyAccountId)) == request.auth.uid
         && (
-          data.savingGoalId == null
-          || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+          (
+            validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
+            && accountOwnerUserId(accountDoc(householdId, data.counterpartyAccountId)) == request.auth.uid
+            && (
+              data.savingGoalId == null
+              || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+            )
+          )
+          || (
+            data.counterpartyAccountId == data.accountId
+            && accountOwnedByRequester(householdId, data.accountId)
+            && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+          )
         )
       );
     }
