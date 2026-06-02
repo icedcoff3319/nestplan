@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510n";
+} from "./firebase-client.js?v=20260510o";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510n";
+} from "./constants.js?v=20260510o";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1189,13 +1189,33 @@ async function refreshFromCurrentUser() {
   await loadUserSession(state.authUser);
 }
 
-async function loadGreetingQuotes() {
-  state.greetingQuotes = GREETINGS.map((text, index) => ({
+function getBuiltInGreetingQuotes() {
+  return GREETINGS.map((text, index) => ({
     id: `builtin-greeting-${index}`,
     text,
     source: "built-in",
     readonly: true
   }));
+}
+
+async function loadGreetingQuotes() {
+  const fallbackGreetings = getBuiltInGreetingQuotes();
+  if (firebaseEnvironment === "staging") {
+    state.greetingQuotes = fallbackGreetings;
+    return;
+  }
+
+  try {
+    const snapshot = await getDocs(collection(db, "appGreetingQuotes"));
+    const firestoreGreetings = snapshot.docs
+      .map(snapshotItem => ({ id: snapshotItem.id, ...snapshotItem.data() }))
+      .filter(item => item.status === "active" && cleanText(item.text))
+      .sort((a, b) => getTimestampSortValue(a.createdAt) - getTimestampSortValue(b.createdAt));
+    state.greetingQuotes = firestoreGreetings.length ? firestoreGreetings : fallbackGreetings;
+  } catch (error) {
+    console.warn("Could not load greeting library:", error);
+    state.greetingQuotes = fallbackGreetings;
+  }
 }
 
 async function loadDefaultCategoryLibrary() {
@@ -1259,7 +1279,7 @@ async function refreshMasterAdminDashboard() {
     state.masterAdmin.blockedDomains = response.blockedDomains || [];
     state.masterAdmin.greetingQuotes = response.greetingQuotes?.length
       ? response.greetingQuotes
-      : GREETINGS.map((text, index) => ({ id: `builtin-greeting-${index}`, text, source: "built-in", readonly: true }));
+      : getBuiltInGreetingQuotes();
     state.masterAdmin.defaultCategories = response.defaultCategories?.length
       ? response.defaultCategories
       : DEFAULT_CATEGORY_SEED.map((item, index) => ({
@@ -1331,7 +1351,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510n");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510o");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -1372,12 +1392,22 @@ async function assertMasterAdminClient() {
 
 async function getMasterAdminDashboard() {
   await assertMasterAdminClient();
-  const [codesSnap, overridesSnap, defaultCategoriesSnap, maintenanceSnap] = await Promise.all([
+  const [codesSnap, overridesSnap, defaultCategoriesSnap, maintenanceSnap, blockedDomainsSnap, greetingQuotesSnap] = await Promise.all([
     getDocs(collection(db, "registrationCodes")),
     getDocs(collection(db, "emailPolicyOverrides")),
     getDocs(collection(db, "appDefaultCategories")),
-    getDoc(doc(db, "platformSettings", "maintenance"))
+    getDoc(doc(db, "platformSettings", "maintenance")),
+    firebaseEnvironment === "staging" ? Promise.resolve(null) : getDocs(collection(db, "emailPolicyBlockedDomains")),
+    firebaseEnvironment === "staging" ? Promise.resolve(null) : getDocs(collection(db, "appGreetingQuotes"))
   ]);
+  const builtInGreetings = getBuiltInGreetingQuotes();
+  const firestoreGreetings = greetingQuotesSnap
+    ? greetingQuotesSnap.docs
+        .map(snapshot => serializeGreetingQuote(snapshot.id, snapshot.data()))
+        .filter(item => item.status === "active" && cleanText(item.text))
+        .sort((a, b) => a.createdAtSort - b.createdAtSort)
+        .slice(0, 60)
+    : [];
 
   return {
     registrationCodes: codesSnap.docs
@@ -1388,13 +1418,15 @@ async function getMasterAdminDashboard() {
       .map(snapshot => serializeEmailOverride(snapshot.id, snapshot.data()))
       .sort((a, b) => b.createdAtSort - a.createdAtSort)
       .slice(0, 60),
-    blockedDomains: [],
-    greetingQuotes: GREETINGS.map((text, index) => ({
-      id: `builtin-greeting-${index}`,
-      text,
-      source: "built-in",
-      readonly: true
-    })),
+    blockedDomains: blockedDomainsSnap
+      ? blockedDomainsSnap.docs
+          .map(snapshot => serializeBlockedDomain(snapshot.id, snapshot.data()))
+          .sort((a, b) => (a.domain || "").localeCompare(b.domain || ""))
+          .slice(0, 200)
+      : [],
+    greetingQuotes: firebaseEnvironment === "staging"
+      ? builtInGreetings
+      : firestoreGreetings,
     defaultCategories: defaultCategoriesSnap.docs
       .map(snapshot => serializeDefaultCategory(snapshot.id, snapshot.data()))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
@@ -4875,6 +4907,7 @@ function renderMasterAdminScreen(message = "", type = "") {
     : "Log in with a master admin account.";
 
   const disabled = !state.masterAdmin.authorized;
+  const libraryEditingDisabled = disabled || firebaseEnvironment === "staging";
   [
     els.masterAdminRefreshBtn,
     els.masterCodeEmail,
@@ -4896,11 +4929,11 @@ function renderMasterAdminScreen(message = "", type = "") {
 
   els.masterCodeForm.querySelector("button[type='submit']").disabled = disabled;
   els.masterOverrideForm.querySelector("button[type='submit']").disabled = disabled;
-  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = true;
-  els.masterGreetingForm.querySelector("button[type='submit']").disabled = true;
-  els.masterBlockedDomain.disabled = true;
-  els.masterGreetingText.disabled = true;
-  els.masterGreetingSeedBtn.disabled = true;
+  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = libraryEditingDisabled;
+  els.masterGreetingForm.querySelector("button[type='submit']").disabled = libraryEditingDisabled;
+  els.masterBlockedDomain.disabled = libraryEditingDisabled;
+  els.masterGreetingText.disabled = libraryEditingDisabled;
+  els.masterGreetingSeedBtn.disabled = libraryEditingDisabled;
   els.masterDefaultCategoryForm.querySelector("button[type='submit']").disabled = disabled;
   const maintenanceSubmitButton = els.masterMaintenanceForm?.querySelector("button[type='submit']");
   if (maintenanceSubmitButton) {
