@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510j";
+} from "./firebase-client.js?v=20260510k";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510j";
+} from "./constants.js?v=20260510k";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1184,7 +1184,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510j");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510k");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -3687,6 +3687,9 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
 
   const isSavingReserveTransfer = Boolean(savingGoal && savingGoal.linkedAccountId === fromAccount.id && toAccount.id === fromAccount.id);
   if (fromAccount.id === toAccount.id && !isSavingReserveTransfer) {
+    if (getSavingsForTransferSource(fromAccount.id).length) {
+      throw new Error("To reserve money in a saving, choose the [Reserve to saving] option in Transfer To.");
+    }
     throw new Error("Transfer source and destination must be different.");
   }
 
@@ -6870,11 +6873,26 @@ function getSelectableSavingsForTransferDestination(options = {}) {
   });
 }
 
+function getSavingsForTransferSource(accountId = "") {
+  if (!accountId) {
+    return [];
+  }
+  return getSelectableSavingsForTransferDestination()
+    .filter(goal => goal.status === "active" && goal.linkedAccountId === accountId)
+    .sort((left, right) => (left.name || "").localeCompare(right.name || ""));
+}
+
 function getSavingAccountOptionLabel(goal) {
   const linkedAccount = getLinkedActiveAccountForSaving(goal);
   const linkedAccountName = linkedAccount ? getAccountOptionLabel(linkedAccount) : getAccountName(goal.linkedAccountId);
   const completedSuffix = goal.status === "completed" ? " | completed" : "";
   return `[Saving] ${goal.name} | ${linkedAccountName}${completedSuffix}`;
+}
+
+function getSavingTransferTargetOptionLabel(goal) {
+  const linkedAccount = getLinkedActiveAccountForSaving(goal);
+  const linkedAccountName = linkedAccount ? getAccountOptionLabel(linkedAccount) : getAccountName(goal.linkedAccountId);
+  return `[Reserve to saving] ${goal.name} | ${linkedAccountName}`;
 }
 
 function scrollEditorIntoView(element) {
@@ -8478,13 +8496,14 @@ function populateTransactionSelects(selected = {}) {
   ].join("");
   const investmentOptions = visibleInvestments
     .map(investment => `<option value="${buildInvestmentAccountOptionValue(investment.id)}">[Investment] ${escapeHtml(investment.name)}</option>`);
+  const transferSavings = getSelectableSavingsForTransferDestination({ includeGoalId: selected.transferSavingGoalId });
   const transferFromOptions = [
     ...ownedAccounts.map(account => `<option value="${account.id}">${escapeHtml(getAccountOptionLabel(account))}</option>`),
     ...investmentOptions
   ].join("");
   const transferToOptions = [
+    ...transferSavings.map(goal => `<option value="${buildSavingAccountOptionValue(goal.id)}">${escapeHtml(getSavingTransferTargetOptionLabel(goal))}</option>`),
     ...activeAccounts.map(account => `<option value="${account.id}">${escapeHtml(getAccountOptionLabel(account))}</option>`),
-    ...getSelectableSavingsForTransferDestination({ includeGoalId: selected.transferSavingGoalId }).map(goal => `<option value="${buildSavingAccountOptionValue(goal.id)}">${escapeHtml(getSavingAccountOptionLabel(goal))}</option>`),
     ...investmentOptions
   ].join("");
 
@@ -8515,10 +8534,12 @@ function populateTransactionSelects(selected = {}) {
     && !isInvestmentAccountOptionValue(els.transferToAccount.value)
     && !isInvestmentAccountOptionValue(els.transferFromAccount.value)
     && els.transferToAccount.value === els.transferFromAccount.value
-    && activeAccounts.length > 1
   ) {
+    const sourceSavings = transferSavings.filter(goal => goal.status === "active" && goal.linkedAccountId === els.transferFromAccount.value);
     const alternative = activeAccounts.find(account => account.id !== els.transferFromAccount.value);
-    if (alternative) {
+    if (sourceSavings[0]) {
+      els.transferToAccount.value = buildSavingAccountOptionValue(sourceSavings[0].id);
+    } else if (alternative) {
       els.transferToAccount.value = alternative.id;
     }
   }
