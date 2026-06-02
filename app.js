@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510p";
+} from "./firebase-client.js?v=20260510q";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510p";
+} from "./constants.js?v=20260510q";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -70,6 +70,7 @@ const state = {
   investmentAssets: [],
   investmentEvents: [],
   greetingQuotes: [],
+  greetingLibraryLoaded: false,
   defaultCategoryLibrary: [],
   platformMaintenance: {
     enabled: false,
@@ -1074,8 +1075,6 @@ function clearHouseholdContextState() {
   state.investmentAccounts = [];
   state.investmentAssets = [];
   state.investmentEvents = [];
-  state.defaultCategoryLibrary = [];
-  state.greetingQuotes = [];
   state.openHistoryMenuId = null;
   state.openBillMenuId = null;
   state.dashboardBillDismissStorageKey = "";
@@ -1203,6 +1202,7 @@ async function loadGreetingQuotes() {
   const fallbackGreetings = getBuiltInGreetingQuotes();
   if (firebaseEnvironment === "staging") {
     state.greetingQuotes = fallbackGreetings;
+    state.greetingLibraryLoaded = false;
     return;
   }
 
@@ -1212,10 +1212,12 @@ async function loadGreetingQuotes() {
       .map(snapshotItem => ({ id: snapshotItem.id, ...snapshotItem.data() }))
       .filter(item => item.status === "active" && cleanText(item.text))
       .sort((a, b) => getTimestampSortValue(a.createdAt) - getTimestampSortValue(b.createdAt));
-    state.greetingQuotes = firestoreGreetings.length ? firestoreGreetings : fallbackGreetings;
+    state.greetingQuotes = firestoreGreetings;
+    state.greetingLibraryLoaded = true;
   } catch (error) {
     console.warn("Could not load greeting library:", error);
     state.greetingQuotes = fallbackGreetings;
+    state.greetingLibraryLoaded = false;
   }
 }
 
@@ -1352,7 +1354,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510p");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510q");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -9668,7 +9670,10 @@ function resetStateForAuth(user) {
   state.investmentAccounts = [];
   state.investmentAssets = [];
   state.investmentEvents = [];
+  state.greetingQuotes = [];
+  state.greetingLibraryLoaded = false;
   state.defaultCategoryLibrary = [];
+  state.sessionGreeting = GREETINGS[0];
   state.platformMaintenance = getDefaultMaintenanceState();
   state.scope = DEFAULT_SCOPE;
   state.currentView = "dashboard";
@@ -10474,13 +10479,17 @@ function pickGreeting() {
   const dynamicGreetings = state.greetingQuotes
     .filter(item => item.status === "active" && cleanText(item.text))
     .map(item => cleanText(item.text));
-  const source = dynamicGreetings.length ? dynamicGreetings : GREETINGS;
+  const source = dynamicGreetings.length
+    ? dynamicGreetings
+    : firebaseEnvironment === "production" && state.greetingLibraryLoaded
+      ? ["Welcome to NestPlan."]
+      : GREETINGS;
   const previousGreeting = getLastGreeting();
   const choices = source.length > 1
     ? source.filter(text => text !== previousGreeting)
     : source;
   const index = Math.floor(Math.random() * choices.length);
-  const nextGreeting = choices[index] || source[0] || "Keep it steady.";
+  const nextGreeting = choices[index] || source[0] || "Welcome to NestPlan.";
   setLastGreeting(nextGreeting);
   return nextGreeting;
 }
