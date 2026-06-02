@@ -506,14 +506,6 @@ service cloud.firestore {
         );
     }
 
-    function canDeleteScopedData(householdId) {
-      return isHouseholdMember(householdId)
-        && (
-          resource.data.scopeType == "household"
-          || (resource.data.scopeType == "personal" && resource.data.ownerUserId == request.auth.uid)
-        );
-    }
-
     function keepsScopedImmutableFields() {
       return request.resource.data.createdByUserId == resource.data.createdByUserId
         && request.resource.data.createdAt == resource.data.createdAt;
@@ -1243,14 +1235,14 @@ service cloud.firestore {
         allow read: if canReadScopedData(householdId, resource.data);
         allow create: if validBudgetCreate(householdId);
         allow update: if validBudgetUpdate(householdId);
-        allow delete: if canDeleteScopedData(householdId);
+        allow delete: if false;
       }
 
       match /savingGoals/{goalId} {
         allow read: if canReadScopedData(householdId, resource.data);
         allow create: if validSavingGoalCreate(householdId);
         allow update: if validSavingGoalUpdate(householdId);
-        allow delete: if canDeleteScopedData(householdId);
+        allow delete: if false;
       }
 
       match /savingGoalEvents/{eventId} {
@@ -1263,7 +1255,7 @@ service cloud.firestore {
         allow read: if canReadScopedData(householdId, resource.data);
         allow create: if validRecurringBillCreate(householdId);
         allow update: if validRecurringBillUpdate(householdId);
-        allow delete: if canDeleteScopedData(householdId);
+        allow delete: if false;
       }
 
       match /recurringBillOccurrences/{occurrenceId} {

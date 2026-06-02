@@ -39,12 +39,9 @@ const productionFirebaseConfig = {
 const stagingFirebaseConfig = window.__nestplanStagingFirebaseConfig || null;
 
 function resolveFirebaseEnvironment() {
-  const params = new URLSearchParams(window.location.search);
-  const requestedEnv = (params.get("env") || "").toLowerCase();
   const host = window.location.hostname.toLowerCase();
   if (
-    requestedEnv === "staging"
-    || host === "localhost"
+    host === "localhost"
     || host === "127.0.0.1"
     || host.includes("--staging")
     || host.includes("-staging")

@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510k";
+} from "./firebase-client.js?v=20260510l";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510k";
+} from "./constants.js?v=20260510l";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1184,7 +1184,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510k");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510l");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -1758,16 +1758,58 @@ async function handleMasterOverrideSubmit(event) {
 
 async function handleMasterBlockedDomainSubmit(event) {
   event.preventDefault();
-  setMessage(els.masterBlockedDomainMessage, "Blocked-domain library editing is disabled in this staging build. Production policy data is left untouched.", "success");
+  if (firebaseEnvironment === "staging") {
+    setMessage(els.masterBlockedDomainMessage, "Blocked-domain library editing is disabled in staging. Production policy data is left untouched.", "success");
+    return;
+  }
+
+  setMessage(els.masterBlockedDomainMessage, "");
+  try {
+    await addBlockedEmailDomain({ domain: els.masterBlockedDomain.value });
+    els.masterBlockedDomainForm.reset();
+    setMessage(els.masterBlockedDomainMessage, "Blocked domain added.", "success");
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterBlockedDomainMessage, getRegistrationErrorMessage(error), "error");
+  }
 }
 
 async function handleMasterGreetingSubmit(event) {
   event.preventDefault();
-  setMessage(els.masterGreetingMessage, "Greeting editing is disabled in this staging build. The app uses the built-in greeting library.", "success");
+  if (firebaseEnvironment === "staging") {
+    setMessage(els.masterGreetingMessage, "Greeting editing is disabled in staging. The app uses the built-in greeting library.", "success");
+    return;
+  }
+
+  setMessage(els.masterGreetingMessage, "");
+  try {
+    await addGreetingQuote({ text: els.masterGreetingText.value });
+    els.masterGreetingForm.reset();
+    setMessage(els.masterGreetingMessage, "Sentence added.", "success");
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
+  }
 }
 
 async function handleMasterGreetingSeed() {
-  setMessage(els.masterGreetingMessage, "No action needed. This staging build always uses the built-in greeting library.", "success");
+  if (firebaseEnvironment === "staging") {
+    setMessage(els.masterGreetingMessage, "No action needed. This staging build always uses the built-in greeting library.", "success");
+    return;
+  }
+
+  setMessage(els.masterGreetingMessage, "");
+  try {
+    const addedCount = await seedDefaultGreetingQuotes();
+    setMessage(
+      els.masterGreetingMessage,
+      addedCount ? `${addedCount} current library sentences added.` : "The current library is already added.",
+      "success"
+    );
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
+  }
 }
 
 async function handleMasterDefaultCategorySubmit(event) {
@@ -2608,83 +2650,51 @@ function openBillEditor(bill) {
 }
 
 async function deleteOrArchiveBudget(budget) {
-  if (!window.confirm("Delete this budget? It will be permanently removed only if it has no linked spending history.")) {
+  if (!window.confirm("Archive this budget? It will no longer appear in active planning.")) {
     return;
   }
 
-  const hasHistory = state.transactionsRaw.some(row => {
-    if (row.postingKind !== "outcome") {
-      return false;
-    }
-    if (!sanitizeStringArray(budget.categoryIds).includes(row.categoryId || "")) {
-      return false;
-    }
-    const rowTime = row.transactionAt?.toDate ? row.transactionAt.toDate().getTime() : 0;
-    return rowTime >= getTimestampSortValue(budget.createdAt);
-  });
-
   try {
-    if (hasHistory) {
-      await updateDoc(doc(db, "households", state.household.id, "budgets", budget.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      setMessage(els.budgetMessage, "Budget archived because it already has linked spending history.", "success");
-    } else {
-      await deleteDoc(doc(db, "households", state.household.id, "budgets", budget.id));
-      setMessage(els.budgetMessage, "Budget deleted.", "success");
-    }
+    await updateDoc(doc(db, "households", state.household.id, "budgets", budget.id), {
+      status: "archived",
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.budgetMessage, "Budget archived.", "success");
   } catch (error) {
     setMessage(els.budgetMessage, error.message, "error");
   }
 }
 
 async function deleteOrArchiveSaving(goal) {
-  if (!window.confirm("Delete this saving? It will be permanently removed only if it has no linked history.")) {
+  if (!window.confirm("Archive this saving? Existing history will stay preserved.")) {
     return;
   }
 
-  const hasHistory = state.transactionsRaw.some(row => row.savingGoalId === goal.id)
-    || state.savingGoalEvents.some(event => event.savingGoalId === goal.id);
-
   try {
-    if (hasHistory) {
-      await updateDoc(doc(db, "households", state.household.id, "savingGoals", goal.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      setMessage(els.savingMessage, "Saving archived because it already has linked history.", "success");
-    } else {
-      await deleteDoc(doc(db, "households", state.household.id, "savingGoals", goal.id));
-      setMessage(els.savingMessage, "Saving deleted.", "success");
-    }
+    await updateDoc(doc(db, "households", state.household.id, "savingGoals", goal.id), {
+      status: "archived",
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.savingMessage, "Saving archived.", "success");
   } catch (error) {
     setMessage(els.savingMessage, error.message, "error");
   }
 }
 
 async function deleteOrArchiveBill(bill) {
-  if (!window.confirm("Delete this recurring bill? It will be permanently removed only if it has no completed history.")) {
+  if (!window.confirm("Archive this recurring bill? Existing reminder history will stay preserved.")) {
     return;
   }
 
-  const hasHistory = state.recurringBillOccurrences.some(occurrence => occurrence.billId === bill.id)
-    || state.transactionsRaw.some(row => row.recurringBillId === bill.id);
-
   try {
-    if (hasHistory) {
-      await updateDoc(doc(db, "households", state.household.id, "recurringBills", bill.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      setMessage(els.billMessage, "Bill archived because it already has linked reminder history.", "success");
-    } else {
-      await deleteDoc(doc(db, "households", state.household.id, "recurringBills", bill.id));
-      setMessage(els.billMessage, "Bill deleted.", "success");
-    }
+    await updateDoc(doc(db, "households", state.household.id, "recurringBills", bill.id), {
+      status: "archived",
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    setMessage(els.billMessage, "Bill archived.", "success");
   } catch (error) {
     setMessage(els.billMessage, error.message, "error");
   }
@@ -3523,6 +3533,10 @@ async function handleTransactionSubmit(event) {
 }
 
 function buildTransactionPermissionDeniedMessage({ kind, feeMinor = 0 }) {
+  if (firebaseEnvironment !== "staging") {
+    return "Firebase denied this transaction. Check that the selected account, saving, category, and fee are still active, then try again.";
+  }
+
   const parts = ["Firebase denied this transaction."];
   if (kind === "transfer") {
     const fromSelection = resolveTransferSourceSelection(els.transferFromAccount.value);
@@ -4804,8 +4818,35 @@ function renderMasterBlockedDomains() {
     return;
   }
 
+  if (firebaseEnvironment === "staging") {
+    els.masterBlockedDomainList.innerHTML = `
+      <p class="status-copy">Blocked-domain library editing is disabled in staging, so this project cannot accidentally become the source of truth for production policy data.</p>
+    `;
+    return;
+  }
+
+  if (!state.masterAdmin.blockedDomains.length) {
+    els.masterBlockedDomainList.innerHTML = `<p class="status-copy">No blocked domains yet.</p>`;
+    return;
+  }
+
   els.masterBlockedDomainList.innerHTML = `
-    <p class="status-copy">Blocked-domain library editing is disabled in staging, so this project cannot accidentally become the source of truth for production policy data.</p>
+    <div class="admin-table compact-admin-table">
+      <div class="admin-table-row four-col admin-table-head">
+        <span>Domain</span>
+        <span>Status</span>
+        <span>Added</span>
+        <span></span>
+      </div>
+      ${state.masterAdmin.blockedDomains.map(item => `
+        <div class="admin-table-row four-col">
+          <span class="admin-table-strong">${escapeHtml(item.domain || item.id || "")}</span>
+          <span>${escapeHtml(item.status || "active")}</span>
+          <span>${escapeHtml(item.createdAtFormatted || "-")}</span>
+          <span><button class="ghost-btn small-btn" type="button" data-action="remove-blocked-domain" data-domain="${escapeHtml(item.domain || item.id || "")}">Remove</button></span>
+        </div>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -4815,18 +4856,25 @@ function renderMasterGreetingQuotes() {
     return;
   }
 
+  if (!state.masterAdmin.greetingQuotes.length) {
+    els.masterGreetingList.innerHTML = `<p class="status-copy">No greeting sentences yet.</p>`;
+    return;
+  }
+
   els.masterGreetingList.innerHTML = `
     <div class="admin-table compact-admin-table">
       <div class="admin-table-row three-col admin-table-head">
         <span>Sentence</span>
-        <span>Source</span>
+        <span>${firebaseEnvironment === "staging" ? "Source" : "Added"}</span>
         <span></span>
       </div>
       ${state.masterAdmin.greetingQuotes.map(item => `
         <div class="admin-table-row three-col">
           <span class="admin-table-strong">${escapeHtml(item.text || "")}</span>
-          <span>Built-in</span>
-          <span><span class="status-copy">Read-only</span></span>
+          <span>${escapeHtml(firebaseEnvironment === "staging" ? "Built-in" : item.createdAtFormatted || "-")}</span>
+          <span>${firebaseEnvironment === "staging"
+            ? `<span class="status-copy">Read-only</span>`
+            : `<button class="ghost-btn small-btn" type="button" data-action="remove-greeting-quote" data-id="${escapeHtml(item.id || "")}">Remove</button>`}</span>
         </div>
       `).join("")}
     </div>
