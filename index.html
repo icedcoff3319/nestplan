@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510m" />
+  <link rel="stylesheet" href="./styles.css?v=20260510n" />
 </head>
 <body>
   <main class="app-shell">
@@ -177,6 +177,34 @@
       </header>
 
       <div class="settings-grid">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Maintenance mode</h3>
+              <p class="card-subtle">Show an app-wide notice and optionally pause write actions during deployment.</p>
+            </div>
+          </div>
+
+          <form id="master-maintenance-form" class="field-stack compact-form">
+            <label class="toggle-field compact-toggle" for="master-maintenance-enabled">
+              <input id="master-maintenance-enabled" type="checkbox" />
+              <span>Show maintenance announcement</span>
+            </label>
+            <label class="toggle-field compact-toggle" for="master-maintenance-block-writes">
+              <input id="master-maintenance-block-writes" type="checkbox" />
+              <span>Pause write actions</span>
+            </label>
+            <div class="field-group">
+              <label for="master-maintenance-message-input">Announcement message</label>
+              <textarea id="master-maintenance-message-input" rows="3" placeholder="NestPlan is being updated. Please pause changes for a few minutes."></textarea>
+            </div>
+            <button class="primary-btn" type="submit">Save maintenance setting</button>
+          </form>
+
+          <p id="master-maintenance-status" class="status-copy">Maintenance status not loaded yet.</p>
+          <div id="master-maintenance-message" class="message" aria-live="polite"></div>
+        </section>
+
         <section class="card">
           <div class="card-header">
             <div>
@@ -476,6 +504,13 @@
         </div>
         <p id="scope-copy" class="card-subtle header-scope-copy hidden">Showing your owned accounts and the activity you created or touched.</p>
       </header>
+
+      <section id="app-maintenance-banner" class="maintenance-banner hidden" role="status" aria-live="polite">
+        <div>
+          <strong>Maintenance mode</strong>
+          <p id="app-maintenance-message">NestPlan is being updated. Please pause changes for a few minutes.</p>
+        </div>
+      </section>
 
       <section id="onboarding-view" class="screen hidden">
         <article class="card onboarding-card">
@@ -1703,7 +1738,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510m";
+    window.__nestplanBuild = "20260510n";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1818,7 +1853,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510m").catch(function (error) {
+    import("./app.js?v=20260510n").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");

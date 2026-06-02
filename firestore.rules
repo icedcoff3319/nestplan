@@ -211,6 +211,25 @@ service cloud.firestore {
         && hasTimestampOrNull(request.resource.data.get("archivedAt", null));
     }
 
+    function validPlatformMaintenanceWrite() {
+      return isMasterAdmin()
+        && request.resource.data.enabled is bool
+        && request.resource.data.blockWrites is bool
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 240
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.updatedByEmail == signedInEmailNormalized()
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          "enabled",
+          "blockWrites",
+          "message",
+          "updatedByUserId",
+          "updatedByEmail",
+          "updatedAt"
+        ]);
+    }
+
     function validHouseholdCreate() {
       return hasActiveUserProfile()
         && hasNonEmptyString(request.resource.data.name)
@@ -1159,6 +1178,13 @@ service cloud.firestore {
       allow read, list: if isSignedIn();
       allow create, update: if validDefaultCategoryWrite();
       allow delete: if isMasterAdmin();
+    }
+
+    match /platformSettings/{settingId} {
+      allow read: if isSignedIn();
+      allow list: if isMasterAdmin();
+      allow create, update: if settingId == "maintenance" && validPlatformMaintenanceWrite();
+      allow delete: if false;
     }
 
     match /households/{householdId} {

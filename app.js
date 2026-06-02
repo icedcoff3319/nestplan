@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510m";
+} from "./firebase-client.js?v=20260510n";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510m";
+} from "./constants.js?v=20260510n";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -70,6 +70,11 @@ const state = {
   investmentEvents: [],
   greetingQuotes: [],
   defaultCategoryLibrary: [],
+  platformMaintenance: {
+    enabled: false,
+    blockWrites: false,
+    message: ""
+  },
   scope: DEFAULT_SCOPE,
   currentView: "dashboard",
   planningTab: "accounts",
@@ -87,7 +92,8 @@ const state = {
     overrides: [],
     blockedDomains: [],
     greetingQuotes: [],
-    defaultCategories: []
+    defaultCategories: [],
+    maintenance: null
   },
   signupMode: "create",
   setupMode: "create",
@@ -156,6 +162,8 @@ const els = {
   masterAdminScreen: document.getElementById("master-admin-screen"),
   setupScreen: document.getElementById("setup-screen"),
   appScreen: document.getElementById("app-screen"),
+  appMaintenanceBanner: document.getElementById("app-maintenance-banner"),
+  appMaintenanceMessage: document.getElementById("app-maintenance-message"),
   loginTab: document.getElementById("login-tab"),
   signupTab: document.getElementById("signup-tab"),
   loginForm: document.getElementById("login-form"),
@@ -191,6 +199,12 @@ const els = {
   masterAdminUserLabel: document.getElementById("master-admin-user-label"),
   masterAdminRefreshBtn: document.getElementById("master-admin-refresh-btn"),
   masterAdminLogoutBtn: document.getElementById("master-admin-logout-btn"),
+  masterMaintenanceForm: document.getElementById("master-maintenance-form"),
+  masterMaintenanceEnabled: document.getElementById("master-maintenance-enabled"),
+  masterMaintenanceBlockWrites: document.getElementById("master-maintenance-block-writes"),
+  masterMaintenanceMessageInput: document.getElementById("master-maintenance-message-input"),
+  masterMaintenanceStatus: document.getElementById("master-maintenance-status"),
+  masterMaintenanceMessage: document.getElementById("master-maintenance-message"),
   masterCodeForm: document.getElementById("master-code-form"),
   masterCodeEmail: document.getElementById("master-code-email"),
   masterCodeExpiryDays: document.getElementById("master-code-expiry-days"),
@@ -625,8 +639,72 @@ const INFO_TOPICS = {
 };
 
 let activeListeners = [];
+let platformMaintenanceUnsubscribe = null;
 let renderQueued = false;
 let householdRecoveryPending = false;
+
+const MAINTENANCE_WRITE_FORM_IDS = new Set([
+  "setup-create-form",
+  "setup-join-form",
+  "account-form",
+  "adjustment-form",
+  "category-form",
+  "transaction-form",
+  "profile-form",
+  "household-rename-form",
+  "settings-create-form",
+  "settings-join-form",
+  "invite-form",
+  "budget-form",
+  "saving-form",
+  "bill-form",
+  "investment-form",
+  "investment-movement-form",
+  "investment-asset-form"
+]);
+
+const MAINTENANCE_WRITE_ACTIONS = new Set([
+  "edit-account",
+  "archive-account",
+  "edit-category",
+  "archive-category",
+  "edit-history",
+  "delete-history",
+  "copy-invite-code",
+  "revoke-invite",
+  "remove-member",
+  "edit-budget",
+  "archive-budget",
+  "delete-budget",
+  "edit-saving",
+  "archive-saving",
+  "delete-saving",
+  "complete-saving",
+  "reopen-saving",
+  "edit-bill",
+  "archive-bill",
+  "delete-bill",
+  "use-bill-reminder",
+  "pay-bill",
+  "mark-bill-paid",
+  "dismiss-dashboard-bill",
+  "pay-dashboard-bill",
+  "edit-investment",
+  "archive-investment",
+  "move-investment-scope",
+  "toggle-investment-scope",
+  "edit-investment-event",
+  "delete-investment-event",
+  "edit-investment-asset",
+  "archive-investment-asset",
+  "edit-ledger-entry",
+  "delete-ledger-entry"
+]);
+
+const MAINTENANCE_WRITE_BUTTON_IDS = new Set([
+  "category-defaults-btn",
+  "settings-password-reset-btn"
+]);
 
 const moneyInputs = [
   els.transactionAmount,
@@ -669,6 +747,7 @@ function bindEvents() {
   els.verificationLogoutBtn.addEventListener("click", () => signOut(auth));
   els.masterAdminRefreshBtn.addEventListener("click", refreshMasterAdminDashboard);
   els.masterAdminLogoutBtn.addEventListener("click", () => signOut(auth));
+  els.masterMaintenanceForm?.addEventListener("submit", handleMasterMaintenanceSubmit);
   els.masterCodeForm.addEventListener("submit", handleMasterCodeSubmit);
   els.masterCodeList.addEventListener("click", handleMasterCodeListActions);
   els.masterOverrideForm.addEventListener("submit", handleMasterOverrideSubmit);
@@ -869,6 +948,9 @@ function bindEvents() {
   els.investmentActivityList?.addEventListener("click", handleInvestmentActivityActions);
   els.investmentAssetForm?.addEventListener("submit", handleInvestmentAssetSubmit);
   els.investmentAssetCancelBtn?.addEventListener("click", resetInvestmentAssetForm);
+
+  document.addEventListener("submit", handleMaintenanceSubmitGuard, true);
+  document.addEventListener("click", handleMaintenanceClickGuard, true);
 }
 
 function bindMoneyInputs() {
@@ -887,6 +969,45 @@ function teardownListeners() {
     }
   });
   activeListeners = [];
+}
+
+function teardownPlatformMaintenanceListener() {
+  if (!platformMaintenanceUnsubscribe) {
+    return;
+  }
+
+  try {
+    platformMaintenanceUnsubscribe();
+  } catch (error) {
+    console.warn("Could not unsubscribe maintenance listener:", error);
+  }
+  platformMaintenanceUnsubscribe = null;
+}
+
+function startPlatformMaintenanceListener() {
+  teardownPlatformMaintenanceListener();
+  if (!state.authUser) {
+    state.platformMaintenance = getDefaultMaintenanceState();
+    return;
+  }
+
+  platformMaintenanceUnsubscribe = onSnapshot(
+    doc(db, "platformSettings", "maintenance"),
+    snapshot => {
+      state.platformMaintenance = normalizeMaintenanceState(snapshot.exists() ? snapshot.data() : null);
+      if (isMasterAdminRoute()) {
+        renderMasterAdminScreen();
+      } else if (state.household?.id) {
+        scheduleRender();
+      } else {
+        renderScreens();
+      }
+    },
+    error => {
+      console.warn("Could not load platform maintenance setting:", error);
+      state.platformMaintenance = getDefaultMaintenanceState();
+    }
+  );
 }
 
 function scheduleRender() {
@@ -981,6 +1102,7 @@ async function handleAuthStateChanged(user) {
   clearMessages();
   if (!user) {
     teardownListeners();
+    teardownPlatformMaintenanceListener();
   }
   resetStateForAuth(user);
 
@@ -989,6 +1111,8 @@ async function handleAuthStateChanged(user) {
     renderScreens();
     return;
   }
+
+  startPlatformMaintenanceListener();
 
   if (state.authFlowLock) {
     return;
@@ -1144,11 +1268,34 @@ async function refreshMasterAdminDashboard() {
           source: "built-in",
           readonly: true
         }));
+    state.masterAdmin.maintenance = response.maintenance || getDefaultMaintenanceState();
+    state.platformMaintenance = state.masterAdmin.maintenance;
     renderMasterAdminScreen();
   } catch (error) {
     renderMasterAdminScreen(getUserErrorMessage(error), "error");
   } finally {
     setButtonLoading(els.masterAdminRefreshBtn, false);
+  }
+}
+
+async function handleMasterMaintenanceSubmit(event) {
+  event.preventDefault();
+  setMessage(els.masterMaintenanceMessage, "");
+  const submitButton = els.masterMaintenanceForm?.querySelector("button[type='submit']");
+  setButtonLoading(submitButton, true, "Saving...");
+
+  try {
+    await savePlatformMaintenance({
+      enabled: els.masterMaintenanceEnabled.checked,
+      blockWrites: els.masterMaintenanceBlockWrites.checked,
+      message: els.masterMaintenanceMessageInput.value
+    });
+    setMessage(els.masterMaintenanceMessage, "Maintenance setting saved.", "success");
+    await refreshMasterAdminDashboard();
+  } catch (error) {
+    setMessage(els.masterMaintenanceMessage, getUserErrorMessage(error), "error");
+  } finally {
+    setButtonLoading(submitButton, false);
   }
 }
 
@@ -1184,7 +1331,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510m");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510n");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -1225,10 +1372,11 @@ async function assertMasterAdminClient() {
 
 async function getMasterAdminDashboard() {
   await assertMasterAdminClient();
-  const [codesSnap, overridesSnap, defaultCategoriesSnap] = await Promise.all([
+  const [codesSnap, overridesSnap, defaultCategoriesSnap, maintenanceSnap] = await Promise.all([
     getDocs(collection(db, "registrationCodes")),
     getDocs(collection(db, "emailPolicyOverrides")),
-    getDocs(collection(db, "appDefaultCategories"))
+    getDocs(collection(db, "appDefaultCategories")),
+    getDoc(doc(db, "platformSettings", "maintenance"))
   ]);
 
   return {
@@ -1250,8 +1398,23 @@ async function getMasterAdminDashboard() {
     defaultCategories: defaultCategoriesSnap.docs
       .map(snapshot => serializeDefaultCategory(snapshot.id, snapshot.data()))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-      .slice(0, 60)
+      .slice(0, 60),
+    maintenance: normalizeMaintenanceState(maintenanceSnap.exists() ? maintenanceSnap.data() : null)
   };
+}
+
+async function savePlatformMaintenance({ enabled, blockWrites, message }) {
+  await assertMasterAdminClient();
+  const cleanMessage = cleanText(message) || "NestPlan is being updated. Please pause changes for a few minutes.";
+
+  await setDoc(doc(db, "platformSettings", "maintenance"), {
+    enabled: Boolean(enabled),
+    blockWrites: Boolean(enabled && blockWrites),
+    message: cleanMessage,
+    updatedByUserId: state.authUser.uid,
+    updatedByEmail: normalizeEmail(state.authUser.email || ""),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 async function createRegistrationCode({ email, expiryDays, note }) {
@@ -4721,6 +4884,9 @@ function renderMasterAdminScreen(message = "", type = "") {
     els.masterDefaultCategoryName,
     els.masterDefaultCategoryDirection,
     els.masterDefaultCategoryDescription,
+    els.masterMaintenanceEnabled,
+    els.masterMaintenanceBlockWrites,
+    els.masterMaintenanceMessageInput,
     els.masterDefaultCategoryCancelBtn
   ].forEach(element => {
     if (element) {
@@ -4736,16 +4902,35 @@ function renderMasterAdminScreen(message = "", type = "") {
   els.masterGreetingText.disabled = true;
   els.masterGreetingSeedBtn.disabled = true;
   els.masterDefaultCategoryForm.querySelector("button[type='submit']").disabled = disabled;
+  const maintenanceSubmitButton = els.masterMaintenanceForm?.querySelector("button[type='submit']");
+  if (maintenanceSubmitButton) {
+    maintenanceSubmitButton.disabled = disabled;
+  }
 
   if (message) {
     setMessage(els.masterCodeMessage, message, type);
   }
 
+  renderMasterMaintenance();
   renderMasterRegistrationCodes();
   renderMasterEmailOverrides();
   renderMasterBlockedDomains();
   renderMasterGreetingQuotes();
   renderMasterDefaultCategories();
+}
+
+function renderMasterMaintenance() {
+  if (!els.masterMaintenanceForm) {
+    return;
+  }
+
+  const maintenance = state.masterAdmin.maintenance || state.platformMaintenance || getDefaultMaintenanceState();
+  els.masterMaintenanceEnabled.checked = Boolean(maintenance.enabled);
+  els.masterMaintenanceBlockWrites.checked = Boolean(maintenance.blockWrites);
+  els.masterMaintenanceMessageInput.value = maintenance.message || "";
+  els.masterMaintenanceStatus.textContent = maintenance.enabled
+    ? `Maintenance is ON${maintenance.blockWrites ? " and write actions are paused." : "."}`
+    : "Maintenance is off.";
 }
 
 function renderMasterRegistrationCodes() {
@@ -4970,7 +5155,8 @@ function renderApp() {
     ["transaction fee sync", syncTransactionFeeField],
     ["investment fee sync", syncInvestmentMovementFeeField],
     ["investment form sync", syncInvestmentForm],
-    ["household rename access", renderHouseholdRenameAccess]
+    ["household rename access", renderHouseholdRenameAccess],
+    ["maintenance", renderMaintenanceMode]
   ].forEach(([label, renderStep]) => safeRenderStep(label, renderStep));
 }
 
@@ -4994,6 +5180,19 @@ function renderNonBlockingRenderError(error, label = "") {
   ];
   const target = visibleMessages.find(element => element && !element.closest(".hidden"));
   setMessage(target || els.setupMessage || els.loginMessage, message, "error");
+}
+
+function renderMaintenanceMode() {
+  const maintenance = state.platformMaintenance || getDefaultMaintenanceState();
+  const showBanner = Boolean(maintenance.enabled);
+  const message = maintenance.message || "NestPlan is being updated. Please pause changes for a few minutes.";
+
+  els.appMaintenanceBanner?.classList.toggle("hidden", !showBanner);
+  if (els.appMaintenanceMessage) {
+    els.appMaintenanceMessage.textContent = message;
+  }
+
+  setMaintenanceWriteControlsDisabled(isMaintenanceWriteBlocked());
 }
 
 function renderHeader() {
@@ -9436,6 +9635,7 @@ function resetStateForAuth(user) {
   state.investmentAssets = [];
   state.investmentEvents = [];
   state.defaultCategoryLibrary = [];
+  state.platformMaintenance = getDefaultMaintenanceState();
   state.scope = DEFAULT_SCOPE;
   state.currentView = "dashboard";
   state.planningTab = "accounts";
@@ -9478,7 +9678,8 @@ function resetStateForAuth(user) {
     overrides: [],
     blockedDomains: [],
     greetingQuotes: [],
-    defaultCategories: []
+    defaultCategories: [],
+    maintenance: null
   };
   resetLedgerView();
   resetAccessForms();
@@ -9611,7 +9812,8 @@ function clearMessages() {
     els.masterCodeMessage,
     els.masterOverrideMessage,
     els.masterBlockedDomainMessage,
-    els.masterGreetingMessage
+    els.masterGreetingMessage,
+    els.masterMaintenanceMessage
   ].forEach(element => setMessage(element, ""));
 }
 
@@ -9621,6 +9823,124 @@ function setMessage(element, text, type = "") {
   }
   element.textContent = text;
   element.className = `message ${type}`.trim();
+}
+
+function getDefaultMaintenanceState() {
+  return {
+    enabled: false,
+    blockWrites: false,
+    message: ""
+  };
+}
+
+function normalizeMaintenanceState(data) {
+  if (!data) {
+    return getDefaultMaintenanceState();
+  }
+
+  return {
+    enabled: data.enabled === true,
+    blockWrites: data.enabled === true && data.blockWrites === true,
+    message: cleanText(data.message) || "NestPlan is being updated. Please pause changes for a few minutes.",
+    updatedAt: data.updatedAt || null,
+    updatedByUserId: data.updatedByUserId || "",
+    updatedByEmail: data.updatedByEmail || ""
+  };
+}
+
+function isMaintenanceWriteBlocked() {
+  return state.platformMaintenance?.enabled === true && state.platformMaintenance?.blockWrites === true && !isMasterAdminRoute();
+}
+
+function getMaintenanceMessage() {
+  return state.platformMaintenance?.message || "NestPlan is being updated. Please pause changes for a few minutes.";
+}
+
+function handleMaintenanceSubmitGuard(event) {
+  if (!isMaintenanceWriteBlocked()) {
+    return;
+  }
+
+  const form = event.target;
+  if (!form?.id || !MAINTENANCE_WRITE_FORM_IDS.has(form.id)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  showMaintenanceBlockedMessage(form);
+}
+
+function handleMaintenanceClickGuard(event) {
+  if (!isMaintenanceWriteBlocked()) {
+    return;
+  }
+
+  const target = event.target.closest("button, [data-action]");
+  if (!target) {
+    return;
+  }
+
+  const action = target.dataset?.action || "";
+  const blocksAction = action && MAINTENANCE_WRITE_ACTIONS.has(action);
+  const blocksButton = target.id && MAINTENANCE_WRITE_BUTTON_IDS.has(target.id);
+  if (!blocksAction && !blocksButton) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  showMaintenanceBlockedMessage(target);
+}
+
+function showMaintenanceBlockedMessage(source) {
+  const message = `${getMaintenanceMessage()} Changes are temporarily paused.`;
+  const target = source?.closest(".card")?.querySelector(".message")
+    || els.transactionMessage
+    || els.profileMessage
+    || els.loginMessage;
+  setMessage(target, message, "error");
+}
+
+function setMaintenanceWriteControlsDisabled(disabled) {
+  const applyDisabledState = control => {
+    if (!control || control.type === "hidden") {
+      return;
+    }
+
+    if (disabled) {
+      if (control.dataset.maintenanceDisabled !== "1") {
+        control.dataset.maintenancePreviousDisabled = control.disabled ? "1" : "0";
+      }
+      control.dataset.maintenanceDisabled = "1";
+      control.disabled = true;
+      control.classList.toggle("is-disabled", true);
+      return;
+    }
+
+    if (control.dataset.maintenanceDisabled === "1") {
+      control.disabled = control.dataset.maintenancePreviousDisabled === "1";
+      delete control.dataset.maintenanceDisabled;
+      delete control.dataset.maintenancePreviousDisabled;
+      control.classList.toggle("is-disabled", false);
+    }
+  };
+
+  MAINTENANCE_WRITE_FORM_IDS.forEach(formId => {
+    const form = document.getElementById(formId);
+    if (!form) {
+      return;
+    }
+    form.querySelectorAll("button, input, select, textarea").forEach(applyDisabledState);
+  });
+
+  MAINTENANCE_WRITE_BUTTON_IDS.forEach(buttonId => {
+    applyDisabledState(document.getElementById(buttonId));
+  });
+
+  MAINTENANCE_WRITE_ACTIONS.forEach(action => {
+    document.querySelectorAll(`[data-action="${action}"]`).forEach(applyDisabledState);
+  });
 }
 
 function getUserErrorMessage(error, options = {}) {
