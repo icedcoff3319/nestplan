@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510i";
+} from "./firebase-client.js?v=20260510j";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510i";
+} from "./constants.js?v=20260510j";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1184,7 +1184,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510i");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510j");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -3512,8 +3512,44 @@ async function handleTransactionSubmit(event) {
     setMessage(els.transactionMessage, budgetWarning ? `${successMessage} ${budgetWarning}` : successMessage, budgetWarning ? "error" : "success");
     resetTransactionForm();
   } catch (error) {
-    setMessage(els.transactionMessage, error.message, "error");
+    setMessage(
+      els.transactionMessage,
+      isPermissionDeniedError(error)
+        ? buildTransactionPermissionDeniedMessage({ kind, feeMinor })
+        : error.message,
+      "error"
+    );
   }
+}
+
+function buildTransactionPermissionDeniedMessage({ kind, feeMinor = 0 }) {
+  const parts = ["Firebase denied this transaction."];
+  if (kind === "transfer") {
+    const fromSelection = resolveTransferSourceSelection(els.transferFromAccount.value);
+    const toSelection = resolveTransferDestinationSelection(els.transferToAccount.value);
+    if (toSelection.savingGoal) {
+      const sameAccount = fromSelection.account?.id && fromSelection.account.id === toSelection.account?.id;
+      parts.push(sameAccount
+        ? "Attempted same-account saving reserve transfer."
+        : "Attempted transfer into a saving.");
+      parts.push(`Saving status: ${toSelection.savingGoal.status || "unknown"}.`);
+    } else {
+      parts.push("Attempted normal transfer.");
+    }
+  } else {
+    const accountSelection = resolveTransactionAccountSelection(els.transactionAccount.value);
+    if (accountSelection.savingGoal) {
+      parts.push("Attempted spending from a saving.");
+      parts.push(`Saving status: ${accountSelection.savingGoal.status || "unknown"}.`);
+    } else {
+      parts.push(`Attempted ${kind}.`);
+    }
+  }
+  if (feeMinor) {
+    parts.push("A transaction fee row was included.");
+  }
+  parts.push("Retest once; if it repeats, send this whole message.");
+  return parts.join(" ");
 }
 
 async function saveSingleTransaction({ kind, amountMinor, feeMinor = 0, note, transactionAt }) {

@@ -545,7 +545,6 @@ service cloud.firestore {
         || (
           hasNonEmptyString(goalId)
           && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(goalId))
-          && canUseSavingGoal(householdId, savingGoalDoc(householdId, goalId))
         );
     }
 
