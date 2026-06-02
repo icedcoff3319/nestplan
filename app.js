@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510h";
+} from "./firebase-client.js?v=20260510i";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510h";
+} from "./constants.js?v=20260510i";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -146,7 +146,8 @@ const state = {
   reportDrillCategoryId: "",
   reportLockedMonthKey: "",
   ensuringSystemCategories: false,
-  showLedgerFilters: true
+  showLedgerFilters: true,
+  reportFilterModalType: ""
 };
 
 const els = {
@@ -446,11 +447,9 @@ const els = {
   reportFiltersToggle: document.getElementById("report-filters-toggle"),
   reportFiltersPanel: document.getElementById("report-filters-panel"),
   reportAccountFilter: document.getElementById("report-account-filter"),
-  reportAccountSummary: document.getElementById("report-account-summary"),
-  reportAccountList: document.getElementById("report-account-list"),
+  reportAccountOpenBtn: document.getElementById("report-account-open-btn"),
   reportCategoryFilter: document.getElementById("report-category-filter"),
-  reportCategorySummary: document.getElementById("report-category-summary"),
-  reportCategoryList: document.getElementById("report-category-list"),
+  reportCategoryOpenBtn: document.getElementById("report-category-open-btn"),
   reportKindFilter: document.getElementById("report-kind-filter"),
   reportMemberFilter: document.getElementById("report-member-filter"),
   reportMemberFilterGroup: document.getElementById("report-member-filter-group"),
@@ -519,7 +518,14 @@ const els = {
   infoModal: document.getElementById("info-modal"),
   infoModalCloseBtn: document.getElementById("info-modal-close-btn"),
   infoModalTitle: document.getElementById("info-modal-title"),
-  infoModalCopy: document.getElementById("info-modal-copy")
+  infoModalCopy: document.getElementById("info-modal-copy"),
+  reportFilterModal: document.getElementById("report-filter-modal"),
+  reportFilterModalTitle: document.getElementById("report-filter-modal-title"),
+  reportFilterModalList: document.getElementById("report-filter-modal-list"),
+  reportFilterAutoBtn: document.getElementById("report-filter-auto-btn"),
+  reportFilterSelectAllBtn: document.getElementById("report-filter-select-all-btn"),
+  reportFilterApplyBtn: document.getElementById("report-filter-apply-btn"),
+  reportFilterCloseBtn: document.getElementById("report-filter-close-btn")
 };
 
 const INFO_TOPICS = {
@@ -572,6 +578,48 @@ const INFO_TOPICS = {
       "Valuation is the current portfolio value you record manually.",
       "Total Deposits and Total Withdrawals come from investment activity. Net Deposits is deposits minus withdrawals.",
       "Total P&L is valuation minus net deposits. It is a simple tracking estimate, not tax or broker-grade performance accounting."
+    ]
+  },
+  "report-controls": {
+    title: "Report controls",
+    paragraphs: [
+      "The report uses the current My view or Household view, then applies the selected time range and filters.",
+      "Leaving Accounts or Categories on Auto all means every currently visible option is included, including future options that appear later."
+    ]
+  },
+  "report-kpis": {
+    title: "Report KPIs",
+    paragraphs: [
+      "Total spent sums matching outcome rows in the selected range.",
+      "Average per month divides the selected spending by the number of calendar months covered. Top category share is the largest category's share of total spending."
+    ]
+  },
+  "report-category-breakdown": {
+    title: "Category breakdown",
+    paragraphs: [
+      "Categories are ranked from highest to lowest spending in the selected range.",
+      "Average per month is total category spending divided by months covered. Trend compares against the previous equal-length period."
+    ]
+  },
+  "report-monthly-view": {
+    title: "Monthly view",
+    paragraphs: [
+      "Monthly view groups matching rows by transaction month.",
+      "Spent uses outcome rows, income uses income rows, and net is income minus spent. Tap a month to lock the report to that month."
+    ]
+  },
+  "report-budget-performance": {
+    title: "Budget performance",
+    paragraphs: [
+      "Budget performance compares visible budgets with matching outcome transactions in the report range.",
+      "Hit rate is the percentage of months within budget. Overspend rankings use the months where spending exceeded the budget."
+    ]
+  },
+  "report-budget-suggestions": {
+    title: "Suggested budgets",
+    paragraphs: [
+      "Suggested budgets use the median monthly spending for categories with enough history, then add the selected buffer.",
+      "Confidence increases as more months of category spending are available."
     ]
   }
 };
@@ -769,10 +817,17 @@ function bindEvents() {
     els.reportBudgetRanking,
     els.reportBudgetBuffer
   ].forEach(input => input?.addEventListener("change", handleReportControlsChange));
-  [
-    els.reportAccountList,
-    els.reportCategoryList
-  ].forEach(input => input?.addEventListener("change", handleReportControlsChange));
+  els.reportAccountOpenBtn?.addEventListener("click", () => openReportFilterModal("accounts"));
+  els.reportCategoryOpenBtn?.addEventListener("click", () => openReportFilterModal("categories"));
+  els.reportFilterCloseBtn?.addEventListener("click", closeReportFilterModal);
+  els.reportFilterModal?.addEventListener("click", event => {
+    if (event.target.dataset.action === "close-report-filter") {
+      closeReportFilterModal();
+    }
+  });
+  els.reportFilterAutoBtn?.addEventListener("click", applyReportFilterAutoAll);
+  els.reportFilterSelectAllBtn?.addEventListener("click", selectAllReportFilterOptions);
+  els.reportFilterApplyBtn?.addEventListener("click", applyReportFilterModal);
   els.reportFiltersToggle?.addEventListener("change", () => {
     state.reportFiltersVisible = els.reportFiltersToggle.checked;
     renderReportView();
@@ -1129,7 +1184,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510h");
+  url.searchParams.set("v", window.__nestplanBuild || "20260510i");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -5330,35 +5385,7 @@ function getMultiSelectValues(select) {
   if (!select) {
     return [];
   }
-  const checklist = getReportChecklistForSelect(select)?.list;
-  if (checklist) {
-    return [...checklist.querySelectorAll("input[type='checkbox']:checked")]
-      .map(option => option.value)
-      .filter(Boolean);
-  }
   return [...select.selectedOptions].map(option => option.value).filter(Boolean);
-}
-
-function getReportChecklistForSelect(select) {
-  if (select === els.reportAccountFilter) {
-    return {
-      list: els.reportAccountList,
-      summary: els.reportAccountSummary,
-      emptyLabel: "All accounts",
-      singularLabel: "account",
-      pluralLabel: "accounts"
-    };
-  }
-  if (select === els.reportCategoryFilter) {
-    return {
-      list: els.reportCategoryList,
-      summary: els.reportCategorySummary,
-      emptyLabel: "All categories",
-      singularLabel: "category",
-      pluralLabel: "categories"
-    };
-  }
-  return null;
 }
 
 function renderReportView() {
@@ -5432,6 +5459,7 @@ function renderReportControls() {
       value: member.id,
       label: member.displayName || member.emailNormalized || member.id
     })), state.reportFilters.memberIds);
+  renderReportFilterButtons();
 }
 
 function renderReportMultiOptions(select, options, selectedValues = []) {
@@ -5442,24 +5470,22 @@ function renderReportMultiOptions(select, options, selectedValues = []) {
   select.innerHTML = options.map(option => `
     <option value="${escapeHtml(option.value)}" ${selectedSet.has(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>
   `).join("");
+}
 
-  const checklist = getReportChecklistForSelect(select);
-  if (!checklist?.list) {
-    return;
-  }
-
-  checklist.list.innerHTML = options.length
-    ? options.map(option => `
-      <label class="choice-item compact-choice-item">
-        <input type="checkbox" value="${escapeHtml(option.value)}" ${selectedSet.has(option.value) ? "checked" : ""} />
-        <span>${escapeHtml(option.label)}</span>
-      </label>
-    `).join("")
-    : `<p class="status-copy">No options available.</p>`;
-  const selectedCount = options.filter(option => selectedSet.has(option.value)).length;
-  checklist.summary.textContent = selectedCount
-    ? `${selectedCount} ${selectedCount === 1 ? checklist.singularLabel : checklist.pluralLabel} selected`
-    : checklist.emptyLabel;
+function renderReportFilterButtons() {
+  ["accounts", "categories"].forEach(type => {
+    const config = getReportFilterConfig(type);
+    if (!config?.button) {
+      return;
+    }
+    const selectedValues = state.reportFilters[config.filterKey] || [];
+    const selectedCount = selectedValues.length;
+    config.button.textContent = selectedCount === 0
+      ? config.emptyLabel
+      : selectedCount === config.options.length
+        ? config.allSelectedLabel
+        : `${selectedCount} ${selectedCount === 1 ? config.singularLabel : config.pluralLabel} selected`;
+  });
 }
 
 function buildReportModel() {
@@ -5706,7 +5732,10 @@ function renderReportCategoryDrill(model) {
           <h3 class="card-title">${escapeHtml(category.categoryName)}</h3>
           <p class="card-subtle">Monthly totals and biggest transactions in the selected range.</p>
         </div>
-        <button class="ghost-btn small-btn" type="button" data-action="close-category-drill">Close</button>
+        <div class="action-row compact-actions">
+          <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-category-breakdown" aria-label="Explain category drill-in">i</button>
+          <button class="ghost-btn small-btn" type="button" data-action="close-category-drill">Close</button>
+        </div>
       </div>
       <div class="mini-table">${monthly}</div>
       <div class="section-divider"></div>
@@ -7627,6 +7656,107 @@ function closeInfoModal() {
   }
 }
 
+function getReportFilterConfig(type = state.reportFilterModalType) {
+  if (type === "accounts") {
+    return {
+      title: "Choose accounts",
+      filterKey: "accountIds",
+      button: els.reportAccountOpenBtn,
+      emptyLabel: "All accounts (auto)",
+      allSelectedLabel: "All accounts selected",
+      singularLabel: "account",
+      pluralLabel: "accounts",
+      options: getVisibleAccounts().map(account => ({
+        value: account.id,
+        label: getAccountOptionLabel(account)
+      }))
+    };
+  }
+  if (type === "categories") {
+    return {
+      title: "Choose categories",
+      filterKey: "categoryIds",
+      button: els.reportCategoryOpenBtn,
+      emptyLabel: "All categories (auto)",
+      allSelectedLabel: "All categories selected",
+      singularLabel: "category",
+      pluralLabel: "categories",
+      options: getActiveCategories()
+        .filter(category => !isProtectedSystemCategory(category))
+        .sort((left, right) => (left.name || "").localeCompare(right.name || ""))
+        .map(category => ({
+          value: category.id,
+          label: category.name
+        }))
+    };
+  }
+  return null;
+}
+
+function openReportFilterModal(type) {
+  state.reportFilterModalType = type;
+  renderReportFilterModal();
+  els.reportFilterModal?.classList.remove("hidden");
+}
+
+function closeReportFilterModal() {
+  state.reportFilterModalType = "";
+  els.reportFilterModal?.classList.add("hidden");
+}
+
+function renderReportFilterModal() {
+  const config = getReportFilterConfig();
+  if (!config || !els.reportFilterModalTitle || !els.reportFilterModalList) {
+    return;
+  }
+
+  const selectedSet = new Set(state.reportFilters[config.filterKey] || []);
+  els.reportFilterModalTitle.textContent = config.title;
+  els.reportFilterModalList.innerHTML = config.options.length
+    ? config.options.map(option => `
+      <label class="report-filter-row">
+        <input type="checkbox" value="${escapeHtml(option.value)}" ${selectedSet.has(option.value) ? "checked" : ""} />
+        <span>${escapeHtml(option.label)}</span>
+      </label>
+    `).join("")
+    : `<p class="status-copy">No options available.</p>`;
+}
+
+function applyReportFilterAutoAll() {
+  const config = getReportFilterConfig();
+  if (!config) {
+    return;
+  }
+  state.reportFilters[config.filterKey] = [];
+  state.reportDrillCategoryId = "";
+  closeReportFilterModal();
+  renderReportView();
+}
+
+function selectAllReportFilterOptions() {
+  if (!els.reportFilterModalList) {
+    return;
+  }
+  els.reportFilterModalList
+    .querySelectorAll("input[type='checkbox']")
+    .forEach(input => {
+      input.checked = true;
+    });
+}
+
+function applyReportFilterModal() {
+  const config = getReportFilterConfig();
+  if (!config || !els.reportFilterModalList) {
+    return;
+  }
+  state.reportFilters[config.filterKey] = [...els.reportFilterModalList.querySelectorAll("input[type='checkbox']:checked")]
+    .map(input => input.value)
+    .filter(Boolean);
+  state.reportDrillCategoryId = "";
+  closeReportFilterModal();
+  renderReportView();
+}
+
 function buildScopedPayload(scopeType, ownerUserId = null) {
   return {
     scopeType,
@@ -8032,9 +8162,9 @@ function buildLedgerTableRow(entry) {
       : ""
   ].filter(Boolean).join("");
   const actionsMarkup = state.showLedgerPageActions
-    ? `<span data-label="Actions" class="ledger-action-cell">
+    ? `<span data-label="" class="ledger-action-cell">
         ${menuItems ? `
-          <button class="overflow-btn" type="button" aria-label="Open ledger actions" data-action="toggle-ledger-menu" data-id="${entry.groupId}">&#8942;</button>
+          <button class="overflow-btn tiny-overflow-btn" type="button" aria-label="Open ledger actions" data-action="toggle-ledger-menu" data-id="${entry.groupId}">&#8942;</button>
           <div class="overflow-menu${isMenuOpen ? "" : " hidden"}">${menuItems}</div>
         ` : ""}
       </span>`

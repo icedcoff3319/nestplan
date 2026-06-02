@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510h" />
+  <link rel="stylesheet" href="./styles.css?v=20260510i" />
 </head>
 <body>
   <main class="app-shell">
@@ -1035,9 +1035,8 @@
                   </div>
                   <div class="action-row compact-actions">
                     <button id="ledger-page-clear-btn" class="ghost-btn small-btn" type="button">Clear</button>
-                    <label class="inline-check" for="ledger-page-actions-toggle">
+                    <label class="inline-check tiny-inline-check" for="ledger-page-actions-toggle" aria-label="Show row action buttons">
                       <input id="ledger-page-actions-toggle" type="checkbox" />
-                      <span>Actions</span>
                     </label>
                   </div>
                 </div>
@@ -1068,7 +1067,10 @@
                   <h3 class="card-title">Report controls</h3>
                   <p id="report-scope-note" class="card-subtle">My view and Household view affect the report data.</p>
                 </div>
-                <button id="report-month-back-btn" class="ghost-btn small-btn hidden" type="button">Back to range</button>
+                <div class="action-row compact-actions">
+                  <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-controls" aria-label="Explain report controls">i</button>
+                  <button id="report-month-back-btn" class="ghost-btn small-btn hidden" type="button">Back to range</button>
+                </div>
               </div>
               <div class="ledger-filter-grid">
                 <div class="field-group">
@@ -1100,18 +1102,12 @@
               <div id="report-filters-panel" class="ledger-filter-grid hidden">
                 <div class="field-group">
                   <label for="report-account-filter">Accounts</label>
-                  <details id="report-account-picker" class="multi-picker compact-multi-picker">
-                    <summary id="report-account-summary" class="multi-picker-summary">All accounts</summary>
-                    <div id="report-account-list" class="choice-grid multi-picker-list compact-picker-list"></div>
-                  </details>
+                  <button id="report-account-open-btn" class="filter-modal-trigger" type="button">All accounts (auto)</button>
                   <select id="report-account-filter" class="hidden" multiple tabindex="-1" aria-hidden="true"></select>
                 </div>
                 <div class="field-group">
                   <label for="report-category-filter">Categories</label>
-                  <details id="report-category-picker" class="multi-picker compact-multi-picker">
-                    <summary id="report-category-summary" class="multi-picker-summary">All categories</summary>
-                    <div id="report-category-list" class="choice-grid multi-picker-list compact-picker-list"></div>
-                  </details>
+                  <button id="report-category-open-btn" class="filter-modal-trigger" type="button">All categories (auto)</button>
                   <select id="report-category-filter" class="hidden" multiple tabindex="-1" aria-hidden="true"></select>
                 </div>
                 <div class="field-group">
@@ -1134,7 +1130,7 @@
             </section>
 
             <section class="report-kpi-strip">
-              <article><span>Total spent</span><strong id="report-total-spent">Rp0</strong></article>
+              <article><span>Total spent</span><strong id="report-total-spent">Rp0</strong><button class="icon-btn subtle app-info-btn mini-info-btn" type="button" data-info-topic="report-kpis" aria-label="Explain report KPIs">i</button></article>
               <article><span>Avg / month</span><strong id="report-average-monthly">Rp0</strong></article>
               <article><span>Top category share</span><strong id="report-top-category-share">0%</strong></article>
               <article><span>Months covered</span><strong id="report-months-covered">0</strong></article>
@@ -1142,11 +1138,12 @@
 
             <div class="planning-grid">
               <section class="card">
-                <div class="card-header">
+                <div class="card-header space-between">
                   <div>
                     <h3 class="card-title">Category breakdown</h3>
                     <p class="card-subtle">Ranked by selected range total.</p>
                   </div>
+                  <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-category-breakdown" aria-label="Explain category breakdown">i</button>
                 </div>
                 <div id="report-category-breakdown" class="report-list"></div>
               </section>
@@ -1154,21 +1151,23 @@
               <section id="report-category-drill" class="card hidden"></section>
 
               <section class="card">
-                <div class="card-header">
+                <div class="card-header space-between">
                   <div>
                     <h3 class="card-title">Monthly view</h3>
                     <p class="card-subtle">Tap a month to lock the report to that month.</p>
                   </div>
+                  <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-monthly-view" aria-label="Explain monthly view">i</button>
                 </div>
                 <div id="report-monthly-table"></div>
               </section>
 
               <section class="card">
-                <div class="card-header">
+                <div class="card-header space-between">
                   <div>
                     <h3 class="card-title">Budget performance</h3>
                     <p class="card-subtle">Compares visible budgets against selected report activity.</p>
                   </div>
+                  <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-budget-performance" aria-label="Explain budget performance">i</button>
                 </div>
                 <div class="ledger-filter-grid">
                   <div class="field-group">
@@ -1191,11 +1190,12 @@
               </section>
 
               <section class="card">
-                <div class="card-header">
+                <div class="card-header space-between">
                   <div>
                     <h3 class="card-title">Suggested budgets</h3>
                     <p class="card-subtle">Median monthly spending plus buffer.</p>
                   </div>
+                  <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-budget-suggestions" aria-label="Explain suggested budgets">i</button>
                 </div>
                 <div class="field-group">
                   <label for="report-budget-buffer">Buffer</label>
@@ -1679,10 +1679,31 @@
         </div>
       </div>
     </div>
+
+    <div id="report-filter-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="report-filter-modal-title">
+      <div class="modal-backdrop" data-action="close-report-filter"></div>
+      <div class="modal-panel compact-modal-panel">
+        <div class="card-header space-between">
+          <div>
+            <h3 id="report-filter-modal-title" class="card-title">Choose filters</h3>
+            <p class="card-subtle">Auto all keeps every current and future option included.</p>
+          </div>
+          <button id="report-filter-close-btn" class="ghost-btn" type="button">Close</button>
+        </div>
+        <div class="action-row compact-actions">
+          <button id="report-filter-auto-btn" class="ghost-btn small-btn" type="button">Auto all</button>
+          <button id="report-filter-select-all-btn" class="ghost-btn small-btn" type="button">Select all</button>
+          <button id="report-filter-apply-btn" class="primary-btn small-btn" type="button">Apply</button>
+        </div>
+        <div id="report-filter-modal-list" class="report-filter-table">
+          <p class="status-copy">No options available.</p>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510h";
+    window.__nestplanBuild = "20260510i";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1797,7 +1818,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510h").catch(function (error) {
+    import("./app.js?v=20260510i").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const loginMessage = document.getElementById("login-message");

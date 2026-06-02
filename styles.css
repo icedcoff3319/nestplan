@@ -360,6 +360,18 @@ textarea:focus {
   margin: 0;
 }
 
+.tiny-inline-check {
+  min-height: 18px;
+  min-width: 18px;
+  padding: 2px;
+  gap: 0;
+}
+
+.tiny-inline-check input {
+  width: 10px;
+  height: 10px;
+}
+
 .inline-fee-field {
   display: grid;
   gap: 6px;
@@ -1486,6 +1498,51 @@ textarea:focus {
   font-size: 12px;
 }
 
+.filter-modal-trigger {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(111, 129, 104, 0.14);
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.report-filter-table {
+  display: grid;
+  max-height: min(58vh, 520px);
+  overflow: auto;
+  border: 1px solid rgba(111, 129, 104, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.report-filter-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(111, 129, 104, 0.1);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.report-filter-row:last-child {
+  border-bottom: 0;
+}
+
+.report-filter-row input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
 .report-kpi-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1493,6 +1550,7 @@ textarea:focus {
 }
 
 .report-kpi-strip article {
+  position: relative;
   display: grid;
   gap: 2px;
   padding: 10px 12px;
@@ -1510,6 +1568,16 @@ textarea:focus {
 .report-kpi-strip strong {
   font-size: 13px;
   color: var(--text-strong);
+}
+
+.mini-info-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0;
+  font-size: 11px;
 }
 
 .report-list {
@@ -1950,6 +2018,14 @@ textarea:focus {
   font-size: 18px;
 }
 
+.ledger-action-cell .overflow-btn {
+  min-height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 .investment-event-actions {
   display: grid;
   justify-items: end;
@@ -1963,6 +2039,14 @@ textarea:focus {
   padding: 0 5px;
   border-radius: 8px;
   font-size: 15px;
+}
+
+.ledger-action-cell .tiny-overflow-btn {
+  min-height: 18px;
+  min-width: 18px;
+  padding: 0 3px;
+  border-radius: 6px;
+  font-size: 11px;
 }
 
 .overflow-menu {
