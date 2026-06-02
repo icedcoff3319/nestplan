@@ -683,6 +683,24 @@ service cloud.firestore {
         || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId);
     }
 
+    function validSameAccountSavingReserveTransfer(householdId, data) {
+      return data.displayKind == "transfer"
+        && data.postingKind == "transfer_in"
+        && data.categoryId == null
+        && data.categoryNameSnapshot == null
+        && data.counterpartyAccountId == data.accountId
+        && data.counterpartyAccountNameSnapshot == data.accountNameSnapshot
+        && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == data.accountPrimaryOwnerUserIdSnapshot
+        && data.get("investmentAccountId", null) == null
+        && data.recurringBillId == null
+        && data.recurringBillOccurrenceId == null
+        && accountOwnedByRequester(householdId, data.accountId)
+        && hasNonEmptyString(data.savingGoalId)
+        && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId))
+        && savingGoalDoc(householdId, data.savingGoalId).status == "active"
+        && savingGoalDoc(householdId, data.savingGoalId).linkedAccountId == data.accountId;
+    }
+
     function validRecurringBillReference(householdId, billId, occurrenceId) {
       return (billId == null && occurrenceId == null)
         || (
@@ -735,6 +753,11 @@ service cloud.firestore {
             && data.counterpartyAccountId == null
             && data.counterpartyAccountNameSnapshot == null
             && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
+          )
+          || (
+            // Reserving money into a saving tied to the same account is not a normal transfer.
+            // It is allowed only for the account owner and only into an active saving linked to that account.
+            validSameAccountSavingReserveTransfer(householdId, data)
           )
           || (
             data.displayKind == "transfer"
