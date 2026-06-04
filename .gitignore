@@ -8,6 +8,7 @@ ui-debug.log
 # Dependencies and build outputs
 node_modules/
 functions/node_modules/
+.tools/
 dist/
 build/
 coverage/
