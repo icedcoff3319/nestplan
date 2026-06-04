@@ -7,11 +7,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260510q" />
+  <link rel="stylesheet" href="./styles.css?v=20260604a" />
 </head>
 <body>
   <main class="app-shell">
-    <section id="auth-screen" class="auth-shell">
+    <section id="boot-screen" class="boot-shell" aria-live="polite" aria-busy="true">
+      <div class="boot-card">
+        <div class="boot-mark" aria-hidden="true"></div>
+        <p class="brand-note">NestPlan</p>
+        <h1 class="boot-title">Preparing your household space.</h1>
+        <p id="boot-message" class="boot-copy">Checking your session...</p>
+      </div>
+    </section>
+
+    <section id="auth-screen" class="auth-shell hidden">
       <div class="auth-card">
         <div class="auth-brand">
           <div class="auth-brand-top">
@@ -1738,7 +1747,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260510q";
+    window.__nestplanBuild = "20260604a";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1846,6 +1855,12 @@
           const bootError = window.__nestplanBootError
             ? `App boot failed: ${window.__nestplanBootError}`
             : "The app did not finish loading. Refresh the page once. If it still stays like this, the browser is using stale files.";
+          const bootScreen = document.getElementById("boot-screen");
+          const bootMessage = document.getElementById("boot-message");
+          if (bootScreen && bootMessage) {
+            bootScreen.classList.add("boot-error");
+            bootMessage.textContent = bootError;
+          }
           loginMessage.textContent = bootError;
           loginMessage.className = "message error";
         }
@@ -1853,9 +1868,15 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260510q").catch(function (error) {
+    import("./app.js?v=20260604a").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
+      const bootScreen = document.getElementById("boot-screen");
+      const bootMessage = document.getElementById("boot-message");
+      if (bootScreen && bootMessage) {
+        bootScreen.classList.add("boot-error");
+        bootMessage.textContent = `App boot failed: ${window.__nestplanBootError}`;
+      }
       const loginMessage = document.getElementById("login-message");
       if (loginMessage) {
         loginMessage.textContent = `App boot failed: ${window.__nestplanBootError}`;

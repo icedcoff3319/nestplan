@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260510q";
+} from "./firebase-client.js?v=20260604a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260510q";
+} from "./constants.js?v=20260604a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -51,6 +51,8 @@ const PROTECTED_SYSTEM_CATEGORY_KEYS = new Set([
 ]);
 
 const state = {
+  bootStatus: "loading",
+  bootMessage: "Checking your session...",
   authUser: null,
   userProfile: null,
   households: [],
@@ -159,6 +161,8 @@ const state = {
 };
 
 const els = {
+  bootScreen: document.getElementById("boot-screen"),
+  bootMessage: document.getElementById("boot-message"),
   authScreen: document.getElementById("auth-screen"),
   emailVerificationScreen: document.getElementById("email-verification-screen"),
   masterAdminScreen: document.getElementById("master-admin-screen"),
@@ -1099,6 +1103,7 @@ async function handleAuthStateChanged(user) {
     return;
   }
 
+  setBootState("loading", user ? "Opening your household..." : "Checking your session...");
   clearMessages();
   if (!user) {
     teardownListeners();
@@ -1107,6 +1112,7 @@ async function handleAuthStateChanged(user) {
   resetStateForAuth(user);
 
   if (!user) {
+    setBootState("ready");
     setAuthBusy(false);
     renderScreens();
     return;
@@ -1121,19 +1127,29 @@ async function handleAuthStateChanged(user) {
   try {
     if (isMasterAdminRoute()) {
       await loadMasterAdminSession(user);
+      setBootState("ready");
+      renderMasterAdminScreen();
       setAuthBusy(false);
       return;
     }
 
     if (await shouldGateEmailVerification(user)) {
+      setBootState("ready");
       renderEmailVerification();
       setAuthBusy(false);
       return;
     }
 
     await loadUserSession(user);
+    setBootState("ready");
+    if (state.household?.id) {
+      renderApp();
+    } else {
+      renderScreens();
+    }
     setAuthBusy(false);
   } catch (error) {
+    setBootState("error", error?.message || "NestPlan could not finish loading.");
     setAuthBusy(false);
     renderFatalError(error);
   }
@@ -1354,7 +1370,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260510q");
+  url.searchParams.set("v", window.__nestplanBuild || "20260604a");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -4477,6 +4493,12 @@ async function loadHouseholdContext(householdId) {
   clearHouseholdContextState();
 
   const initialLoads = [];
+  let initialContextReady = false;
+  const scheduleHouseholdRender = () => {
+    if (initialContextReady) {
+      scheduleRender();
+    }
+  };
   const subscribe = (target, applySnapshot) => {
     let settled = false;
     const initialLoad = new Promise((resolve, reject) => {
@@ -4489,7 +4511,7 @@ async function loadHouseholdContext(householdId) {
               settled = true;
               resolve();
             }
-            scheduleRender();
+            scheduleHouseholdRender();
           } catch (error) {
             if (!settled) {
               settled = true;
@@ -4522,13 +4544,13 @@ async function loadHouseholdContext(householdId) {
         } catch (error) {
           console.warn(`Optional NestPlan listener failed while applying ${label}:`, error);
           handleFailure?.(error);
-          scheduleRender();
+          scheduleHouseholdRender();
         }
       },
       error => {
         console.warn(`Optional NestPlan listener could not load ${label}:`, error);
         handleFailure?.(error);
-        scheduleRender();
+        scheduleHouseholdRender();
       }
     );
 
@@ -4545,7 +4567,7 @@ async function loadHouseholdContext(householdId) {
       const merged = [...scopedDocs.household, ...scopedDocs.personal];
       const deduped = Array.from(new Map(merged.map(item => [item.id, item])).values());
       applyDocs(deduped);
-      scheduleRender();
+      scheduleHouseholdRender();
     };
 
     const subscribeScope = (scopeKey, target) => {
@@ -4691,6 +4713,7 @@ async function loadHouseholdContext(householdId) {
 
   try {
     await Promise.all(initialLoads);
+    initialContextReady = true;
   } catch (error) {
     if (householdRecoveryPending && isPermissionDeniedError(error)) {
       return;
@@ -4858,7 +4881,37 @@ async function updateActiveHousehold(householdId) {
   state.userProfile.activeHouseholdId = householdId;
 }
 
+function setBootState(status, message = "") {
+  state.bootStatus = status;
+  if (message) {
+    state.bootMessage = message;
+  }
+  if (els.bootMessage) {
+    els.bootMessage.textContent = state.bootMessage || "Loading NestPlan...";
+  }
+  if (els.bootScreen) {
+    els.bootScreen.classList.toggle("boot-error", status === "error");
+    els.bootScreen.setAttribute("aria-busy", status === "loading" ? "true" : "false");
+  }
+}
+
+function isBootLoading() {
+  return state.bootStatus === "loading";
+}
+
 function renderScreens() {
+  if (els.bootScreen) {
+    els.bootScreen.classList.toggle("hidden", !isBootLoading() && state.bootStatus !== "error");
+  }
+  if (isBootLoading()) {
+    els.authScreen.classList.add("hidden");
+    els.emailVerificationScreen.classList.add("hidden");
+    els.masterAdminScreen.classList.add("hidden");
+    els.setupScreen.classList.add("hidden");
+    els.appScreen.classList.add("hidden");
+    return;
+  }
+
   if (state.authFlowLock) {
     els.authScreen.classList.remove("hidden");
     els.emailVerificationScreen.classList.add("hidden");
@@ -4890,6 +4943,7 @@ function renderScreens() {
 }
 
 function renderEmailVerification(message = "", type = "") {
+  els.bootScreen?.classList.add("hidden");
   els.authScreen.classList.add("hidden");
   els.emailVerificationScreen.classList.remove("hidden");
   els.masterAdminScreen.classList.add("hidden");
@@ -9812,6 +9866,7 @@ function setScope(scope) {
 function renderFatalError(error) {
   console.error(error);
   const message = error.message || "Something went wrong while loading Firebase data.";
+  els.bootScreen?.classList.add("hidden");
 
   if (state.authUser) {
     els.authScreen.classList.add("hidden");
