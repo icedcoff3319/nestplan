@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:rules": "npx --yes firebase-tools@14.17.0 emulators:exec --only firestore --project nestplan-rules-test \"node --test tests/firestore-rules.test.mjs\""
+    "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
