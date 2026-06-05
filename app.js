@@ -1885,6 +1885,16 @@ async function handleSignupSubmit(event) {
     }
   }
 
+  const pendingRegistrationPayload = {
+    code: registrationCode,
+    email,
+    displayName,
+    signupMode: state.signupMode,
+    householdName: cleanText(els.signupHouseholdName.value),
+    inviteCode: cleanInviteCode(els.signupInviteCode.value),
+    createdAt: Date.now()
+  };
+
   setMessage(els.signupMessage, "Creating your account...", "success");
   state.authFlowLock = true;
   let bootstrapComplete = false;
@@ -1892,20 +1902,19 @@ async function handleSignupSubmit(event) {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName });
     await sendVerificationEmail(credential.user);
-    savePendingRegistration({
-      code: registrationCode,
-      email,
-      displayName,
-      signupMode: state.signupMode,
-      householdName: cleanText(els.signupHouseholdName.value),
-      inviteCode: cleanInviteCode(els.signupInviteCode.value),
-      createdAt: Date.now()
-    });
+    savePendingRegistration(pendingRegistrationPayload);
     state.authFlowLock = false;
     state.authUser = credential.user;
     renderEmailVerification("Verification email sent. Finish verification before NestPlan creates or joins a household.", "success");
     bootstrapComplete = true;
   } catch (error) {
+    if (isEmailAlreadyInUseError(error)) {
+      savePendingRegistration(pendingRegistrationPayload);
+      switchAuthMode("login");
+      els.loginEmail.value = email;
+      setMessage(els.loginMessage, "This email already has a pending account. Log in with the password you created to finish setup.", "error");
+      return;
+    }
     setMessage(
       els.signupMessage,
       getUserErrorMessage(error, {
@@ -10155,6 +10164,12 @@ function getRegistrationErrorMessage(error) {
     return "This user creation code is no longer available.";
   }
   return getUserErrorMessage(error);
+}
+
+function isEmailAlreadyInUseError(error) {
+  const code = error?.code || "";
+  const message = error?.message || "";
+  return code.includes("email-already-in-use") || message.includes("email-already-in-use");
 }
 
 function isMasterAdminRoute() {
