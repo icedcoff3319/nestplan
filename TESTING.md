@@ -7,7 +7,7 @@ Use this file as the shared testing memory for staging and production release ch
 - Local app: `http://localhost:8080`
 - Staging app: `https://nestplan-staging-863e5.web.app`
 - Production app: `https://nestplan-863e5.web.app`
-- Current staging build under review: `20260605b`
+- Current staging build under review: `20260605c`
 - Staging Firebase project: `nestplan-staging-863e5`
 - Production Firebase project: `nestplan-863e5`
 
@@ -34,7 +34,7 @@ Passwords are intentionally not stored in the repository.
 
 Run this before promoting staging to production.
 
-- Open staging with the expected build marker, for example `https://nestplan-staging-863e5.web.app/?v=20260605b`.
+- Open staging with the expected build marker, for example `https://nestplan-staging-863e5.web.app/?v=20260605c`.
 - Reload while signed in and confirm the app shows the loading screen before the correct destination screen.
 - Confirm existing users do not briefly land on login, onboarding, or setup screens.
 - Log in with Test Account 1.
@@ -52,7 +52,7 @@ Run this before promoting staging to production.
 
 ## Admin Smoke Test
 
-- Open staging admin with `https://nestplan-staging-863e5.web.app/?v=20260605b&admin=1`.
+- Open staging admin with `https://nestplan-staging-863e5.web.app/?v=20260605c&admin=1`.
 - Log in with the staging master admin.
 - Create a user creation code for a staging-only email.
 - Confirm repeated clicks do not create accidental duplicate codes while loading.

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260605b" />
+  <link rel="stylesheet" href="./styles.css?v=20260605c" />
 </head>
 <body>
   <main class="app-shell">
@@ -375,12 +375,14 @@
           </div>
 
           <form id="master-greeting-form" class="field-stack compact-form">
+            <input id="master-greeting-edit-id" type="hidden" />
             <div class="field-group">
               <label for="master-greeting-text">Sentence</label>
               <input id="master-greeting-text" type="text" placeholder="Keep the month in sight." required />
             </div>
             <div class="action-row">
-              <button class="secondary-btn" type="submit">Add sentence</button>
+              <button id="master-greeting-submit-btn" class="secondary-btn" type="submit">Add sentence</button>
+              <button id="master-greeting-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
               <button id="master-greeting-seed-btn" class="ghost-btn" type="button">Add current library</button>
             </div>
           </form>
@@ -1747,7 +1749,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260605b";
+    window.__nestplanBuild = "20260605c";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1868,7 +1870,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260605b").catch(function (error) {
+    import("./app.js?v=20260605c").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

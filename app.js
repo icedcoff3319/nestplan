@@ -23,11 +23,10 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260605b";
+} from "./firebase-client.js?v=20260605c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
-  DEFAULT_CATEGORY_SEED,
   DEFAULT_CATEGORY_SEED_VERSION,
   DEFAULT_SCOPE,
   GREETINGS,
@@ -35,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260605b";
+} from "./constants.js?v=20260605c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -227,7 +226,10 @@ const els = {
   masterBlockedDomainMessage: document.getElementById("master-blocked-domain-message"),
   masterBlockedDomainList: document.getElementById("master-blocked-domain-list"),
   masterGreetingForm: document.getElementById("master-greeting-form"),
+  masterGreetingEditId: document.getElementById("master-greeting-edit-id"),
   masterGreetingText: document.getElementById("master-greeting-text"),
+  masterGreetingSubmitBtn: document.getElementById("master-greeting-submit-btn"),
+  masterGreetingCancelBtn: document.getElementById("master-greeting-cancel-btn"),
   masterGreetingSeedBtn: document.getElementById("master-greeting-seed-btn"),
   masterGreetingMessage: document.getElementById("master-greeting-message"),
   masterGreetingList: document.getElementById("master-greeting-list"),
@@ -762,6 +764,7 @@ function bindEvents() {
   els.masterBlockedDomainForm.addEventListener("submit", handleMasterBlockedDomainSubmit);
   els.masterBlockedDomainList.addEventListener("click", handleMasterBlockedDomainListActions);
   els.masterGreetingForm.addEventListener("submit", handleMasterGreetingSubmit);
+  els.masterGreetingCancelBtn.addEventListener("click", resetMasterGreetingForm);
   els.masterGreetingSeedBtn.addEventListener("click", handleMasterGreetingSeed);
   els.masterGreetingList.addEventListener("click", handleMasterGreetingListActions);
   els.masterDefaultCategoryForm.addEventListener("submit", handleMasterDefaultCategorySubmit);
@@ -1238,12 +1241,6 @@ function getBuiltInGreetingQuotes() {
 
 async function loadGreetingQuotes() {
   const fallbackGreetings = getBuiltInGreetingQuotes();
-  if (firebaseEnvironment === "staging") {
-    state.greetingQuotes = fallbackGreetings;
-    state.greetingLibraryLoaded = false;
-    return;
-  }
-
   try {
     const snapshot = await getDocs(collection(db, "appGreetingQuotes"));
     const firestoreGreetings = snapshot.docs
@@ -1318,17 +1315,8 @@ async function refreshMasterAdminDashboard() {
     state.masterAdmin.codes = response.registrationCodes || [];
     state.masterAdmin.overrides = response.emailOverrides || [];
     state.masterAdmin.blockedDomains = response.blockedDomains || [];
-    state.masterAdmin.greetingQuotes = response.greetingQuotes?.length
-      ? response.greetingQuotes
-      : getBuiltInGreetingQuotes();
-    state.masterAdmin.defaultCategories = response.defaultCategories?.length
-      ? response.defaultCategories
-      : DEFAULT_CATEGORY_SEED.map((item, index) => ({
-          id: `builtin-category-${index}`,
-          ...item,
-          source: "built-in",
-          readonly: true
-        }));
+    state.masterAdmin.greetingQuotes = response.greetingQuotes || [];
+    state.masterAdmin.defaultCategories = response.defaultCategories || [];
     state.masterAdmin.maintenance = response.maintenance || getDefaultMaintenanceState();
     state.platformMaintenance = state.masterAdmin.maintenance;
     renderMasterAdminScreen();
@@ -1392,7 +1380,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260605b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260605c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -1479,17 +1467,15 @@ async function getMasterAdminDashboard() {
     getDocs(collection(db, "emailPolicyOverrides")),
     getDocs(collection(db, "appDefaultCategories")),
     getDoc(doc(db, "platformSettings", "maintenance")),
-    firebaseEnvironment === "staging" ? Promise.resolve(null) : getDocs(collection(db, "emailPolicyBlockedDomains")),
-    firebaseEnvironment === "staging" ? Promise.resolve(null) : getDocs(collection(db, "appGreetingQuotes"))
+    getDocs(collection(db, "emailPolicyBlockedDomains")),
+    getDocs(collection(db, "appGreetingQuotes"))
   ]);
-  const builtInGreetings = getBuiltInGreetingQuotes();
   const firestoreGreetings = greetingQuotesSnap
-    ? greetingQuotesSnap.docs
-        .map(snapshot => serializeGreetingQuote(snapshot.id, snapshot.data()))
-        .filter(item => item.status === "active" && cleanText(item.text))
-        .sort((a, b) => a.createdAtSort - b.createdAtSort)
-        .slice(0, 60)
-    : [];
+    .docs
+    .map(snapshot => serializeGreetingQuote(snapshot.id, snapshot.data()))
+    .filter(item => item.status === "active" && cleanText(item.text))
+    .sort((a, b) => a.createdAtSort - b.createdAtSort)
+    .slice(0, 60);
 
   return {
     registrationCodes: codesSnap.docs
@@ -1500,15 +1486,11 @@ async function getMasterAdminDashboard() {
       .map(snapshot => serializeEmailOverride(snapshot.id, snapshot.data()))
       .sort((a, b) => b.createdAtSort - a.createdAtSort)
       .slice(0, 60),
-    blockedDomains: blockedDomainsSnap
-      ? blockedDomainsSnap.docs
-          .map(snapshot => serializeBlockedDomain(snapshot.id, snapshot.data()))
-          .sort((a, b) => (a.domain || "").localeCompare(b.domain || ""))
-          .slice(0, 200)
-      : [],
-    greetingQuotes: firebaseEnvironment === "staging"
-      ? builtInGreetings
-      : firestoreGreetings,
+    blockedDomains: blockedDomainsSnap.docs
+      .map(snapshot => serializeBlockedDomain(snapshot.id, snapshot.data()))
+      .sort((a, b) => (a.domain || "").localeCompare(b.domain || ""))
+      .slice(0, 200),
+    greetingQuotes: firestoreGreetings,
     defaultCategories: defaultCategoriesSnap.docs
       .map(snapshot => serializeDefaultCategory(snapshot.id, snapshot.data()))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
@@ -1689,20 +1671,29 @@ async function removeBlockedEmailDomain({ domain }) {
   await deleteDoc(doc(db, "emailPolicyBlockedDomains", normalizedDomain));
 }
 
-async function addGreetingQuote({ text }) {
+async function saveGreetingQuote({ id, text }) {
   await assertMasterAdminClient();
   const quoteText = cleanText(text);
   if (!quoteText) {
     throw new Error("Sentence is required.");
   }
 
-  await setDoc(doc(collection(db, "appGreetingQuotes")), {
+  const payload = {
     text: quoteText,
     status: "active",
     createdByUserId: state.authUser.uid,
     createdByEmail: normalizeEmail(state.authUser.email || ""),
-    createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
+  };
+
+  if (id) {
+    await updateDoc(doc(db, "appGreetingQuotes", id), payload);
+    return;
+  }
+
+  await setDoc(doc(collection(db, "appGreetingQuotes")), {
+    ...payload,
+    createdAt: serverTimestamp()
   });
 }
 
@@ -2044,11 +2035,6 @@ async function handleMasterOverrideSubmit(event) {
 
 async function handleMasterBlockedDomainSubmit(event) {
   event.preventDefault();
-  if (firebaseEnvironment === "staging") {
-    setMessage(els.masterBlockedDomainMessage, "Blocked-domain library editing is disabled in staging. Production policy data is left untouched.", "success");
-    return;
-  }
-
   setMessage(els.masterBlockedDomainMessage, "");
   try {
     await addBlockedEmailDomain({ domain: els.masterBlockedDomain.value });
@@ -2062,16 +2048,15 @@ async function handleMasterBlockedDomainSubmit(event) {
 
 async function handleMasterGreetingSubmit(event) {
   event.preventDefault();
-  if (firebaseEnvironment === "staging") {
-    setMessage(els.masterGreetingMessage, "Greeting editing is disabled in staging. The app uses the built-in greeting library.", "success");
-    return;
-  }
-
   setMessage(els.masterGreetingMessage, "");
   try {
-    await addGreetingQuote({ text: els.masterGreetingText.value });
-    els.masterGreetingForm.reset();
-    setMessage(els.masterGreetingMessage, "Sentence added.", "success");
+    const isEditing = Boolean(cleanText(els.masterGreetingEditId.value));
+    await saveGreetingQuote({
+      id: cleanText(els.masterGreetingEditId.value),
+      text: els.masterGreetingText.value
+    });
+    resetMasterGreetingForm();
+    setMessage(els.masterGreetingMessage, isEditing ? "Sentence updated." : "Sentence added.", "success");
     await refreshMasterAdminDashboard();
   } catch (error) {
     setMessage(els.masterGreetingMessage, getRegistrationErrorMessage(error), "error");
@@ -2079,11 +2064,6 @@ async function handleMasterGreetingSubmit(event) {
 }
 
 async function handleMasterGreetingSeed() {
-  if (firebaseEnvironment === "staging") {
-    setMessage(els.masterGreetingMessage, "No action needed. This staging build always uses the built-in greeting library.", "success");
-    return;
-  }
-
   setMessage(els.masterGreetingMessage, "");
   try {
     const addedCount = await seedDefaultGreetingQuotes();
@@ -2435,12 +2415,30 @@ async function handleMasterBlockedDomainListActions(event) {
 
 async function handleMasterGreetingListActions(event) {
   const button = event.target.closest("[data-action]");
-  if (!button || button.dataset.action !== "remove-greeting-quote") {
+  if (!button) {
     return;
   }
 
   const id = button.dataset.id;
-  if (!id || !window.confirm("Remove this sentence from the greeting library?")) {
+  const quote = state.masterAdmin.greetingQuotes.find(item => item.id === id);
+  if (!id || !quote) {
+    return;
+  }
+
+  if (button.dataset.action === "edit-greeting-quote") {
+    els.masterGreetingEditId.value = quote.id;
+    els.masterGreetingText.value = quote.text || "";
+    els.masterGreetingSubmitBtn.textContent = "Update sentence";
+    els.masterGreetingCancelBtn.classList.remove("hidden");
+    scrollEditorIntoView(els.masterGreetingForm);
+    return;
+  }
+
+  if (button.dataset.action !== "remove-greeting-quote") {
+    return;
+  }
+
+  if (!window.confirm("Remove this sentence from the greeting library?")) {
     return;
   }
 
@@ -5060,7 +5058,6 @@ function renderMasterAdminScreen(message = "", type = "") {
     : "Log in with a master admin account.";
 
   const disabled = !state.masterAdmin.authorized;
-  const libraryEditingDisabled = disabled || firebaseEnvironment === "staging";
   [
     els.masterAdminRefreshBtn,
     els.masterCodeEmail,
@@ -5070,9 +5067,12 @@ function renderMasterAdminScreen(message = "", type = "") {
     els.masterDefaultCategoryName,
     els.masterDefaultCategoryDirection,
     els.masterDefaultCategoryDescription,
+    els.masterGreetingEditId,
+    els.masterGreetingText,
     els.masterMaintenanceEnabled,
     els.masterMaintenanceBlockWrites,
     els.masterMaintenanceMessageInput,
+    els.masterGreetingCancelBtn,
     els.masterDefaultCategoryCancelBtn
   ].forEach(element => {
     if (element) {
@@ -5082,11 +5082,10 @@ function renderMasterAdminScreen(message = "", type = "") {
 
   els.masterCodeForm.querySelector("button[type='submit']").disabled = disabled;
   els.masterOverrideForm.querySelector("button[type='submit']").disabled = disabled;
-  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = libraryEditingDisabled;
-  els.masterGreetingForm.querySelector("button[type='submit']").disabled = libraryEditingDisabled;
-  els.masterBlockedDomain.disabled = libraryEditingDisabled;
-  els.masterGreetingText.disabled = libraryEditingDisabled;
-  els.masterGreetingSeedBtn.disabled = libraryEditingDisabled;
+  els.masterBlockedDomainForm.querySelector("button[type='submit']").disabled = disabled;
+  els.masterGreetingForm.querySelector("button[type='submit']").disabled = disabled;
+  els.masterBlockedDomain.disabled = disabled;
+  els.masterGreetingSeedBtn.disabled = disabled;
   els.masterDefaultCategoryForm.querySelector("button[type='submit']").disabled = disabled;
   const maintenanceSubmitButton = els.masterMaintenanceForm?.querySelector("button[type='submit']");
   if (maintenanceSubmitButton) {
@@ -5194,13 +5193,6 @@ function renderMasterBlockedDomains() {
     return;
   }
 
-  if (firebaseEnvironment === "staging") {
-    els.masterBlockedDomainList.innerHTML = `
-      <p class="status-copy">Blocked-domain library editing is disabled in staging, so this project cannot accidentally become the source of truth for production policy data.</p>
-    `;
-    return;
-  }
-
   if (!state.masterAdmin.blockedDomains.length) {
     els.masterBlockedDomainList.innerHTML = `<p class="status-copy">No blocked domains yet.</p>`;
     return;
@@ -5241,16 +5233,17 @@ function renderMasterGreetingQuotes() {
     <div class="admin-table compact-admin-table">
       <div class="admin-table-row three-col admin-table-head">
         <span>Sentence</span>
-        <span>${firebaseEnvironment === "staging" ? "Source" : "Added"}</span>
+        <span>Added</span>
         <span></span>
       </div>
       ${state.masterAdmin.greetingQuotes.map(item => `
         <div class="admin-table-row three-col">
           <span class="admin-table-strong">${escapeHtml(item.text || "")}</span>
-          <span>${escapeHtml(firebaseEnvironment === "staging" ? "Built-in" : item.createdAtFormatted || "-")}</span>
-          <span>${firebaseEnvironment === "staging"
-            ? `<span class="status-copy">Read-only</span>`
-            : `<button class="ghost-btn small-btn" type="button" data-action="remove-greeting-quote" data-id="${escapeHtml(item.id || "")}">Remove</button>`}</span>
+          <span>${escapeHtml(item.createdAtFormatted || "-")}</span>
+          <span>
+            <button class="ghost-btn small-btn" type="button" data-action="edit-greeting-quote" data-id="${escapeHtml(item.id || "")}">Edit</button>
+            <button class="ghost-btn small-btn" type="button" data-action="remove-greeting-quote" data-id="${escapeHtml(item.id || "")}">Remove</button>
+          </span>
         </div>
       `).join("")}
     </div>
@@ -7948,13 +7941,11 @@ function isCompatibleSeedMatch(category, seed) {
 }
 
 function getDefaultCategorySeeds() {
-  return state.defaultCategoryLibrary.length
-    ? state.defaultCategoryLibrary.map(item => ({
-        name: item.name,
-        direction: item.direction,
-        description: item.description || ""
-      }))
-    : DEFAULT_CATEGORY_SEED;
+  return state.defaultCategoryLibrary.map(item => ({
+    name: item.name,
+    direction: item.direction,
+    description: item.description || ""
+  }));
 }
 
 function renderCategorySeedAccess() {
@@ -7990,6 +7981,11 @@ async function applyDefaultCategories() {
   let updatedCount = 0;
   const activeCategoryCount = getActiveManualCategoryCount();
   const categorySeeds = getDefaultCategorySeeds();
+  if (!categorySeeds.length) {
+    setMessage(els.categoryMessage, "No default category library is configured yet. Ask a master admin to add default categories first.", "error");
+    return;
+  }
+
   const missingSeedsCount = categorySeeds.filter(seed => !state.categories.some(category => isCompatibleSeedMatch(category, seed))).length;
 
   if (activeCategoryCount + missingSeedsCount > 50) {
@@ -10499,6 +10495,13 @@ function resetMasterDefaultCategoryForm() {
   els.masterDefaultCategoryCancelBtn.classList.add("hidden");
 }
 
+function resetMasterGreetingForm() {
+  els.masterGreetingForm.reset();
+  els.masterGreetingEditId.value = "";
+  els.masterGreetingSubmitBtn.textContent = "Add sentence";
+  els.masterGreetingCancelBtn.classList.add("hidden");
+}
+
 function ensureHouseholdCapacity(existingIds = getAccessibleHouseholdIds()) {
   if (sanitizeStringArray(existingIds).length >= MAX_HOUSEHOLDS) {
     throw new Error(`You can only belong to up to ${MAX_HOUSEHOLDS} households.`);
@@ -10638,7 +10641,7 @@ function pickGreeting() {
     .map(item => cleanText(item.text));
   const source = dynamicGreetings.length
     ? dynamicGreetings
-    : firebaseEnvironment === "production" && state.greetingLibraryLoaded
+    : state.greetingLibraryLoaded
       ? ["Welcome to NestPlan."]
       : GREETINGS;
   const previousGreeting = getLastGreeting();
