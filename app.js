@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260605a";
+} from "./firebase-client.js?v=20260605b";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,13 +35,14 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260605a";
+} from "./constants.js?v=20260605b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
 const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
 const LAST_GREETING_STORAGE_KEY = "nestplan.lastGreeting.v1";
 const ADMIN_ROUTE_PARAM = "admin";
+const VERIFICATION_RETURN_PARAM = "verificationReturn";
 const REGISTRATION_CODE_LENGTH = 8;
 const INVESTMENT_CATEGORY_KEYS = new Set(["investment_deposit", "investment_withdrawal"]);
 const PROTECTED_SYSTEM_CATEGORY_KEYS = new Set([
@@ -1114,7 +1115,11 @@ async function handleAuthStateChanged(user) {
   if (!user) {
     setBootState("ready");
     setAuthBusy(false);
-    renderScreens();
+    if (isVerificationReturnRoute()) {
+      renderVerificationReturn("Email verification is complete. Return to the NestPlan tab where you started signup, then choose I verified my email. If you closed that tab, log in with the same email and enter your user creation code again.");
+    } else {
+      renderScreens();
+    }
     return;
   }
 
@@ -1133,6 +1138,15 @@ async function handleAuthStateChanged(user) {
       return;
     }
 
+    if (isVerificationReturnRoute()) {
+      const handledVerificationReturn = await handleVerificationReturn(user);
+      if (handledVerificationReturn) {
+        setBootState("ready");
+        setAuthBusy(false);
+        return;
+      }
+    }
+
     if (await shouldGateEmailVerification(user)) {
       setBootState("ready");
       renderEmailVerification();
@@ -1149,6 +1163,14 @@ async function handleAuthStateChanged(user) {
     }
     setAuthBusy(false);
   } catch (error) {
+    if (error?.code === "registration/incomplete") {
+      await signOut(auth);
+      setBootState("ready");
+      setAuthBusy(false);
+      renderScreens();
+      setMessage(els.loginMessage, error.message, "error");
+      return;
+    }
     setBootState("error", error?.message || "NestPlan could not finish loading.");
     setAuthBusy(false);
     renderFatalError(error);
@@ -1370,10 +1392,51 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260605a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260605b");
+  url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
+}
+
+function isVerificationReturnRoute() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(VERIFICATION_RETURN_PARAM) === "1";
+}
+
+function clearVerificationReturnRoute() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(VERIFICATION_RETURN_PARAM);
+  window.history.replaceState({}, "", url.toString());
+}
+
+function pendingRegistrationMatchesUser(pending, user) {
+  return Boolean(
+    pending
+    && user
+    && normalizeEmail(pending.email) === normalizeEmail(user.email || "")
+  );
+}
+
+async function handleVerificationReturn(user) {
+  const pending = loadPendingRegistration();
+
+  try {
+    await reload(user);
+    await user.getIdToken(true);
+  } catch (error) {
+    console.warn("Could not refresh verification return state:", error);
+  }
+
+  if (pendingRegistrationMatchesUser(pending, auth.currentUser) && auth.currentUser?.emailVerified) {
+    clearVerificationReturnRoute();
+    renderEmailVerification("Email verified. Finalizing your NestPlan account...", "success");
+    await finalizeVerifiedRegistration();
+    return true;
+  }
+
+  renderVerificationReturn("Email verification is complete. Return to the NestPlan tab where you started signup, then choose I verified my email. If you closed that tab, log in with the same email and enter your user creation code again.");
+  return true;
 }
 
 function savePendingRegistration(payload) {
@@ -4407,16 +4470,15 @@ async function ensureUserProfile(user, explicitDisplayName = "") {
   const displayName = explicitDisplayName || user.displayName || deriveDisplayNameFromEmail(user.email);
 
   if (!existing.exists()) {
-    await setDoc(userRef, {
-      email: user.email,
-      emailNormalized: normalizeEmail(user.email),
-      displayName,
-      householdIds: [],
-      activeHouseholdId: null,
-      status: "active",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    const pending = loadPendingRegistration();
+    if (pendingRegistrationMatchesUser(pending, user) && user.emailVerified) {
+      await finalizeVerifiedRegistration();
+      return;
+    }
+
+    const error = new Error("Registration is not finished for this account. Log in again, enter the assigned user creation code, and complete signup with the same email.");
+    error.code = "registration/incomplete";
+    throw error;
   } else {
     const data = existing.data();
     const nextHouseholdIds = sanitizeHouseholdIds(data.householdIds, data.defaultHouseholdId);
@@ -4950,12 +5012,36 @@ function renderEmailVerification(message = "", type = "") {
   els.masterAdminScreen.classList.add("hidden");
   els.setupScreen.classList.add("hidden");
   els.appScreen.classList.add("hidden");
+  [els.verificationRefreshBtn, els.verificationResendBtn, els.verificationLogoutBtn].forEach(button => {
+    button?.classList.remove("hidden");
+  });
+  if (els.verificationLogoutBtn) {
+    els.verificationLogoutBtn.textContent = "Logout";
+  }
   els.verificationEmailLabel.textContent = state.authUser?.email
     ? `Verification required for ${state.authUser.email}.`
     : "Verification required.";
   if (message) {
     setMessage(els.verificationMessage, message, type);
   }
+}
+
+function renderVerificationReturn(message) {
+  els.bootScreen?.classList.add("hidden");
+  els.authScreen.classList.add("hidden");
+  els.emailVerificationScreen.classList.remove("hidden");
+  els.masterAdminScreen.classList.add("hidden");
+  els.setupScreen.classList.add("hidden");
+  els.appScreen.classList.add("hidden");
+  els.verificationEmailLabel.textContent = "Email verification completed.";
+  [els.verificationRefreshBtn, els.verificationResendBtn].forEach(button => {
+    button?.classList.add("hidden");
+  });
+  if (els.verificationLogoutBtn) {
+    els.verificationLogoutBtn.classList.remove("hidden");
+    els.verificationLogoutBtn.textContent = "Back to login";
+  }
+  setMessage(els.verificationMessage, message, "success");
 }
 
 function renderMasterAdminScreen(message = "", type = "") {
