@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260604a";
+} from "./firebase-client.js?v=20260605a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -35,7 +35,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260604a";
+} from "./constants.js?v=20260605a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1370,7 +1370,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260604a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260605a");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
   return url.toString();
@@ -3927,6 +3927,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
   }
 
   assertRegularAccountSpendAllowed(fromAccount.id, amountMinor + feeMinor, baseRows);
+  const resolvedTransferNote = cleanText(note) || (savingGoal ? cleanText(savingGoal.name) : "");
 
   if (state.editTransactionGroupId) {
     const entry = getGroupedEntriesAll().find(item => item.groupId === state.editTransactionGroupId);
@@ -3946,7 +3947,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
       counterpartyAccountNameSnapshot: toAccount.name,
       counterpartyAccountPrimaryOwnerUserIdSnapshot: toAccount.primaryOwnerUserId,
       amountMinor,
-      note: cleanText(note),
+      note: resolvedTransferNote,
       transactionAt,
       savingGoalId: null,
       recurringBillId: null,
@@ -3962,7 +3963,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
       counterpartyAccountNameSnapshot: fromAccount.name,
       counterpartyAccountPrimaryOwnerUserIdSnapshot: fromAccount.primaryOwnerUserId,
       amountMinor,
-      note: cleanText(note),
+      note: resolvedTransferNote,
       transactionAt,
       savingGoalId: savingGoal?.id || null,
       recurringBillId: null,
@@ -3985,7 +3986,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
     groupId,
     postingKind: "transfer_out",
     amountMinor,
-    note: cleanText(note),
+    note: resolvedTransferNote,
     transactionAt,
     account: fromAccount,
     counterpartyAccount: toAccount,
@@ -3997,7 +3998,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
     groupId,
     postingKind: "transfer_in",
     amountMinor,
-    note: cleanText(note),
+    note: resolvedTransferNote,
     transactionAt,
     account: toAccount,
     counterpartyAccount: fromAccount,
@@ -4007,7 +4008,7 @@ async function saveTransferTransaction({ amountMinor, feeMinor = 0, note, transa
   maybeAddFeeRowToBatch(batch, {
     transactionCollection,
     feeMinor,
-    note: cleanText(note),
+    note: resolvedTransferNote,
     fallbackNote: "Transfer",
     transactionAt,
     account: fromAccount

@@ -357,6 +357,39 @@ describe("transaction write boundaries", () => {
     ));
   });
 
+  it("blocks transfer rows that try to use another member's account as the source", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertFails(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "forged-transfer-out"),
+      transferData({
+        postingKind: "transfer_out",
+        accountId: "admin-account",
+        accountName: "Admin Bank",
+        accountOwnerUserId: ADMIN_ID,
+        counterpartyAccountId: "member-account",
+        counterpartyAccountName: "Member Wallet",
+        counterpartyAccountOwnerUserId: MEMBER_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "forged-transfer-group"
+      })
+    ));
+    await assertFails(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "forged-transfer-in"),
+      transferData({
+        postingKind: "transfer_in",
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        counterpartyAccountId: "admin-account",
+        counterpartyAccountName: "Admin Bank",
+        counterpartyAccountOwnerUserId: ADMIN_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "forged-transfer-group"
+      })
+    ));
+  });
+
   it("allows only the transaction creator to soft-delete their transaction", async () => {
     const adminDb = authedDb(ADMIN_ID, "admin@example.com");
     const memberDb = authedDb(MEMBER_ID, "member@example.com");
