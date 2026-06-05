@@ -603,113 +603,31 @@ service cloud.firestore {
       return categoryDoc(householdId, categoryId).get("systemKey", null) == "investment_withdrawal";
     }
 
-    function accountOwnedByRequester(householdId, accountId) {
-      return validAccountReference(householdId, accountId, request.resource.data.accountNameSnapshot, request.resource.data.accountPrimaryOwnerUserIdSnapshot)
+    function requesterOwnsAccount(householdId, accountId, nameSnapshot, ownerSnapshot) {
+      return validAccountReference(householdId, accountId, nameSnapshot, ownerSnapshot)
         && accountOwnerUserId(accountDoc(householdId, accountId)) == request.auth.uid;
     }
 
-    function validInvestmentDepositUsage(householdId, data) {
-      return isInvestmentDepositCategory(householdId, data.categoryId)
-        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
-        && accountOwnedByRequester(householdId, data.accountId)
-        && data.savingGoalId == null;
+    function validNoCounterparty(data) {
+      return data.counterpartyAccountId == null
+        && data.counterpartyAccountNameSnapshot == null
+        && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null;
     }
 
-    function validInvestmentWithdrawalUsage(householdId, data) {
-      return isInvestmentWithdrawalCategory(householdId, data.categoryId)
-        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
-        && accountOwnedByRequester(householdId, data.accountId)
-        && data.savingGoalId == null;
+    function validNoCategory(data) {
+      return data.categoryId == null
+        && data.categoryNameSnapshot == null;
     }
 
-    function validNonTransferAccountUsage(householdId, data) {
-      return (
-        data.displayKind == "income"
-        && (
-          validInvestmentWithdrawalUsage(householdId, data)
-          || (
-            !isInvestmentWithdrawalCategory(householdId, data.categoryId)
-            && data.get("investmentAccountId", null) == null
-            && accountOwnedByRequester(householdId, data.accountId)
-          )
-        )
-      ) || (
-        data.displayKind == "outcome"
-        && (
-          validInvestmentDepositUsage(householdId, data)
-          || (
-            !isInvestmentDepositCategory(householdId, data.categoryId)
-            && data.get("investmentAccountId", null) == null
-            && (
-              (
-                categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
-                && accountOwnedByRequester(householdId, data.accountId)
-                && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
-              )
-              || (
-                categoryDoc(householdId, data.categoryId).get("systemKey", null) != "saving"
-                && (
-                  (data.savingGoalId == null && accountOwnedByRequester(householdId, data.accountId))
-                  || savingGoalCanBeSpentFrom(householdId, data.savingGoalId, data.accountId)
-                )
-              )
-            )
-          )
-        )
-      ) || (
-        data.displayKind == "adjustment"
+    function validNoRecurringBill(data) {
+      return data.recurringBillId == null
+        && data.recurringBillOccurrenceId == null;
+    }
+
+    function validNoPlanningLinks(data) {
+      return data.savingGoalId == null
         && data.get("investmentAccountId", null) == null
-        && accountOwnedByRequester(householdId, data.accountId)
-      );
-    }
-
-    function validTransferAccountUsage(householdId, data) {
-      return (
-        data.postingKind == "transfer_out"
-        && accountOwnedByRequester(householdId, data.accountId)
-        && data.savingGoalId == null
-      ) || (
-        data.postingKind == "transfer_in"
-        && (
-          (
-            validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
-            && accountOwnerUserId(accountDoc(householdId, data.counterpartyAccountId)) == request.auth.uid
-            && (
-              data.savingGoalId == null
-              || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
-            )
-          )
-          || (
-            data.counterpartyAccountId == data.accountId
-            && accountOwnedByRequester(householdId, data.accountId)
-            && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
-          )
-        )
-      );
-    }
-
-    function validTransferCounterpartyPair(householdId, data) {
-      return data.counterpartyAccountId != data.accountId
-        || data.postingKind == "transfer_out"
-        || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId);
-    }
-
-    function validSameAccountSavingReserveTransfer(householdId, data) {
-      return data.displayKind == "transfer"
-        && data.postingKind == "transfer_in"
-        && data.categoryId == null
-        && data.categoryNameSnapshot == null
-        && data.counterpartyAccountId == data.accountId
-        && data.counterpartyAccountNameSnapshot == data.accountNameSnapshot
-        && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == data.accountPrimaryOwnerUserIdSnapshot
-        && data.get("investmentAccountId", null) == null
-        && data.recurringBillId == null
-        && data.recurringBillOccurrenceId == null
-        && accountOwnedByRequester(householdId, data.accountId)
-        && hasNonEmptyString(data.savingGoalId)
-        && exists(/databases/$(database)/documents/households/$(householdId)/savingGoals/$(data.savingGoalId))
-        && savingGoalDoc(householdId, data.savingGoalId).status == "active"
-        && savingGoalDoc(householdId, data.savingGoalId).linkedAccountId == data.accountId;
+        && validNoRecurringBill(data);
     }
 
     function validRecurringBillReference(householdId, billId, occurrenceId) {
@@ -722,14 +640,7 @@ service cloud.firestore {
         );
     }
 
-    function validTransactionKindPair(data) {
-      return (data.displayKind == "income" && data.postingKind == "income")
-        || (data.displayKind == "outcome" && data.postingKind == "outcome")
-        || (data.displayKind == "transfer" && (data.postingKind == "transfer_in" || data.postingKind == "transfer_out"))
-        || (data.displayKind == "adjustment" && (data.postingKind == "adjustment_increase" || data.postingKind == "adjustment_decrease"));
-    }
-
-    function validTransactionShape(householdId, data) {
+    function validTransactionBase(householdId, data) {
       return data.createdByUserId == request.auth.uid
         && data.amountMinor is int
         && data.amountMinor > 0
@@ -742,58 +653,173 @@ service cloud.firestore {
         && data.currencyCode == householdDoc(householdId).currencyCode
         && hasStringOrNull(data.get("investmentAccountId", null))
         && validAccountReference(householdId, data.accountId, data.accountNameSnapshot, data.accountPrimaryOwnerUserIdSnapshot)
-        && validTransactionKindPair(data)
         && validSavingGoalReference(householdId, data.savingGoalId)
-        && validRecurringBillReference(householdId, data.recurringBillId, data.recurringBillOccurrenceId)
+        && validRecurringBillReference(householdId, data.recurringBillId, data.recurringBillOccurrenceId);
+    }
+
+    function validRequesterOwnedMainAccount(householdId, data) {
+      return requesterOwnsAccount(householdId, data.accountId, data.accountNameSnapshot, data.accountPrimaryOwnerUserIdSnapshot);
+    }
+
+    function validInvestmentDepositTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) != null
+        && isInvestmentDepositCategory(householdId, data.categoryId)
+        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
+        && validRequesterOwnedMainAccount(householdId, data)
+        && data.savingGoalId == null
+        && validNoRecurringBill(data);
+    }
+
+    function validInvestmentWithdrawalTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) != null
+        && isInvestmentWithdrawalCategory(householdId, data.categoryId)
+        && investmentAccountCanBeUsed(householdId, data.investmentAccountId)
+        && validRequesterOwnedMainAccount(householdId, data)
+        && data.savingGoalId == null
+        && validNoRecurringBill(data);
+    }
+
+    function validSavingFundingTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) == null
+        && categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
+        && validRequesterOwnedMainAccount(householdId, data)
+        && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId);
+    }
+
+    function validSavingSpendTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) == null
+        && data.savingGoalId != null
+        && categoryDoc(householdId, data.categoryId).get("systemKey", null) != "saving"
+        && savingGoalCanBeSpentFrom(householdId, data.savingGoalId, data.accountId);
+    }
+
+    function validNormalIncomeTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) == null
+        && data.savingGoalId == null
+        && !isInvestmentWithdrawalCategory(householdId, data.categoryId)
+        && validNoRecurringBill(data)
+        && validRequesterOwnedMainAccount(householdId, data);
+    }
+
+    function validNormalOutcomeTransaction(householdId, data) {
+      return data.get("investmentAccountId", null) == null
+        && data.savingGoalId == null
+        && !isInvestmentDepositCategory(householdId, data.categoryId)
+        && validRequesterOwnedMainAccount(householdId, data);
+    }
+
+    function validIncomeTransaction(householdId, data) {
+      return data.displayKind == "income"
+        && data.postingKind == "income"
+        && validNoCounterparty(data)
+        && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
         && (
-          (
-            data.displayKind == "income"
-            && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
-            && validNonTransferAccountUsage(householdId, data)
-            && data.counterpartyAccountId == null
-            && data.counterpartyAccountNameSnapshot == null
-            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
-            && data.savingGoalId == null
-            && data.recurringBillId == null
-            && data.recurringBillOccurrenceId == null
-          )
-          || (
-            data.displayKind == "outcome"
-            && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
-            && validNonTransferAccountUsage(householdId, data)
-            && data.counterpartyAccountId == null
-            && data.counterpartyAccountNameSnapshot == null
-            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
-          )
-          || (
-            // Reserving money into a saving tied to the same account is not a normal transfer.
-            // It is allowed only for the account owner and only into an active saving linked to that account.
-            validSameAccountSavingReserveTransfer(householdId, data)
-          )
-          || (
-            data.displayKind == "transfer"
-            && data.categoryId == null
-            && data.categoryNameSnapshot == null
-            && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
-            && validTransferCounterpartyPair(householdId, data)
-            && validTransferAccountUsage(householdId, data)
-            && data.get("investmentAccountId", null) == null
-            && data.recurringBillId == null
-            && data.recurringBillOccurrenceId == null
-          )
-          || (
-            data.displayKind == "adjustment"
-            && data.categoryId == null
-            && data.categoryNameSnapshot == null
-            && validNonTransferAccountUsage(householdId, data)
-            && data.counterpartyAccountId == null
-            && data.counterpartyAccountNameSnapshot == null
-            && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == null
-            && data.savingGoalId == null
-            && data.get("investmentAccountId", null) == null
-            && data.recurringBillId == null
-            && data.recurringBillOccurrenceId == null
-          )
+          data.get("investmentAccountId", null) != null
+            ? validInvestmentWithdrawalTransaction(householdId, data)
+            : validNormalIncomeTransaction(householdId, data)
+        );
+    }
+
+    function validOutcomeTransaction(householdId, data) {
+      return data.displayKind == "outcome"
+        && data.postingKind == "outcome"
+        && validNoCounterparty(data)
+        && validCategoryReference(householdId, data.categoryId, data.categoryNameSnapshot, data.displayKind)
+        && (
+          data.get("investmentAccountId", null) != null
+            ? validInvestmentDepositTransaction(householdId, data)
+            : (
+              categoryDoc(householdId, data.categoryId).get("systemKey", null) == "saving"
+                ? validSavingFundingTransaction(householdId, data)
+                : (
+                  data.savingGoalId != null
+                    ? validSavingSpendTransaction(householdId, data)
+                    : validNormalOutcomeTransaction(householdId, data)
+                )
+            )
+        );
+    }
+
+    function validSameAccountSavingReserveTransaction(householdId, data) {
+      return data.displayKind == "transfer"
+        && data.postingKind == "transfer_in"
+        && validNoCategory(data)
+        && data.counterpartyAccountId == data.accountId
+        && data.counterpartyAccountNameSnapshot == data.accountNameSnapshot
+        && data.counterpartyAccountPrimaryOwnerUserIdSnapshot == data.accountPrimaryOwnerUserIdSnapshot
+        && data.get("investmentAccountId", null) == null
+        && validNoRecurringBill(data)
+        && validRequesterOwnedMainAccount(householdId, data)
+        && savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId);
+    }
+
+    function validTransferOutTransaction(householdId, data) {
+      return data.postingKind == "transfer_out"
+        && validNoCategory(data)
+        && validAccountReference(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
+        && data.savingGoalId == null
+        && data.get("investmentAccountId", null) == null
+        && validNoRecurringBill(data)
+        && validRequesterOwnedMainAccount(householdId, data);
+    }
+
+    function validTransferInTransaction(householdId, data) {
+      return data.postingKind == "transfer_in"
+        && validNoCategory(data)
+        && data.counterpartyAccountId != data.accountId
+        && data.get("investmentAccountId", null) == null
+        && validNoRecurringBill(data)
+        && requesterOwnsAccount(householdId, data.counterpartyAccountId, data.counterpartyAccountNameSnapshot, data.counterpartyAccountPrimaryOwnerUserIdSnapshot)
+        && (
+          data.savingGoalId == null
+          || savingGoalCanReceiveFunds(householdId, data.savingGoalId, data.accountId)
+        );
+    }
+
+    function validTransferTransaction(householdId, data) {
+      return data.displayKind == "transfer"
+        && (
+          data.postingKind == "transfer_out"
+            ? validTransferOutTransaction(householdId, data)
+            : (
+              data.postingKind == "transfer_in"
+                ? (
+                  data.counterpartyAccountId == data.accountId
+                    ? validSameAccountSavingReserveTransaction(householdId, data)
+                    : validTransferInTransaction(householdId, data)
+                )
+                : false
+            )
+        );
+    }
+
+    function validAdjustmentTransaction(householdId, data) {
+      return data.displayKind == "adjustment"
+        && (data.postingKind == "adjustment_increase" || data.postingKind == "adjustment_decrease")
+        && validNoCounterparty(data)
+        && validNoCategory(data)
+        && validNoPlanningLinks(data)
+        && validRequesterOwnedMainAccount(householdId, data);
+    }
+
+    function validTransactionShape(householdId, data) {
+      return validTransactionBase(householdId, data)
+        && (
+          data.displayKind == "income"
+            ? validIncomeTransaction(householdId, data)
+            : (
+              data.displayKind == "outcome"
+                ? validOutcomeTransaction(householdId, data)
+                : (
+                  data.displayKind == "transfer"
+                    ? validTransferTransaction(householdId, data)
+                    : (
+                      data.displayKind == "adjustment"
+                        ? validAdjustmentTransaction(householdId, data)
+                        : false
+                    )
+                )
+            )
         );
     }
 
@@ -808,10 +834,13 @@ service cloud.firestore {
       return request.auth.uid == resource.data.createdByUserId
         && resource.data.status == "active"
         && request.resource.data.status == "active"
-        && keepsImmutableTransactionFields()
-        && request.resource.data.deletedAt == resource.data.deletedAt
-        && request.resource.data.deletedByUserId == resource.data.deletedByUserId
-        && validTransactionShape(householdId, request.resource.data);
+        ? (
+          keepsImmutableTransactionFields()
+          && request.resource.data.deletedAt == resource.data.deletedAt
+          && request.resource.data.deletedByUserId == resource.data.deletedByUserId
+          && validTransactionShape(householdId, request.resource.data)
+        )
+        : false;
     }
 
     function validSoftDeleteTransaction() {

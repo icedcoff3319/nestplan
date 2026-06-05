@@ -250,7 +250,7 @@ describe("household invite code boundaries", () => {
 });
 
 describe("transaction write boundaries", () => {
-  it("allows own-account spending and blocks spending from another member's account", async () => {
+  it("allows normal income and outcome rows from owned accounts", async () => {
     const memberDb = authedDb(MEMBER_ID, "member@example.com");
 
     await assertSucceeds(setDoc(
@@ -263,6 +263,55 @@ describe("transaction write boundaries", () => {
         groupId: "member-outcome-group"
       })
     ));
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-income"),
+      transactionData({
+        displayKind: "income",
+        postingKind: "income",
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "income-category",
+        categoryName: "Salary",
+        createdByUserId: MEMBER_ID,
+        groupId: "member-income-group"
+      })
+    ));
+  });
+
+  it("allows admin-fee and saving-spend outcome rows from owned accounts", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-admin-fee"),
+      transactionData({
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "system-admin-fee",
+        categoryName: "Admin Fee",
+        createdByUserId: MEMBER_ID,
+        groupId: "member-admin-fee-group"
+      })
+    ));
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-saving-spend"),
+      transactionData({
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "food-category",
+        categoryName: "Food",
+        savingGoalId: "member-saving",
+        createdByUserId: MEMBER_ID,
+        groupId: "member-saving-spend-group"
+      })
+    ));
+  });
+
+  it("blocks spending from another member's account", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
     await assertFails(setDoc(
       doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "forged-admin-outcome"),
       transactionData({
@@ -271,6 +320,39 @@ describe("transaction write boundaries", () => {
         accountOwnerUserId: ADMIN_ID,
         createdByUserId: MEMBER_ID,
         groupId: "forged-admin-outcome-group"
+      })
+    ));
+  });
+
+  it("allows normal transfer rows created by the source account owner", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-transfer-out"),
+      transferData({
+        postingKind: "transfer_out",
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        counterpartyAccountId: "admin-account",
+        counterpartyAccountName: "Admin Bank",
+        counterpartyAccountOwnerUserId: ADMIN_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "member-transfer-group"
+      })
+    ));
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-transfer-in"),
+      transferData({
+        postingKind: "transfer_in",
+        accountId: "admin-account",
+        accountName: "Admin Bank",
+        accountOwnerUserId: ADMIN_ID,
+        counterpartyAccountId: "member-account",
+        counterpartyAccountName: "Member Wallet",
+        counterpartyAccountOwnerUserId: MEMBER_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "member-transfer-group"
       })
     ));
   });
@@ -305,6 +387,86 @@ describe("transaction write boundaries", () => {
     await assertFails(setDoc(
       doc(adminDb, "households", HOUSEHOLD_ID, "transactions", "admin-forged-saving-reserve"),
       sameAccountSavingReserveData({ createdByUserId: ADMIN_ID })
+    ));
+  });
+
+  it("blocks same-account transfer-in rows unless they reserve an active linked saving", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertFails(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "same-account-no-saving"),
+      sameAccountSavingReserveData({ createdByUserId: MEMBER_ID, savingGoalId: null })
+    ));
+  });
+
+  it("allows account-owner balance corrections only on owned accounts", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-adjustment"),
+      adjustmentData({
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "member-adjustment-group"
+      })
+    ));
+    await assertFails(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "forged-admin-adjustment"),
+      adjustmentData({
+        accountId: "admin-account",
+        accountName: "Admin Bank",
+        accountOwnerUserId: ADMIN_ID,
+        createdByUserId: MEMBER_ID,
+        groupId: "forged-admin-adjustment-group"
+      })
+    ));
+  });
+
+  it("allows investment deposit and withdrawal rows only with matching system categories", async () => {
+    const memberDb = authedDb(MEMBER_ID, "member@example.com");
+
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-investment-deposit"),
+      transactionData({
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "system-investment-deposit",
+        categoryName: "Investment - Deposit",
+        investmentAccountId: "household-investment",
+        createdByUserId: MEMBER_ID,
+        groupId: "member-investment-deposit-group"
+      })
+    ));
+    await assertSucceeds(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "member-investment-withdrawal"),
+      transactionData({
+        displayKind: "income",
+        postingKind: "income",
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "system-investment-withdrawal",
+        categoryName: "Investment - Withdrawal",
+        investmentAccountId: "household-investment",
+        createdByUserId: MEMBER_ID,
+        groupId: "member-investment-withdrawal-group"
+      })
+    ));
+    await assertFails(setDoc(
+      doc(memberDb, "households", HOUSEHOLD_ID, "transactions", "bad-investment-deposit-category"),
+      transactionData({
+        accountId: "member-account",
+        accountName: "Member Wallet",
+        accountOwnerUserId: MEMBER_ID,
+        categoryId: "food-category",
+        categoryName: "Food",
+        investmentAccountId: "household-investment",
+        createdByUserId: MEMBER_ID,
+        groupId: "bad-investment-deposit-category-group"
+      })
     ));
   });
 });
@@ -429,12 +591,29 @@ async function seedBaseData() {
         direction: "outcome",
         createdByUserId: ADMIN_ID
       })),
+      setDoc(doc(db, "households", HOUSEHOLD_ID, "categories", "income-category"), categoryData({
+        name: "Salary",
+        direction: "income",
+        createdByUserId: ADMIN_ID
+      })),
       setDoc(doc(db, "households", HOUSEHOLD_ID, "categories", "system-admin-fee"), categoryData({
         name: "Admin Fee",
         direction: "outcome",
         createdByUserId: ADMIN_ID,
         description: "Admin and transfer fees.",
         systemKey: "admin_fee"
+      })),
+      setDoc(doc(db, "households", HOUSEHOLD_ID, "categories", "system-investment-deposit"), categoryData({
+        name: "Investment - Deposit",
+        direction: "outcome",
+        createdByUserId: ADMIN_ID,
+        systemKey: "investment_deposit"
+      })),
+      setDoc(doc(db, "households", HOUSEHOLD_ID, "categories", "system-investment-withdrawal"), categoryData({
+        name: "Investment - Withdrawal",
+        direction: "income",
+        createdByUserId: ADMIN_ID,
+        systemKey: "investment_withdrawal"
       })),
       setDoc(doc(db, "households", HOUSEHOLD_ID, "savingGoals", "member-saving"), savingGoalData({
         name: "Member Saving",
@@ -468,6 +647,12 @@ async function seedBaseData() {
         name: "Admin Personal Fund",
         scopeType: "personal",
         ownerUserId: ADMIN_ID,
+        createdByUserId: ADMIN_ID
+      })),
+      setDoc(doc(db, "households", HOUSEHOLD_ID, "investmentAccounts", "household-investment"), investmentAccountData({
+        name: "Household Fund",
+        scopeType: "household",
+        ownerUserId: null,
         createdByUserId: ADMIN_ID
       })),
       setDoc(doc(db, "households", HOUSEHOLD_ID, "invites", "open-invite"), inviteData({
@@ -646,16 +831,22 @@ function inviteCodeData({ inviteCode, inviteId, invitedByUserId }) {
 }
 
 function transactionData({
+  displayKind = "outcome",
+  postingKind = "outcome",
   accountId,
   accountName,
   accountOwnerUserId,
   createdByUserId,
   groupId,
-  amountMinor = 25000
+  amountMinor = 25000,
+  categoryId = "food-category",
+  categoryName = "Food",
+  savingGoalId = null,
+  investmentAccountId = null
 }) {
   return {
-    displayKind: "outcome",
-    postingKind: "outcome",
+    displayKind,
+    postingKind,
     transactionGroupId: groupId,
     transactionAt: CREATED_AT,
     amountMinor,
@@ -666,10 +857,10 @@ function transactionData({
     counterpartyAccountId: null,
     counterpartyAccountNameSnapshot: null,
     counterpartyAccountPrimaryOwnerUserIdSnapshot: null,
-    categoryId: "food-category",
-    categoryNameSnapshot: "Food",
-    savingGoalId: null,
-    investmentAccountId: null,
+    categoryId,
+    categoryNameSnapshot: categoryName,
+    savingGoalId,
+    investmentAccountId,
     recurringBillId: null,
     recurringBillOccurrenceId: null,
     note: "Lunch",
@@ -682,27 +873,90 @@ function transactionData({
   };
 }
 
-function sameAccountSavingReserveData({ createdByUserId }) {
+function transferData({
+  postingKind,
+  accountId,
+  accountName,
+  accountOwnerUserId,
+  counterpartyAccountId,
+  counterpartyAccountName,
+  counterpartyAccountOwnerUserId,
+  createdByUserId,
+  groupId,
+  savingGoalId = null
+}) {
   return {
     displayKind: "transfer",
-    postingKind: "transfer_in",
-    transactionGroupId: `${createdByUserId}-saving-reserve-group`,
+    postingKind,
+    transactionGroupId: groupId,
     transactionAt: CREATED_AT,
     amountMinor: 10000,
     currencyCode: "IDR",
-    accountId: "member-account",
-    accountNameSnapshot: "Member Wallet",
-    accountPrimaryOwnerUserIdSnapshot: MEMBER_ID,
-    counterpartyAccountId: "member-account",
-    counterpartyAccountNameSnapshot: "Member Wallet",
-    counterpartyAccountPrimaryOwnerUserIdSnapshot: MEMBER_ID,
+    accountId,
+    accountNameSnapshot: accountName,
+    accountPrimaryOwnerUserIdSnapshot: accountOwnerUserId,
+    counterpartyAccountId,
+    counterpartyAccountNameSnapshot: counterpartyAccountName,
+    counterpartyAccountPrimaryOwnerUserIdSnapshot: counterpartyAccountOwnerUserId,
     categoryId: null,
     categoryNameSnapshot: null,
-    savingGoalId: "member-saving",
+    savingGoalId,
     investmentAccountId: null,
     recurringBillId: null,
     recurringBillOccurrenceId: null,
     note: "Reserve saving",
+    status: "active",
+    createdByUserId,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+    deletedAt: null,
+    deletedByUserId: null
+  };
+}
+
+function sameAccountSavingReserveData({ createdByUserId, savingGoalId = "member-saving" }) {
+  return transferData({
+    postingKind: "transfer_in",
+    accountId: "member-account",
+    accountName: "Member Wallet",
+    accountOwnerUserId: MEMBER_ID,
+    counterpartyAccountId: "member-account",
+    counterpartyAccountName: "Member Wallet",
+    counterpartyAccountOwnerUserId: MEMBER_ID,
+    createdByUserId,
+    groupId: `${createdByUserId}-saving-reserve-group`,
+    savingGoalId
+  });
+}
+
+function adjustmentData({
+  accountId,
+  accountName,
+  accountOwnerUserId,
+  createdByUserId,
+  groupId,
+  postingKind = "adjustment_increase"
+}) {
+  return {
+    displayKind: "adjustment",
+    postingKind,
+    transactionGroupId: groupId,
+    transactionAt: CREATED_AT,
+    amountMinor: 10000,
+    currencyCode: "IDR",
+    accountId,
+    accountNameSnapshot: accountName,
+    accountPrimaryOwnerUserIdSnapshot: accountOwnerUserId,
+    counterpartyAccountId: null,
+    counterpartyAccountNameSnapshot: null,
+    counterpartyAccountPrimaryOwnerUserIdSnapshot: null,
+    categoryId: null,
+    categoryNameSnapshot: null,
+    savingGoalId: null,
+    investmentAccountId: null,
+    recurringBillId: null,
+    recurringBillOccurrenceId: null,
+    note: "Balance correction",
     status: "active",
     createdByUserId,
     createdAt: CREATED_AT,
