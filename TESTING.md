@@ -19,7 +19,7 @@ Passwords are intentionally not stored in the repository.
 | --- | --- | --- | --- | --- |
 | Test Account 1 | `tixemo5172@fixscal.com` | Staging | Primary personal user and household admin checks | Verified in staging on 2026-06-05; has a user profile and one household. |
 | Test Account 2 | `lilid31565@fanchatu.com` | Staging | Second household/member collaboration checks | Verified in staging on 2026-06-05; has a user profile and one household. |
-| Test Account 3 | `rijilev597@herojp.com` | Staging | Extra member/cross-user regression checks | Status must be confirmed in the staging UI before relying on it. |
+| Test Account 3 | `rijilev597@herojp.com` | Staging | Extra member/cross-user regression checks | Verified in staging on 2026-06-06; has a user profile and one household. |
 
 ## Signup And Verification Notes
 
