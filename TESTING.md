@@ -61,6 +61,21 @@ Run this before promoting staging to production.
 - Confirm default category library behavior matches the current release plan.
 - Confirm greeting and blocked-domain library behavior matches the current release plan.
 
+## Default Category Starter Import
+
+The app reads default categories from Firestore collection `appDefaultCategories`. The starter list is not part of runtime app behavior.
+
+Use this controlled import tool only when the admin-managed Firestore library should receive the starter categories:
+
+```powershell
+$env:NESTPLAN_ADMIN_EMAIL="master-admin@example.com"
+$env:NESTPLAN_ADMIN_PASSWORD="do-not-commit-passwords"
+npm.cmd run seed:default-categories -- --project=staging
+npm.cmd run seed:default-categories -- --project=staging --apply
+```
+
+Production uses the same command with `--project=production`, but only after staging output is reviewed. The importer adds missing starter categories only. It does not delete, overwrite, or reorder existing admin-managed categories.
+
 ## Production Promotion Test
 
 Run only after staging passes.

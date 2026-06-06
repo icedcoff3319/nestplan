@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "seed:default-categories": "node scripts/seed-default-categories.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {
