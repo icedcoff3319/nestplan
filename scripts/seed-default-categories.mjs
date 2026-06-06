@@ -158,12 +158,13 @@ Usage:
   node scripts/seed-default-categories.mjs --project=production --apply
 
 Environment:
-  NESTPLAN_ADMIN_EMAIL       Master admin email for the selected Firebase project.
-  NESTPLAN_ADMIN_PASSWORD    Master admin password for the selected Firebase project.
+  NESTPLAN_ADMIN_EMAIL       Signed-in email for dry-run; master admin email for --apply.
+  NESTPLAN_ADMIN_PASSWORD    Password for that account.
 
 Behavior:
   Dry-run is the default.
   --apply adds only missing starter categories.
+  --apply requires an active master admin.
   Existing categories are matched by normalized name + direction and are never overwritten or deleted.
 `);
 }
@@ -201,9 +202,7 @@ async function main() {
   try {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const masterAdminSnap = await getDoc(doc(db, "masterAdmins", credential.user.uid));
-    if (!masterAdminSnap.exists() || masterAdminSnap.data().status !== "active") {
-      throw new Error("The signed-in account is not an active master admin for this project.");
-    }
+    const isMasterAdmin = masterAdminSnap.exists() && masterAdminSnap.data().status === "active";
 
     const existingSnap = await getDocs(collection(db, "appDefaultCategories"));
     const existingActive = existingSnap.docs
@@ -216,6 +215,8 @@ async function main() {
       project: options.project,
       firebaseProjectId: config.projectId,
       mode: options.apply ? "apply" : "dry-run",
+      signedInAs: email.toLowerCase(),
+      signedInAsMasterAdmin: isMasterAdmin,
       existingCategoryCount: existingActive.length,
       starterCategoryCount: STARTER_DEFAULT_CATEGORIES.length,
       missingCategoryCount: missingCategories.length,
@@ -225,6 +226,10 @@ async function main() {
     if (!options.apply) {
       console.log("Dry-run only. Re-run with --apply to add missing categories.");
       return;
+    }
+
+    if (!isMasterAdmin) {
+      throw new Error("The signed-in account is not an active master admin for this project.");
     }
 
     if (!missingCategories.length) {
