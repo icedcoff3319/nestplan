@@ -2248,6 +2248,44 @@ textarea:focus {
   margin-top: var(--space-3);
 }
 
+.compact-note {
+  font-size: 13px;
+}
+
+.info-example-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.info-example-row {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr 1.7fr;
+}
+
+.info-example-row + .info-example-row {
+  border-top: 1px solid var(--line);
+}
+
+.info-example-row span {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.info-example-row span + span {
+  border-left: 1px solid var(--line);
+}
+
+.info-example-head {
+  background: rgba(111, 132, 104, 0.14);
+  color: var(--text-soft);
+  font-weight: 800;
+}
+
 .export-preview {
   min-height: 280px;
   background: rgba(255, 255, 255, 0.82);

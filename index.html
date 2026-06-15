@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260605c" />
+  <link rel="stylesheet" href="./styles.css?v=20260615c" />
 </head>
 <body>
   <main class="app-shell">
@@ -1523,6 +1523,11 @@
               <button id="category-defaults-btn" class="ghost-btn" type="button">Use default categories</button>
               <p id="category-defaults-note" class="card-subtle">Merge the starter set into this household once. Existing active categories stay untouched.</p>
             </div>
+            <div class="action-row compact-actions">
+              <button id="category-import-btn" class="ghost-btn" type="button">Upload CSV</button>
+              <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="category-csv-import" aria-label="Explain category CSV upload">i</button>
+              <input id="category-import-input" class="hidden" type="file" accept=".csv,text/csv,text/plain" />
+            </div>
 
             <form id="category-form" class="field-stack compact-form">
               <input id="category-edit-id" type="hidden" />
@@ -1749,7 +1754,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260605c";
+    window.__nestplanBuild = "20260615c";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1870,7 +1875,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260605c").catch(function (error) {
+    import("./app.js?v=20260615c").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

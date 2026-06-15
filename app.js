@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260605c";
+} from "./firebase-client.js?v=20260615c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260605c";
+} from "./constants.js?v=20260615c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -309,6 +309,8 @@ const els = {
   categoryMessage: document.getElementById("category-message"),
   categoryDefaultsBtn: document.getElementById("category-defaults-btn"),
   categoryDefaultsNote: document.getElementById("category-defaults-note"),
+  categoryImportBtn: document.getElementById("category-import-btn"),
+  categoryImportInput: document.getElementById("category-import-input"),
   categoriesList: document.getElementById("categories-list"),
   transactionForm: document.getElementById("transaction-form"),
   transactionCard: document.getElementById("transaction-card"),
@@ -574,6 +576,24 @@ const INFO_TOPICS = {
       "NestPlan records the fee as its own Admin Fee outcome from the same source account and with the same note."
     ]
   },
+  "category-csv-import": {
+    title: "Category CSV upload",
+    paragraphs: [
+      "Upload one file with these columns:"
+    ],
+    table: {
+      headers: ["Direction", "Category Name", "Description"],
+      rows: [
+        ["outcome", "Essentials - Food", "Meals, takeout, cafes, and eating out."],
+        ["income", "Work - Salary", "Regular salary or wage income."],
+        ["both", "Shared - Reimbursement", "Money paid or received back for shared costs."]
+      ]
+    },
+    footnotes: [
+      "Direction must be exactly: income, outcome, or both.",
+      "Existing active categories with the same name and direction are skipped."
+    ]
+  },
   balance: {
     title: "Balance summary",
     paragraphs: [
@@ -801,6 +821,10 @@ function bindEvents() {
   els.categoriesList.addEventListener("click", handleCategoryListActions);
   els.categoryDefaultsBtn.addEventListener("click", () => {
     void applyDefaultCategories();
+  });
+  els.categoryImportBtn?.addEventListener("click", () => els.categoryImportInput?.click());
+  els.categoryImportInput?.addEventListener("change", event => {
+    void handleCategoryCsvImport(event);
   });
 
   els.transactionKind.addEventListener("change", () => syncTransactionForm());
@@ -1380,7 +1404,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260605c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260615c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -3716,6 +3740,82 @@ async function handleCategorySubmit(event) {
     resetCategoryForm();
   } catch (error) {
     setMessage(els.categoryMessage, error.message, "error");
+  }
+}
+
+async function handleCategoryCsvImport(event) {
+  setMessage(els.categoryMessage, "");
+  const fileInput = event.target;
+  const file = fileInput.files?.[0] || null;
+  if (!file) {
+    return;
+  }
+
+  try {
+    if (!state.household?.id || !state.authUser) {
+      setMessage(els.categoryMessage, "Open a household first.", "error");
+      return;
+    }
+
+    const text = await file.text();
+    const result = parseCategoryCsv(text);
+    if (result.errors.length) {
+      setMessage(els.categoryMessage, `CSV import stopped. ${result.errors.slice(0, 4).join(" ")}`, "error");
+      return;
+    }
+
+    const activeManualCount = getActiveManualCategoryCount();
+    const existingKeys = new Set(
+      state.categories
+        .filter(category => category.status === "active" && !isProtectedSystemCategory(category))
+        .map(category => getCategoryImportKey(category))
+    );
+    const seenKeys = new Set();
+    const categoriesToCreate = [];
+    let skippedCount = 0;
+
+    result.categories.forEach(category => {
+      const key = getCategoryImportKey(category);
+      if (existingKeys.has(key) || seenKeys.has(key)) {
+        skippedCount += 1;
+        return;
+      }
+      seenKeys.add(key);
+      categoriesToCreate.push(category);
+    });
+
+    if (!categoriesToCreate.length) {
+      setMessage(els.categoryMessage, skippedCount
+        ? `No new categories imported. Skipped ${skippedCount} duplicate row${skippedCount === 1 ? "" : "s"}.`
+        : "No categories found in the CSV.", "error");
+      return;
+    }
+
+    if (activeManualCount + categoriesToCreate.length > 50) {
+      setMessage(els.categoryMessage, `CSV import would exceed the 50 active category limit. You can import up to ${Math.max(0, 50 - activeManualCount)} more.`, "error");
+      return;
+    }
+
+    const batch = writeBatch(db);
+    categoriesToCreate.forEach(category => {
+      const categoryRef = doc(collection(db, "households", state.household.id, "categories"));
+      batch.set(categoryRef, {
+        name: category.name,
+        description: category.description,
+        direction: category.direction,
+        status: "active",
+        createdByUserId: state.authUser.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    });
+
+    await batch.commit();
+    setMessage(els.categoryMessage, `Imported ${categoriesToCreate.length} categor${categoriesToCreate.length === 1 ? "y" : "ies"}.${skippedCount ? ` Skipped ${skippedCount} duplicate row${skippedCount === 1 ? "" : "s"}.` : ""}`, "success");
+  } catch (error) {
+    setMessage(els.categoryMessage, error.message, "error");
+  } finally {
+    fileInput.value = "";
   }
 }
 
@@ -7930,6 +8030,101 @@ function normalizeCategorySeedName(name = "") {
   return cleanText(name).toLowerCase().replace(/\s+/g, " ");
 }
 
+function normalizeCsvHeader(value = "") {
+  return normalizeCategorySeedName(value).replace(/[^a-z0-9]/g, "");
+}
+
+function getCategoryImportKey(category) {
+  return `${normalizeCategorySeedName(category.name)}::${category.direction}`;
+}
+
+function parseDelimitedLine(line, delimiter) {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
+    if (char === "\"") {
+      if (quoted && nextChar === "\"") {
+        current += "\"";
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+    if (char === delimiter && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
+}
+
+function parseCategoryCsv(text = "") {
+  const errors = [];
+  const lines = String(text)
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter(line => cleanText(line));
+
+  if (!lines.length) {
+    return { categories: [], errors: ["The CSV file is empty."] };
+  }
+
+  const delimiter = lines[0].includes("|") ? "|" : ",";
+  const headers = parseDelimitedLine(lines[0], delimiter).map(normalizeCsvHeader);
+  const directionIndex = headers.indexOf("direction");
+  const nameIndex = headers.indexOf("categoryname");
+  const descriptionIndex = headers.indexOf("description");
+  const allowedDirections = new Set(CATEGORY_DIRECTIONS.map(item => item.value));
+
+  if (directionIndex === -1 || nameIndex === -1 || descriptionIndex === -1) {
+    return {
+      categories: [],
+      errors: ["Use this header exactly: Direction, Category Name, Description."]
+    };
+  }
+
+  const categories = [];
+  lines.slice(1).forEach((line, index) => {
+    const rowNumber = index + 2;
+    const cells = parseDelimitedLine(line, delimiter);
+    const direction = cleanText(cells[directionIndex] || "");
+    const name = cleanText(cells[nameIndex] || "");
+    const descriptionIsLast = descriptionIndex === Math.max(directionIndex, nameIndex, descriptionIndex);
+    const description = cleanText(descriptionIsLast
+      ? cells.slice(descriptionIndex).join(delimiter)
+      : cells[descriptionIndex] || "");
+
+    if (!direction && !name && !description) {
+      return;
+    }
+    if (!allowedDirections.has(direction)) {
+      errors.push(`Row ${rowNumber}: Direction must be exactly income, outcome, or both.`);
+      return;
+    }
+    if (!name) {
+      errors.push(`Row ${rowNumber}: Category Name is required.`);
+      return;
+    }
+    if (name.toLowerCase() === "saving") {
+      errors.push(`Row ${rowNumber}: Saving is managed automatically by the app.`);
+      return;
+    }
+
+    categories.push({ direction, name, description });
+  });
+
+  return { categories, errors };
+}
+
 function isCompatibleSeedMatch(category, seed) {
   if (!category || category.status !== "active") {
     return false;
@@ -8043,28 +8238,15 @@ function getBillName(billId) {
   return state.recurringBills.find(bill => bill.id === billId)?.name || "Recurring bill";
 }
 
-function getCategoryHelperGroups() {
+function getCategoryHelperCategories() {
   const kind = els.transactionKind.value;
   if (kind === "transfer") {
     return [];
   }
 
-  const groups = new Map();
-  getActiveCategories()
+  return getActiveCategories()
     .filter(category => !isProtectedSystemCategory(category) && isCategoryAllowedForKind(category, kind))
-    .sort((left, right) => (left.name || "").localeCompare(right.name || ""))
-    .forEach(category => {
-      const groupLabel = category.name.includes(" - ")
-        ? category.name.split(" - ")[0]
-        : "Other";
-      const bucket = groups.get(groupLabel) || [];
-      bucket.push(category);
-      groups.set(groupLabel, bucket);
-    });
-
-  return Array.from(groups.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([groupLabel, categories]) => ({ groupLabel, categories }));
+    .sort((left, right) => (left.name || "").localeCompare(right.name || ""));
 }
 
 function renderCategoryHelperContent() {
@@ -8079,24 +8261,19 @@ function renderCategoryHelperContent() {
     ? "Transfers do not use categories."
     : `Browse the ${kindLabel.toLowerCase()} categories available right now.`;
 
-  const groups = getCategoryHelperGroups();
-  if (!groups.length) {
+  const categories = getCategoryHelperCategories();
+  if (!categories.length) {
     els.categoryHelperList.innerHTML = `<div class="empty-card"><h4>No categories available</h4><p>${escapeHtml(kind === "transfer" ? "Transfers do not use categories." : "Create a category first, or apply the default starter set from Accounts & Categories.")}</p></div>`;
     return;
   }
 
-  els.categoryHelperList.innerHTML = groups.map(group => `
-    <section class="stack-list">
-      <h4 class="mini-title">${escapeHtml(group.groupLabel)}</h4>
-      ${group.categories.map(category => `
-        <article class="list-row compact-row">
-          <div>
-            <p class="list-row-title">${escapeHtml(category.name)}</p>
-            <p class="status-copy">${escapeHtml(cleanText(category.description || "") || "No description yet.")}</p>
-          </div>
-        </article>
-      `).join("")}
-    </section>
+  els.categoryHelperList.innerHTML = categories.map(category => `
+    <article class="list-row compact-row">
+      <div>
+        <p class="list-row-title">${escapeHtml(category.name)}</p>
+        <p class="status-copy">${escapeHtml(cleanText(category.description || "") || "No description yet.")}</p>
+      </div>
+    </article>
   `).join("");
 }
 
@@ -8133,10 +8310,36 @@ function openInfoModal(topic) {
   }
 
   els.infoModalTitle.textContent = content.title;
-  els.infoModalCopy.innerHTML = content.paragraphs
+  const paragraphsHtml = (content.paragraphs || [])
     .map(paragraph => `<p class="status-copy">${escapeHtml(paragraph)}</p>`)
     .join("");
+  const tableHtml = content.table ? renderInfoExampleTable(content.table) : "";
+  const footnotesHtml = (content.footnotes || [])
+    .map(note => `<p class="status-copy compact-note">${escapeHtml(note)}</p>`)
+    .join("");
+  els.infoModalCopy.innerHTML = `${paragraphsHtml}${tableHtml}${footnotesHtml}`;
   els.infoModal.classList.remove("hidden");
+}
+
+function renderInfoExampleTable(table = {}) {
+  const headers = sanitizeStringArray(table.headers);
+  const rows = Array.isArray(table.rows) ? table.rows : [];
+  if (!headers.length || !rows.length) {
+    return "";
+  }
+
+  return `
+    <div class="info-example-table" role="table">
+      <div class="info-example-row info-example-head" role="row">
+        ${headers.map(header => `<span role="columnheader">${escapeHtml(header)}</span>`).join("")}
+      </div>
+      ${rows.map(row => `
+        <div class="info-example-row" role="row">
+          ${headers.map((header, index) => `<span role="cell" data-label="${escapeHtml(header)}">${escapeHtml(row[index] || "")}</span>`).join("")}
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 function closeInfoModal() {
