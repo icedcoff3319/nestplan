@@ -10,20 +10,31 @@ This cleanup track is intentionally separate from feature work. The goal is to m
 - Do not mix behavior changes with broad refactors.
 - Do not hard-delete financial history during cleanup.
 
-## Phase 1: Boot And Loading
+## Phase 1: Documentation And Build Hygiene
 
-Status: in progress on `codex/staging-cleanup-v1`.
+Status: active.
 
-- Add a dedicated loading screen that is visible before Firebase Auth resolves.
-- Keep auth, setup, and app screens hidden until the correct destination is known.
-- Prevent initial Firestore listener bursts from briefly rendering onboarding with partial household data.
-- Keep loading text and styling isolated so it can be edited without touching auth logic.
+- Keep `DECISIONS.md` current so product and security choices survive chat context limits.
+- Keep `TESTING.md` current with the latest staging smoke tests.
+- Keep `RELEASE_CHECKLIST.md` current with the exact staging-to-production flow.
+- Keep `CODE_STRUCTURE.md` current before extracting code.
+- Keep Firebase Hosting lean by excluding docs, tests, scripts, logs, dependencies, packages, and local tooling.
 
 Success criteria:
 
-- Reloading as a signed-in user shows loading first, then the correct dashboard.
-- The login screen does not flash for signed-in users.
-- The setup/onboarding requirement does not flash for users who already have accounts and categories.
+- A new contributor can understand where runtime code lives.
+- A release can be promoted without guessing which commands to run.
+- Product decisions are documented before implementation details are forgotten.
+- Hosting deploys only the app runtime files and required public assets.
+
+## Phase 1B: Boot And Loading
+
+Status: completed for the current production flow.
+
+- Dedicated loading screen is visible before Firebase Auth resolves.
+- Auth, setup, and app screens stay hidden until the correct destination is known.
+- Initial Firestore listener bursts should not briefly render onboarding with partial household data.
+- Loading text and styling should remain isolated so it can be edited without touching auth logic.
 
 ## Phase 2: Release Hygiene
 

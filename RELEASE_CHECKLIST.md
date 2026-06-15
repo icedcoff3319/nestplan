@@ -10,6 +10,7 @@ Use this checklist before staging and production deploys.
 - Run `node --check app.js`.
 - Run `git diff --check`.
 - Review `git diff --stat`.
+- Confirm `firebase.json` Hosting ignores still exclude docs, scripts, tests, logs, dependencies, package files, and Git metadata.
 - Deploy to staging only.
 - Verify the staging URL serves the new build marker.
 
@@ -26,6 +27,8 @@ Use this checklist before staging and production deploys.
 ## Before Production
 
 - Confirm staging passed.
+- Confirm the change scope is intentionally small, or split unrelated cleanup into a separate staging cycle.
+- Confirm no unexpected Firestore project config, auth flow, or rules changes are included.
 - Commit the branch.
 - Merge or fast-forward to `main` only after approval.
 - Tag the production release.
@@ -33,6 +36,14 @@ Use this checklist before staging and production deploys.
 - Deploy Firestore rules only if the release intentionally changes rules.
 - Verify production URL serves the new build marker.
 - Push `main` and tags to GitHub.
+
+## Clean Build Check
+
+- Runtime files should stay easy to identify: `index.html`, `app.js`, `styles.css`, `constants.js`, `firebase-client.js`.
+- Do not ship local scripts, tests, logs, docs, dependencies, or temporary tooling through Hosting.
+- Prefer one product change per release.
+- Avoid mixing refactors with user-facing behavior changes.
+- If a file grows because of a feature, add or update documentation before starting the next feature.
 
 ## Rollback
 

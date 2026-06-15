@@ -7,7 +7,7 @@ Use this file as the shared testing memory for staging and production release ch
 - Local app: `http://localhost:8080`
 - Staging app: `https://nestplan-staging-863e5.web.app`
 - Production app: `https://nestplan-863e5.web.app`
-- Current staging build under review: `20260605c`
+- Current staging build under review: update this before each staging review, latest promoted build `20260615c`
 - Staging Firebase project: `nestplan-staging-863e5`
 - Production Firebase project: `nestplan-863e5`
 
@@ -34,7 +34,7 @@ Passwords are intentionally not stored in the repository.
 
 Run this before promoting staging to production.
 
-- Open staging with the expected build marker, for example `https://nestplan-staging-863e5.web.app/?v=20260605c`.
+- Open staging with the expected build marker, for example `https://nestplan-staging-863e5.web.app/?v=20260615c`.
 - Reload while signed in and confirm the app shows the loading screen before the correct destination screen.
 - Confirm existing users do not briefly land on login, onboarding, or setup screens.
 - Log in with Test Account 1.
@@ -47,12 +47,16 @@ Run this before promoting staging to production.
 - Confirm transfer with an empty note to a saving tied to the same account uses the saving name as the note.
 - Confirm normal transfer with an empty note remains unchanged.
 - Confirm account fee transactions still create the separate `Admin Fee` row when enabled.
+- Confirm the Dashboard transaction Category `i` guide shows one flat category list.
+- Confirm category CSV upload accepts valid rows with `income`, `outcome`, and `both`.
+- Confirm category CSV upload rejects invalid `Direction` values before writing partial categories.
+- Confirm category CSV upload skips duplicate active categories with the same name and direction.
 - Confirm CSV download works from Dashboard ledger and Insights ledger.
 - Confirm production is untouched during staging tests.
 
 ## Admin Smoke Test
 
-- Open staging admin with `https://nestplan-staging-863e5.web.app/?v=20260605c&admin=1`.
+- Open staging admin with `https://nestplan-staging-863e5.web.app/?v=20260615c&admin=1`.
 - Log in with the staging master admin.
 - Create a user creation code for a staging-only email.
 - Confirm repeated clicks do not create accidental duplicate codes while loading.
@@ -83,12 +87,33 @@ Run only after staging passes.
 - Confirm `git status --short --branch` is clean.
 - Confirm the release branch and build marker are the intended ones.
 - Run `node --check app.js`.
+- Run `git diff --check`.
 - Run `npm.cmd run test:rules`.
 - Confirm whether Firestore rules changed.
 - If rules changed, deploy rules to production only after explicit approval.
 - Deploy Hosting to production only after explicit approval.
 - Verify production serves the expected build marker.
 - Confirm at least one existing production user can log in and load their dashboard.
+
+## Category CSV Upload
+
+CSV upload is available in `Planning -> Accounts & Categories -> Categories`.
+
+Required columns:
+
+| Direction | Category Name | Description |
+| --- | --- | --- |
+| `outcome` | `Essentials - Food` | `Meals, takeout, cafes, and eating out.` |
+| `income` | `Work - Salary` | `Regular salary or wage income.` |
+| `both` | `Shared - Reimbursement` | `Money paid or received back for shared costs.` |
+
+Rules to test:
+
+- `Direction` must be exactly lowercase `income`, `outcome`, or `both`.
+- The import creates household categories only, not default-library categories.
+- The import skips active duplicates with the same category name and direction.
+- The import respects the 50 active manual category limit.
+- Invalid rows should stop the import before any category is written.
 
 ## Known Testing Rules
 
