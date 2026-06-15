@@ -25,6 +25,7 @@ const REQUIRED_HOSTING_IGNORES = [
   "package.json",
   "package-lock.json",
   "*.log",
+  "*.md",
   "firebase-debug.log",
   "firestore-debug.log",
   "ui-debug.log",
@@ -83,6 +84,7 @@ async function checkBuildMarkers() {
     extractSingleMatch(indexHtml, /import\("\.\/app\.js\?v=([^"]+)"\)/, "app.js cache marker"),
     extractSingleMatch(appJs, /firebase-client\.js\?v=([^"]+)"/, "firebase-client.js cache marker"),
     extractSingleMatch(appJs, /constants\.js\?v=([^"]+)"/, "constants.js cache marker"),
+    extractSingleMatch(appJs, /category-import\.js\?v=([^"]+)"/, "category-import.js cache marker"),
     extractSingleMatch(appJs, /window\.__nestplanBuild \|\| "([^"]+)"/, "verification return fallback marker")
   ];
 

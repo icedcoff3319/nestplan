@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260615c";
+} from "./firebase-client.js?v=20260615d";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,11 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260615c";
+} from "./constants.js?v=20260615d";
+import {
+  getCategoryImportKey,
+  parseCategoryCsv
+} from "./category-import.js?v=20260615d";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1404,7 +1408,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260615c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260615d");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -8028,101 +8032,6 @@ function getCategoryDefaultsStatus() {
 
 function normalizeCategorySeedName(name = "") {
   return cleanText(name).toLowerCase().replace(/\s+/g, " ");
-}
-
-function normalizeCsvHeader(value = "") {
-  return normalizeCategorySeedName(value).replace(/[^a-z0-9]/g, "");
-}
-
-function getCategoryImportKey(category) {
-  return `${normalizeCategorySeedName(category.name)}::${category.direction}`;
-}
-
-function parseDelimitedLine(line, delimiter) {
-  const cells = [];
-  let current = "";
-  let quoted = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const nextChar = line[index + 1];
-    if (char === "\"") {
-      if (quoted && nextChar === "\"") {
-        current += "\"";
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-    if (char === delimiter && !quoted) {
-      cells.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-
-  cells.push(current.trim());
-  return cells;
-}
-
-function parseCategoryCsv(text = "") {
-  const errors = [];
-  const lines = String(text)
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .filter(line => cleanText(line));
-
-  if (!lines.length) {
-    return { categories: [], errors: ["The CSV file is empty."] };
-  }
-
-  const delimiter = lines[0].includes("|") ? "|" : ",";
-  const headers = parseDelimitedLine(lines[0], delimiter).map(normalizeCsvHeader);
-  const directionIndex = headers.indexOf("direction");
-  const nameIndex = headers.indexOf("categoryname");
-  const descriptionIndex = headers.indexOf("description");
-  const allowedDirections = new Set(CATEGORY_DIRECTIONS.map(item => item.value));
-
-  if (directionIndex === -1 || nameIndex === -1 || descriptionIndex === -1) {
-    return {
-      categories: [],
-      errors: ["Use this header exactly: Direction, Category Name, Description."]
-    };
-  }
-
-  const categories = [];
-  lines.slice(1).forEach((line, index) => {
-    const rowNumber = index + 2;
-    const cells = parseDelimitedLine(line, delimiter);
-    const direction = cleanText(cells[directionIndex] || "");
-    const name = cleanText(cells[nameIndex] || "");
-    const descriptionIsLast = descriptionIndex === Math.max(directionIndex, nameIndex, descriptionIndex);
-    const description = cleanText(descriptionIsLast
-      ? cells.slice(descriptionIndex).join(delimiter)
-      : cells[descriptionIndex] || "");
-
-    if (!direction && !name && !description) {
-      return;
-    }
-    if (!allowedDirections.has(direction)) {
-      errors.push(`Row ${rowNumber}: Direction must be exactly income, outcome, or both.`);
-      return;
-    }
-    if (!name) {
-      errors.push(`Row ${rowNumber}: Category Name is required.`);
-      return;
-    }
-    if (name.toLowerCase() === "saving") {
-      errors.push(`Row ${rowNumber}: Saving is managed automatically by the app.`);
-      return;
-    }
-
-    categories.push({ direction, name, description });
-  });
-
-  return { categories, errors };
 }
 
 function isCompatibleSeedMatch(category, seed) {

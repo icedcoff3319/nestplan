@@ -70,9 +70,12 @@ Success criteria:
 
 ## Phase 4: Low-Risk Module Split
 
+Status: active.
+
 Split `app.js` gradually while preserving behavior:
 
-- Move pure formatting helpers first.
+- Move pure category CSV import helpers first.
+- Move pure formatting helpers.
 - Move CSV export logic.
 - Move validation helpers.
 - Move auth/session boot.
