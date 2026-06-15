@@ -38,10 +38,21 @@ Status: completed for the current production flow.
 
 ## Phase 2: Release Hygiene
 
+Status: active.
+
 - Keep production and staging Firebase aliases in `.firebaserc`.
 - Use versioned asset markers for every deploy.
 - Use `RELEASE_CHECKLIST.md` before staging and production deploys.
+- Run `npm.cmd run check:release` before staging and production deploys.
 - Restrict Firebase web API keys in Google Cloud Console by allowed websites and APIs.
+
+Success criteria:
+
+- `.firebaserc` keeps `production` and `staging` pointed at the intended Firebase projects.
+- Build markers match across `index.html`, `app.js`, and cache-busted imports.
+- Firebase Hosting excludes non-runtime files from deploys.
+- Firebase environment routing still sends staging hosts to staging and production hosts to production.
+- API key restrictions are reviewed manually in Google Cloud Console.
 
 ## Phase 3: Code Structure Documentation
 

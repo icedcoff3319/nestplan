@@ -8,6 +8,7 @@ Use this checklist before staging and production deploys.
 - Confirm `git status --short --branch` is expected.
 - Bump the build marker in `index.html` and cache-busted imports.
 - Run `node --check app.js`.
+- Run `npm.cmd run check:release`.
 - Run `git diff --check`.
 - Review `git diff --stat`.
 - Confirm `firebase.json` Hosting ignores still exclude docs, scripts, tests, logs, dependencies, package files, and Git metadata.
@@ -29,6 +30,10 @@ Use this checklist before staging and production deploys.
 - Confirm staging passed.
 - Confirm the change scope is intentionally small, or split unrelated cleanup into a separate staging cycle.
 - Confirm no unexpected Firestore project config, auth flow, or rules changes are included.
+- Run `node --check app.js`.
+- Run `npm.cmd run check:release`.
+- Run `git diff --check`.
+- Run `npm.cmd run test:rules`.
 - Commit the branch.
 - Merge or fast-forward to `main` only after approval.
 - Tag the production release.
