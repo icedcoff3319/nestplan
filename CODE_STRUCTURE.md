@@ -8,6 +8,7 @@ NestPlan is currently a local-first static web app backed by Firebase Auth and F
 - `styles.css` contains the visual system, responsive layout, cards, tables, modals, and mobile polish.
 - `app.js` contains state, event binding, Firebase reads/writes, rendering, validation, export, and UI helpers.
 - `category-import.js` contains pure household category CSV parsing helpers.
+- `csv-export.js` contains pure ledger CSV export formatting and filename helpers.
 - `firebase-client.js` owns Firebase SDK imports, environment selection, and Firebase service exports.
 - `constants.js` owns app constants, the minimal built-in greeting fallback, and system category seeds.
 - `firestore.rules` owns the production/staging security contract.
@@ -71,7 +72,7 @@ Core landmarks:
 These are good first module-split candidates because they are mostly pure helpers or low-side-effect utilities:
 
 - CSV category import parsing: moved to `category-import.js` in Phase 4.
-- CSV export formatting: `buildCsv()`, `readExportField()`, `csvEscape()`, `buildExportFilename()`, `sanitizeFilenamePart()`.
+- CSV export formatting: moved to `csv-export.js` in Phase 4.
 - Money/date formatting: `formatRupiah()`, `formatNumber()`, `formatDate()`, `formatDateTime()`, date input helpers, month helpers.
 - Text helpers: `cleanText()`, `escapeHtml()`, `sanitizeStringArray()`, `capitalize()`.
 - Report math helpers: median, variance, month-window helpers, report model builders after tests are added.

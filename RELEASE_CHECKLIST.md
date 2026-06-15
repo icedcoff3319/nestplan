@@ -9,6 +9,7 @@ Use this checklist before staging and production deploys.
 - Bump the build marker in `index.html` and cache-busted imports.
 - Run `node --check app.js`.
 - Run `npm.cmd run test:category-import`.
+- Run `npm.cmd run test:csv-export`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.
 - Review `git diff --stat`.
@@ -33,6 +34,7 @@ Use this checklist before staging and production deploys.
 - Confirm no unexpected Firestore project config, auth flow, or rules changes are included.
 - Run `node --check app.js`.
 - Run `npm.cmd run test:category-import`.
+- Run `npm.cmd run test:csv-export`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.
 - Run `npm.cmd run test:rules`.

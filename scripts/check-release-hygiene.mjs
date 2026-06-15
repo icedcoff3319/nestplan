@@ -85,6 +85,7 @@ async function checkBuildMarkers() {
     extractSingleMatch(appJs, /firebase-client\.js\?v=([^"]+)"/, "firebase-client.js cache marker"),
     extractSingleMatch(appJs, /constants\.js\?v=([^"]+)"/, "constants.js cache marker"),
     extractSingleMatch(appJs, /category-import\.js\?v=([^"]+)"/, "category-import.js cache marker"),
+    extractSingleMatch(appJs, /csv-export\.js\?v=([^"]+)"/, "csv-export.js cache marker"),
     extractSingleMatch(appJs, /window\.__nestplanBuild \|\| "([^"]+)"/, "verification return fallback marker")
   ];
 

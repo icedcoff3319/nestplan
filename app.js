@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260615d";
+} from "./firebase-client.js?v=20260615e";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,11 +34,15 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260615d";
+} from "./constants.js?v=20260615e";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260615d";
+} from "./category-import.js?v=20260615e";
+import {
+  buildCsv,
+  buildExportFilename
+} from "./csv-export.js?v=20260615e";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1408,7 +1412,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260615d");
+  url.searchParams.set("v", window.__nestplanBuild || "20260615e");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4534,7 +4538,7 @@ function openExportModal() {
     return;
   }
 
-  state.exportCsvContent = buildCsv(rows);
+  state.exportCsvContent = buildCsv(rows, { formatDateTime, getMemberName });
   els.exportPreview.value = state.exportCsvContent;
   setMessage(els.exportMessage, "");
   els.exportModal.classList.remove("hidden");
@@ -4554,7 +4558,7 @@ function handleExportDownload() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = buildExportFilename();
+  link.download = buildExportFilename(getDisplayName() || "User");
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -10356,100 +10360,6 @@ function togglePasswordVisibility(input, button) {
   button.textContent = nextType === "password" ? "Show" : "Hide";
 }
 
-function buildExportFilename() {
-  const displayName = sanitizeFilenamePart(getDisplayName() || "User");
-  const now = new Date();
-  const datePart = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0")
-  ].join("");
-  const timePart = [
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0")
-  ].join("");
-  return `NestPlan-${displayName}-${datePart}-${timePart}.csv`;
-}
-
-function sanitizeFilenamePart(value = "") {
-  return String(value)
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, "-")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "") || "User";
-}
-
-function buildCsv(rows) {
-  const columns = [
-    { label: "Transaction type", field: "displayKindLabel" },
-    { label: "Posting type", field: "postingKind" },
-    { label: "Transaction date", field: "transactionAtFormatted" },
-    { label: "Created date", field: "createdAtFormatted" },
-    { label: "Amount", field: "amountMinor" },
-    { label: "Currency", field: "currencyCode" },
-    { label: "Created by", field: "createdByDisplayName" },
-    { label: "Account", field: "accountName" },
-    { label: "Account owner", field: "accountOwnerDisplayName" },
-    { label: "Counterparty account", field: "counterpartyAccountName" },
-    { label: "Counterparty owner", field: "counterpartyAccountOwnerDisplayName" },
-    { label: "Category", field: "categoryName" },
-    { label: "Note", field: "note" }
-  ];
-
-  return [
-    columns.map(column => csvEscape(column.label)).join(","),
-    ...rows.map(row => columns.map(column => csvEscape(readExportField(row, column.field))).join(","))
-  ].join("\n");
-}
-
-function readExportField(row, header) {
-  if (header === "transactionAt") {
-    return row.transactionAt?.toDate ? row.transactionAt.toDate().toISOString() : "";
-  }
-  if (header === "transactionAtFormatted") {
-    return formatDateTime(row.transactionAt);
-  }
-  if (header === "createdAt") {
-    return row.createdAt?.toDate ? row.createdAt.toDate().toISOString() : "";
-  }
-  if (header === "createdAtFormatted") {
-    return formatDateTime(row.createdAt);
-  }
-  if (header === "transactionId") {
-    return row.id || "";
-  }
-  if (header === "displayKindLabel") {
-    return row.displayKind === "adjustment" ? "Balance correction" : capitalize(row.displayKind || "");
-  }
-  if (header === "createdByDisplayName") {
-    return getMemberName(row.createdByUserId);
-  }
-  if (header === "accountName") {
-    return row.accountNameSnapshot || "";
-  }
-  if (header === "accountOwnerUserId") {
-    return row.accountPrimaryOwnerUserIdSnapshot || "";
-  }
-  if (header === "accountOwnerDisplayName") {
-    return getMemberName(row.accountPrimaryOwnerUserIdSnapshot);
-  }
-  if (header === "counterpartyAccountName") {
-    return row.counterpartyAccountNameSnapshot || "";
-  }
-  if (header === "counterpartyAccountOwnerUserId") {
-    return row.counterpartyAccountPrimaryOwnerUserIdSnapshot || "";
-  }
-  if (header === "counterpartyAccountOwnerDisplayName") {
-    return getMemberName(row.counterpartyAccountPrimaryOwnerUserIdSnapshot);
-  }
-  if (header === "categoryName") {
-    return row.categoryNameSnapshot || "";
-  }
-  return row[header] ?? "";
-}
-
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -10940,14 +10850,6 @@ function isExpired(timestamp) {
 
 function capitalize(value = "") {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function csvEscape(value) {
-  const stringValue = String(value ?? "");
-  if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, "\"\"")}"`;
-  }
-  return stringValue;
 }
 
 function escapeHtml(value = "") {

@@ -6,6 +6,7 @@
     "check:release": "node scripts/check-release-hygiene.mjs",
     "seed:default-categories": "node scripts/seed-default-categories.mjs",
     "test:category-import": "node --test tests/category-import.test.mjs",
+    "test:csv-export": "node --test tests/csv-export.test.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {
