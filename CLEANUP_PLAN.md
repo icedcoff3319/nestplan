@@ -56,9 +56,17 @@ Success criteria:
 
 ## Phase 3: Code Structure Documentation
 
+Status: active.
+
 - Keep `CODE_STRUCTURE.md` current.
 - Document major app areas before moving code.
 - Add notes when a function is intentionally left in `app.js` because it is shared by several modules.
+
+Success criteria:
+
+- `app.js` has a current working map with major line ranges and ownership notes.
+- Safe first extraction candidates are listed before code is moved.
+- Fragile areas are explicitly called out so cleanup does not accidentally destabilize auth, listeners, or transaction writes.
 
 ## Phase 4: Low-Risk Module Split
 

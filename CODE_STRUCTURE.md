@@ -24,16 +24,38 @@ These files support development and release discipline but are excluded from Fir
 
 ## `app.js` Working Map
 
-- Imports and constants are at the top.
-- `state` is the single client-side state object.
+Approximate line ranges change over time, but the current order is:
+
+- Lines 1-760: imports, constants, global `state`, DOM `els`, info modal copy, listener globals, and maintenance write guards.
+- Lines 760-1127: event binding, money input binding, listener teardown, maintenance listener, render scheduling, ledger reset, and household context clearing.
+- Lines 1128-1458: auth boot, user session loading, profile refresh, greeting/default library loading, email verification, pending registration, and verification-return handling.
+- Lines 1472-1787: master-admin service helpers for admin status, dashboard data, maintenance mode, registration codes, email overrides, blocked domains, greeting quotes, and default category library.
+- Lines 1796-2518: form/event handlers for login, signup, verification, master admin actions, household setup/join/switching, profile, household rename, invites, members, and admin-library tables.
+- Lines 2535-2994: Planning handlers for budgets, savings, saving completion/reopen, recurring bills, bill reminders, and archive/delete behavior.
+- Lines 3011-3510: Investment handlers for portfolio setup, activity, scope switching, movement transactions, asset updates, and archive/delete behavior.
+- Lines 3527-3863: Account, balance correction, category creation, category CSV import, category edit/archive handlers.
+- Lines 3887-4259: Transaction submit handlers, single/transfer transaction writers, dashboard investment transfers, fee rows, and permission-denied messaging.
+- Lines 4263-4574: Ledger/history/export handlers for edit/delete menus, filters, month navigation, CSV modal, download, and copy.
+- Lines 4574-5054: user profile creation, household loading, real-time household listeners, household creation/join, invite acceptance/revocation, and active household updates.
+- Lines 5054-6611: render pipeline and major render functions for boot screens, admin screen, setup, app shell, header, onboarding, dashboard, planning, insights, reports, performance, and investments.
+- Lines 6714-7896: form population/reset helpers and domain calculations for planning, investments, savings, budgets, bill reminders, scope, category eligibility, and default category behavior.
+- Lines 7966-8452: bill reminder writes, lookup helpers, category CSV/default helpers, category guide modal, general info modal, and report filter modal.
+- Lines 8452-9309: payload builders, bill transaction prefill, invite/member/account/category/ledger rendering, transaction select synchronization, fee helpers, and recurring bill completion sync.
+- Lines 9412-9929: ledger/account balance calculations, visibility filters, grouped ledger mapping, row builders, permissions, and account/category/transaction reset helpers.
+- Lines 9940-10388: screen/view/scope state setters, fatal errors, messages, maintenance guards, user-facing error mapping, auth route helpers, and busy/loading helpers.
+- Lines 10418-end: money parsing/formatting, password toggle, CSV export, code generation, registration/email policy helpers, serializers, profile/household normalization, date/time formatting, and generic text/HTML/CSV helpers.
+
+Core landmarks:
+
+- `state` is the single client-side data store.
 - `els` maps DOM elements from `index.html`.
-- Event binding is centralized in `bindEvents()`.
-- Auth/session loading starts from `handleAuthStateChanged()`.
-- Master admin helpers and handlers manage invite-only registration, policy libraries, and maintenance mode.
-- Household context is loaded through real-time listeners in `loadHouseholdContext()`.
-- Submit handlers validate and write user data.
-- Render functions update visible UI from `state`.
-- Utility helpers live near the bottom.
+- `bindEvents()` is the central event binding point.
+- `handleAuthStateChanged()` starts auth/session loading.
+- `loadHouseholdContext()` owns active household real-time listeners.
+- `renderApp()` coordinates the normal app render flow through `safeRenderStep()`.
+- `handleTransactionSubmit()` is the main transaction write entry point.
+- `renderTransactions()` and `renderPlanningLedger()` own the dashboard and dedicated ledger displays.
+- `ensureSystemCategories()` protects app-required system categories.
 
 ## Admin-Managed Libraries
 
@@ -42,6 +64,38 @@ These files support development and release discipline but are excluded from Fir
 - Default categories live in Firestore collection `appDefaultCategories`.
 - The default category seed script is a development/admin utility only and is not hosted as runtime app code.
 - Household CSV category upload creates categories in the current household; it does not edit the admin default library.
+
+## Safe Extraction Candidates
+
+These are good first module-split candidates because they are mostly pure helpers or low-side-effect utilities:
+
+- CSV category import parsing: `normalizeCsvHeader()`, `getCategoryImportKey()`, `parseDelimitedLine()`, `parseCategoryCsv()`.
+- CSV export formatting: `buildCsv()`, `readExportField()`, `csvEscape()`, `buildExportFilename()`, `sanitizeFilenamePart()`.
+- Money/date formatting: `formatRupiah()`, `formatNumber()`, `formatDate()`, `formatDateTime()`, date input helpers, month helpers.
+- Text helpers: `cleanText()`, `escapeHtml()`, `sanitizeStringArray()`, `capitalize()`.
+- Report math helpers: median, variance, month-window helpers, report model builders after tests are added.
+- Code generation helpers: invite/registration code generation and normalization, if kept independent from Firestore reads.
+
+Each extraction should include:
+
+- no behavior change;
+- one small module at a time;
+- `node --check app.js`;
+- `npm.cmd run check:release`;
+- relevant manual staging smoke test if UI behavior is touched.
+
+## Fragile Areas To Avoid First
+
+Do not extract these until helper extraction and tests are stable:
+
+- Auth boot and email-verification recovery.
+- `loadHouseholdContext()` and real-time listener state updates.
+- Transaction write flows, especially transfer, saving reserve, fee row, bill completion, and investment transfer behavior.
+- Firestore rules and client writes together unless the change is explicitly rules-focused.
+- Maintenance mode write guards.
+- The main render pipeline around `renderApp()` and `safeRenderStep()`.
+
+These areas are not bad code; they are simply high-dependency areas where small mistakes can produce login flicker, stale data, permission errors, or incorrect ledger balances.
 
 ## Change Guidelines
 
@@ -52,3 +106,4 @@ These files support development and release discipline but are excluded from Fir
 - Avoid rewriting historical ledger rows unless the product decision explicitly requires it.
 - Preserve archived/deleted records where they are part of audit history.
 - Keep the Firebase Hosting bundle lean by checking `firebase.json` ignores before production releases.
+- Update this file before moving a major group of functions.
