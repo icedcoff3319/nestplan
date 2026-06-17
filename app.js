@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260617b";
+} from "./firebase-client.js?v=20260617c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260617b";
+} from "./constants.js?v=20260617c";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260617b";
+} from "./category-import.js?v=20260617c";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260617b";
+} from "./csv-export.js?v=20260617c";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260617b";
+} from "./ledger-display.js?v=20260617c";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260617b";
+} from "./format-utils.js?v=20260617c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -160,6 +160,15 @@ const state = {
   planningLedgerLoaded: false,
   showLedgerPageActions: false,
   planningLedgerVisibleCount: 50,
+  ledgerColumnWidths: {
+    transaction: 128,
+    created: 148,
+    type: 92,
+    account: 150,
+    route: 180,
+    note: 190,
+    amount: 128
+  },
   planningLedgerFilters: {
     kind: "",
     accountId: "",
@@ -945,6 +954,7 @@ function bindEvents() {
   els.ledgerPageDownloadBtn?.addEventListener("click", openExportModal);
   els.ledgerLoadMoreBtn?.addEventListener("click", handleLedgerLoadMore);
   els.ledgerTable?.addEventListener("click", handleLedgerTableActions);
+  els.ledgerTable?.addEventListener("pointerdown", handleLedgerColumnResizeStart);
   els.insightsTabLedger?.addEventListener("click", () => setInsightsTab("ledger"));
   els.insightsTabReport?.addEventListener("click", () => setInsightsTab("report"));
   [
@@ -1434,7 +1444,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260617b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260617c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4375,6 +4385,38 @@ function handleLedgerTableActions(event) {
     softDeleteEntry(entry);
     renderPlanningLedger();
   }
+}
+
+function handleLedgerColumnResizeStart(event) {
+  const handle = event.target.closest("[data-ledger-resize-column]");
+  if (!handle) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const column = handle.dataset.ledgerResizeColumn;
+  const table = handle.closest(".ledger-table");
+  const startX = event.clientX;
+  const startWidth = Number(state.ledgerColumnWidths[column] || getLedgerColumnDefaultWidth(column));
+
+  const handlePointerMove = moveEvent => {
+    const nextWidth = clampLedgerColumnWidth(column, startWidth + moveEvent.clientX - startX);
+    state.ledgerColumnWidths = {
+      ...state.ledgerColumnWidths,
+      [column]: nextWidth
+    };
+    applyLedgerTableColumnWidths(table);
+  };
+
+  const handlePointerUp = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+  };
+
+  window.addEventListener("pointermove", handlePointerMove);
+  window.addEventListener("pointerup", handlePointerUp, { once: true });
 }
 
 function togglePlanningLedgerSort(field) {
@@ -8766,15 +8808,15 @@ function renderPlanningLedger() {
   }
 
   els.ledgerTable.innerHTML = `
-    <div class="ledger-table">
+    <div class="ledger-table" style="${escapeHtml(getLedgerTableColumnStyle())}">
       <div class="ledger-table-row ${state.showLedgerPageActions ? "with-actions" : ""} ledger-table-head">
-        <span>${buildLedgerSortHeader("Transaction Date", "transaction")}</span>
-        <span>${buildLedgerSortHeader("Created", "created")}</span>
-        <span>Type</span>
-        <span>Account</span>
-        <span>Category / Route</span>
-        <span>Note</span>
-        <span>Amount</span>
+        ${buildLedgerHeaderCell("Transaction Date", "transaction", { sortable: true })}
+        ${buildLedgerHeaderCell("Created", "created", { sortable: true })}
+        ${buildLedgerHeaderCell("Type", "type")}
+        ${buildLedgerHeaderCell("Account", "account")}
+        ${buildLedgerHeaderCell("Category / Route", "route")}
+        ${buildLedgerHeaderCell("Note", "note")}
+        ${buildLedgerHeaderCell("Amount", "amount")}
         ${state.showLedgerPageActions ? `<span></span>` : ""}
       </div>
       ${visibleEntries.map(buildLedgerTableRow).join("")}
@@ -8782,13 +8824,84 @@ function renderPlanningLedger() {
   `;
 }
 
+function buildLedgerHeaderCell(label, column, options = {}) {
+  const labelMarkup = options.sortable
+    ? buildLedgerSortHeader(label, column)
+    : `<span>${escapeHtml(label)}</span>`;
+  return `
+    <span class="ledger-head-cell">
+      ${labelMarkup}
+      <button class="ledger-resize-handle" type="button" data-ledger-resize-column="${escapeHtml(column)}" aria-label="Resize ${escapeHtml(label)} column"></button>
+    </span>
+  `;
+}
+
 function buildLedgerSortHeader(label, field) {
   const activeField = state.planningLedgerSort.startsWith("transaction") ? "transaction" : "created";
   const direction = state.planningLedgerSort.endsWith("-asc") ? "asc" : "desc";
   const indicator = activeField === field
-    ? direction === "asc" ? " ↑" : " ↓"
+    ? direction === "asc" ? " &uarr;" : " &darr;"
     : "";
   return `<button class="table-sort-btn" type="button" data-action="sort-ledger" data-sort-field="${field}" aria-label="Sort by ${escapeHtml(label)}">${escapeHtml(label)}${indicator}</button>`;
+}
+
+function getLedgerTableColumnStyle() {
+  const columns = getLedgerTableColumnTemplate();
+  const minimumWidth = columns.reduce((total, value) => total + Number.parseInt(value, 10), 0)
+    + (state.showLedgerPageActions ? 42 : 0);
+  return `--ledger-table-columns: ${columns.join(" ")}; --ledger-table-min-width: ${Math.max(900, minimumWidth)}px;`;
+}
+
+function getLedgerTableColumnTemplate() {
+  return [
+    "transaction",
+    "created",
+    "type",
+    "account",
+    "route",
+    "note",
+    "amount"
+  ].map(column => `${clampLedgerColumnWidth(column, state.ledgerColumnWidths[column] || getLedgerColumnDefaultWidth(column))}px`);
+}
+
+function applyLedgerTableColumnWidths(table = els.ledgerTable?.querySelector(".ledger-table")) {
+  if (!table) {
+    return;
+  }
+  const [columnsStyle, minimumWidthStyle] = getLedgerTableColumnStyle().split("; ");
+  table.style.setProperty("--ledger-table-columns", columnsStyle.replace("--ledger-table-columns: ", ""));
+  table.style.setProperty("--ledger-table-min-width", minimumWidthStyle.replace("--ledger-table-min-width: ", "").replace(";", ""));
+}
+
+function getLedgerColumnDefaultWidth(column) {
+  return {
+    transaction: 128,
+    created: 148,
+    type: 92,
+    account: 150,
+    route: 180,
+    note: 190,
+    amount: 128
+  }[column] || 120;
+}
+
+function clampLedgerColumnWidth(column, width) {
+  const minimums = {
+    transaction: 104,
+    created: 118,
+    type: 76,
+    account: 108,
+    route: 128,
+    note: 120,
+    amount: 96
+  };
+  const maximums = {
+    route: 360,
+    note: 420
+  };
+  const minimum = minimums[column] || 90;
+  const maximum = maximums[column] || 300;
+  return Math.max(minimum, Math.min(maximum, Math.round(Number(width) || getLedgerColumnDefaultWidth(column))));
 }
 
 function buildLedgerTableRow(entry) {
