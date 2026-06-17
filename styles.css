@@ -1209,6 +1209,18 @@ textarea:focus {
   display: none;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .transaction-card.editing .helper-copy {
   display: block;
 }
@@ -1246,6 +1258,12 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-4);
+}
+
+.compact-ledger-filter-body .compact-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .ledger-header-actions {
@@ -1560,8 +1578,16 @@ textarea:focus {
 }
 
 .compact-filter-grid {
-  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 6px;
+}
+
+.compact-filter-grid .field-group {
+  min-width: 0;
+}
+
+.compact-filter-grid .ledger-date-field {
+  min-width: 148px;
 }
 
 .compact-filter-grid .field-group {
@@ -1574,10 +1600,28 @@ textarea:focus {
 
 .compact-filter-grid select,
 .compact-filter-grid input {
+  width: 100%;
+  min-width: 0;
   min-height: 34px;
   padding: 7px 9px;
   border-radius: 12px;
   font-size: 12px;
+}
+
+.compact-filter-grid input[type="date"] {
+  padding-right: 30px;
+}
+
+.ledger-actions-check {
+  min-height: 28px;
+  min-width: 34px;
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+.ledger-actions-check input {
+  width: 12px;
+  height: 12px;
 }
 
 .compact-multi-picker .multi-picker-summary {

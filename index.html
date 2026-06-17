@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260615f" />
+  <link rel="stylesheet" href="./styles.css?v=20260617a" />
 </head>
 <body>
   <main class="app-shell">
@@ -1061,11 +1061,11 @@
                       <label for="ledger-page-category-filter">Category</label>
                       <select id="ledger-page-category-filter"></select>
                     </div>
-                    <div class="field-group">
+                    <div class="field-group ledger-date-field">
                       <label for="ledger-page-date-from">From</label>
                       <input id="ledger-page-date-from" type="date" />
                     </div>
-                    <div class="field-group">
+                    <div class="field-group ledger-date-field">
                       <label for="ledger-page-date-to">To</label>
                       <input id="ledger-page-date-to" type="date" />
                     </div>
@@ -1081,8 +1081,10 @@
                   </div>
                   <div class="action-row compact-actions">
                     <button id="ledger-page-clear-btn" class="ghost-btn small-btn" type="button">Clear</button>
-                    <label class="inline-check tiny-inline-check" for="ledger-page-actions-toggle" aria-label="Show row action buttons">
+                    <label class="inline-check ledger-actions-check" for="ledger-page-actions-toggle" aria-label="Show row action buttons">
                       <input id="ledger-page-actions-toggle" type="checkbox" />
+                      <span aria-hidden="true">&#9881;</span>
+                      <span class="visually-hidden">Show row action buttons</span>
                     </label>
                   </div>
                 </div>
@@ -1754,7 +1756,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260615f";
+    window.__nestplanBuild = "20260617a";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1875,7 +1877,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260615f").catch(function (error) {
+    import("./app.js?v=20260617a").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

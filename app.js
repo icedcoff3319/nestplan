@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260615f";
+} from "./firebase-client.js?v=20260617a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260615f";
+} from "./constants.js?v=20260617a";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260615f";
+} from "./category-import.js?v=20260617a";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260615f";
+} from "./csv-export.js?v=20260617a";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260615f";
+} from "./ledger-display.js?v=20260617a";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260615f";
+} from "./format-utils.js?v=20260617a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1433,7 +1433,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260615f");
+  url.searchParams.set("v", window.__nestplanBuild || "20260617a");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
