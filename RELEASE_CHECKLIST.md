@@ -10,6 +10,8 @@ Use this checklist before staging and production deploys.
 - Run `node --check app.js`.
 - Run `npm.cmd run test:category-import`.
 - Run `npm.cmd run test:csv-export`.
+- Run `npm.cmd run test:format-utils`.
+- Run `npm.cmd run test:ledger-display`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.
 - Review `git diff --stat`.
@@ -35,6 +37,8 @@ Use this checklist before staging and production deploys.
 - Run `node --check app.js`.
 - Run `npm.cmd run test:category-import`.
 - Run `npm.cmd run test:csv-export`.
+- Run `npm.cmd run test:format-utils`.
+- Run `npm.cmd run test:ledger-display`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.
 - Run `npm.cmd run test:rules`.
@@ -48,7 +52,7 @@ Use this checklist before staging and production deploys.
 
 ## Clean Build Check
 
-- Runtime files should stay easy to identify: `index.html`, `app.js`, `styles.css`, `constants.js`, `firebase-client.js`.
+- Runtime files should stay easy to identify: `index.html`, `app.js`, `styles.css`, `constants.js`, `firebase-client.js`, and small helper modules such as `category-import.js`, `csv-export.js`, `format-utils.js`, and `ledger-display.js`.
 - Do not ship local scripts, tests, logs, docs, dependencies, or temporary tooling through Hosting.
 - Prefer one product change per release.
 - Avoid mixing refactors with user-facing behavior changes.

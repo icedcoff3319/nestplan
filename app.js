@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260615e";
+} from "./firebase-client.js?v=20260615f";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,15 +34,36 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260615e";
+} from "./constants.js?v=20260615f";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260615e";
+} from "./category-import.js?v=20260615f";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260615e";
+} from "./csv-export.js?v=20260615f";
+import {
+  buildHistoryDisplay
+} from "./ledger-display.js?v=20260615f";
+import {
+  addMonthsClamped,
+  addScheduleDate,
+  cloneDate,
+  dateFromDateInput,
+  endOfDay,
+  formatDate,
+  formatDateTime,
+  formatMonthKey,
+  formatNumber,
+  formatRupiah,
+  getTimestampSortValue,
+  isCurrentMonth,
+  isExpired,
+  startOfDay,
+  toDateInput,
+  toMonthInput
+} from "./format-utils.js?v=20260615f";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1412,7 +1433,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260615e");
+  url.searchParams.set("v", window.__nestplanBuild || "20260615f");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -8793,23 +8814,7 @@ function buildHistoryMarkup(entry) {
   const amountClass = entry.kind === "adjustment" ? "adjustment" : typePillClass;
   const amountPrefix = getLedgerAmountPrefix(entry);
 
-  const normalizedTitle = entry.kind === "transfer"
-    ? `${entry.fromAccountName} to ${entry.toAccountName}`
-    : entry.kind === "adjustment"
-      ? `Balance correction | ${entry.accountName}`
-      : entry.categoryName || "No category";
-  const normalizedNote = entry.note || "-";
-  const normalizedSubtitleParts = [formatDate(entry.transactionAt)];
-  if (entry.kind === "transfer") {
-    normalizedSubtitleParts.push(`${entry.fromAccountName} to ${entry.toAccountName}`);
-  } else if (entry.kind === "adjustment") {
-    normalizedSubtitleParts.push(entry.accountName);
-  } else {
-    normalizedSubtitleParts.push(entry.accountName || "No account");
-  }
-  normalizedSubtitleParts.push(`Created ${formatDateTime(entry.createdAt)}`);
-  normalizedSubtitleParts.push(normalizedNote);
-  const normalizedSubtitle = normalizedSubtitleParts.join(" | ");
+  const display = buildHistoryDisplay(entry, { formatDate, formatDateTime });
 
   const pills = [];
   if (entry.kind === "adjustment") {
@@ -8854,8 +8859,8 @@ function buildHistoryMarkup(entry) {
     <div class="history-main">
       <div class="history-supporting">
         <div>
-          <p class="history-title">${escapeHtml(normalizedTitle)}</p>
-          <div class="history-meta">${escapeHtml(normalizedSubtitle)}</div>
+          <p class="history-title">${escapeHtml(display.title)}</p>
+          <div class="history-meta">${escapeHtml(display.subtitle)}</div>
         </div>
         <div class="pill-row">${pills.join("")}</div>
       </div>
@@ -10692,160 +10697,8 @@ function setLastGreeting(greeting) {
   }
 }
 
-function formatRupiah(value) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: CURRENCY_CODE,
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
-
-function formatNumber(value) {
-  return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
-
-function formatDate(timestamp) {
-  if (!timestamp?.toDate) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: TIMEZONE
-  }).format(timestamp.toDate());
-}
-
-function formatDateTime(timestamp, includeSeconds = false) {
-  if (!timestamp?.toDate) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: includeSeconds ? "2-digit" : undefined,
-    timeZone: TIMEZONE
-  }).format(timestamp.toDate());
-}
-
-function getTimestampSortValue(timestamp) {
-  if (!timestamp) {
-    return 0;
-  }
-  if (typeof timestamp.toMillis === "function") {
-    return timestamp.toMillis();
-  }
-  if (timestamp.seconds) {
-    return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
-  }
-  const date = timestamp.toDate?.();
-  return date ? date.getTime() : 0;
-}
-
-function toDateInput(dateLike) {
-  const date = dateLike?.toDate ? dateLike.toDate() : dateLike instanceof Date ? dateLike : new Date(dateLike);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
-}
-
-function toMonthInput(dateLike) {
-  return toDateInput(dateLike).slice(0, 7);
-}
-
-function formatMonthKey(monthKey = "") {
-  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "long",
-    year: "numeric",
-    timeZone: TIMEZONE
-  }).format(new Date(`${monthKey}-01T12:00:00`));
-}
-
-function dateFromDateInput(value) {
-  return new Date(`${value}T12:00:00`);
-}
-
 function timestampFromDateInput(value) {
   return Timestamp.fromDate(dateFromDateInput(value));
-}
-
-function cloneDate(dateLike) {
-  const source = dateLike?.toDate ? dateLike.toDate() : dateLike instanceof Date ? dateLike : new Date(dateLike);
-  return new Date(source.getTime());
-}
-
-function startOfDay(dateLike) {
-  const date = cloneDate(dateLike);
-  date.setHours(12, 0, 0, 0);
-  return date;
-}
-
-function endOfDay(dateLike) {
-  const date = cloneDate(dateLike);
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
-function addScheduleDate(dateLike, scheduleType = "monthly", amount = 1, endPreviousDay = false) {
-  const date = startOfDay(dateLike);
-  let nextDate;
-
-  switch (scheduleType) {
-    case "weekly":
-      nextDate = cloneDate(date);
-      nextDate.setDate(nextDate.getDate() + (7 * amount));
-      break;
-    case "biweekly":
-      nextDate = cloneDate(date);
-      nextDate.setDate(nextDate.getDate() + (14 * amount));
-      break;
-    case "quarterly":
-      nextDate = addMonthsClamped(date, 3 * amount);
-      break;
-    case "yearly":
-      nextDate = addMonthsClamped(date, 12 * amount);
-      break;
-    case "monthly":
-    default:
-      nextDate = addMonthsClamped(date, amount);
-      break;
-  }
-
-  if (endPreviousDay) {
-    nextDate.setDate(nextDate.getDate() - 1);
-  }
-  return nextDate;
-}
-
-function addMonthsClamped(dateLike, months) {
-  const date = startOfDay(dateLike);
-  const target = cloneDate(date);
-  const day = target.getDate();
-  target.setDate(1);
-  target.setMonth(target.getMonth() + months);
-  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(day, lastDay));
-  return target;
-}
-
-function isCurrentMonth(timestamp) {
-  if (!timestamp?.toDate) {
-    return false;
-  }
-  const date = timestamp.toDate();
-  const now = new Date();
-  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-}
-
-function isExpired(timestamp) {
-  return Boolean(timestamp?.toDate && timestamp.toDate().getTime() < Date.now());
 }
 
 function capitalize(value = "") {

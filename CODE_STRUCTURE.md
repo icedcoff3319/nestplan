@@ -9,6 +9,8 @@ NestPlan is currently a local-first static web app backed by Firebase Auth and F
 - `app.js` contains state, event binding, Firebase reads/writes, rendering, validation, export, and UI helpers.
 - `category-import.js` contains pure household category CSV parsing helpers.
 - `csv-export.js` contains pure ledger CSV export formatting and filename helpers.
+- `format-utils.js` contains pure money, date, month, schedule, timestamp, and expiry formatting helpers.
+- `ledger-display.js` contains pure ledger history title/subtitle display helpers.
 - `firebase-client.js` owns Firebase SDK imports, environment selection, and Firebase service exports.
 - `constants.js` owns app constants, the minimal built-in greeting fallback, and system category seeds.
 - `firestore.rules` owns the production/staging security contract.
@@ -45,7 +47,7 @@ Approximate line ranges change over time, but the current order is:
 - Lines 8452-9309: payload builders, bill transaction prefill, invite/member/account/category/ledger rendering, transaction select synchronization, fee helpers, and recurring bill completion sync.
 - Lines 9412-9929: ledger/account balance calculations, visibility filters, grouped ledger mapping, row builders, permissions, and account/category/transaction reset helpers.
 - Lines 9940-10388: screen/view/scope state setters, fatal errors, messages, maintenance guards, user-facing error mapping, auth route helpers, and busy/loading helpers.
-- Lines 10418-end: money parsing/formatting, password toggle, CSV export, code generation, registration/email policy helpers, serializers, profile/household normalization, date/time formatting, and generic text/HTML/CSV helpers.
+- Lines 10418-end: money parsing, password toggle, code generation, registration/email policy helpers, serializers, profile/household normalization, and generic text/HTML helpers.
 
 Core landmarks:
 
@@ -73,7 +75,8 @@ These are good first module-split candidates because they are mostly pure helper
 
 - CSV category import parsing: moved to `category-import.js` in Phase 4.
 - CSV export formatting: moved to `csv-export.js` in Phase 4.
-- Money/date formatting: `formatRupiah()`, `formatNumber()`, `formatDate()`, `formatDateTime()`, date input helpers, month helpers.
+- Money/date formatting: moved to `format-utils.js` in Phase 4.
+- Ledger history title/subtitle display: moved to `ledger-display.js` in Phase 4.
 - Text helpers: `cleanText()`, `escapeHtml()`, `sanitizeStringArray()`, `capitalize()`.
 - Report math helpers: median, variance, month-window helpers, report model builders after tests are added.
 - Code generation helpers: invite/registration code generation and normalization, if kept independent from Firestore reads.

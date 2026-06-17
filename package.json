@@ -7,6 +7,8 @@
     "seed:default-categories": "node scripts/seed-default-categories.mjs",
     "test:category-import": "node --test tests/category-import.test.mjs",
     "test:csv-export": "node --test tests/csv-export.test.mjs",
+    "test:format-utils": "node --test tests/format-utils.test.mjs",
+    "test:ledger-display": "node --test tests/ledger-display.test.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {

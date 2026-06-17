@@ -77,7 +77,7 @@ Split `app.js` gradually while preserving behavior:
 - Move pure category CSV import helpers first.
 - Move pure CSV export helpers.
 - Move pure formatting helpers.
-- Move CSV export logic.
+- Move pure ledger history display helpers.
 - Move validation helpers.
 - Move auth/session boot.
 - Move household listeners.
