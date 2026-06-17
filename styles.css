@@ -1608,6 +1608,10 @@ textarea:focus {
   padding: 12px;
 }
 
+.ledger-planning-grid .compact-ledger-filter-card:not(.is-collapsed) {
+  grid-column: 1 / -1;
+}
+
 .compact-ledger-filter-card.is-collapsed {
   position: fixed;
   top: 82px;
@@ -1655,12 +1659,24 @@ textarea:focus {
   gap: 6px;
 }
 
+@media (min-width: 960px) {
+  .compact-filter-grid {
+    grid-template-columns:
+      minmax(120px, 0.8fr)
+      minmax(150px, 1fr)
+      minmax(150px, 1fr)
+      minmax(170px, 0.95fr)
+      minmax(170px, 0.95fr)
+      minmax(140px, 0.82fr);
+  }
+}
+
 .compact-filter-grid .field-group {
   min-width: 0;
 }
 
 .compact-filter-grid .ledger-date-field {
-  min-width: 148px;
+  min-width: 168px;
 }
 
 .compact-filter-grid .field-group {
