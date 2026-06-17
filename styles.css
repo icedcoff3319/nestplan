@@ -1521,6 +1521,25 @@ textarea:focus {
   letter-spacing: 0.04em;
 }
 
+.table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.table-sort-btn:hover {
+  color: var(--primary);
+}
+
 .ledger-table .history-amount {
   margin: 0;
   justify-self: end;
@@ -1557,6 +1576,30 @@ textarea:focus {
 
 .compact-ledger-filter-card {
   padding: 12px;
+}
+
+.compact-ledger-filter-card.is-collapsed {
+  position: fixed;
+  top: 82px;
+  right: 16px;
+  z-index: 40;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.compact-ledger-filter-card.is-collapsed .compact-card-header {
+  margin: 0;
+}
+
+.compact-ledger-filter-card.is-collapsed .compact-card-header > div {
+  display: none;
+}
+
+.compact-ledger-filter-card.is-collapsed + .card-span-2 {
+  grid-column: 1 / -1;
 }
 
 .compact-card-header {
@@ -1622,6 +1665,52 @@ textarea:focus {
 .ledger-actions-check input {
   width: 12px;
   height: 12px;
+}
+
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compact-ledger-filter-card.is-collapsed .filter-toggle-btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 30px rgba(65, 76, 59, 0.16);
+}
+
+.filter-icon {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
+
+.filter-icon::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 1px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid currentColor;
+}
+
+.filter-icon::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  width: 2px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .compact-multi-picker .multi-picker-summary {
@@ -1882,6 +1971,11 @@ textarea:focus {
 }
 
 @media (max-width: 719px) {
+  .compact-ledger-filter-card.is-collapsed {
+    top: 72px;
+    right: 12px;
+  }
+
   .investment-asset-row {
     grid-template-columns: 1fr;
   }

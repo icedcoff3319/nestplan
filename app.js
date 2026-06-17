@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260617a";
+} from "./firebase-client.js?v=20260617b";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260617a";
+} from "./constants.js?v=20260617b";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260617a";
+} from "./category-import.js?v=20260617b";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260617a";
+} from "./csv-export.js?v=20260617b";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260617a";
+} from "./ledger-display.js?v=20260617b";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260617a";
+} from "./format-utils.js?v=20260617b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -435,6 +435,7 @@ const els = {
   ledgerPageActionsToggle: document.getElementById("ledger-page-actions-toggle"),
   ledgerPageDownloadBtn: document.getElementById("ledger-page-download-btn"),
   ledgerPageClearBtn: document.getElementById("ledger-page-clear-btn"),
+  ledgerPageFilterCard: document.getElementById("ledger-page-filter-card"),
   ledgerPageFilterBody: document.getElementById("ledger-page-filter-body"),
   ledgerPageFilterToggle: document.getElementById("ledger-page-filter-toggle"),
   ledgerPageMeta: document.getElementById("ledger-page-meta"),
@@ -1433,7 +1434,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260617a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260617b");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4336,6 +4337,11 @@ function handleLedgerTableActions(event) {
     return;
   }
 
+  if (button.dataset.action === "sort-ledger") {
+    togglePlanningLedgerSort(button.dataset.sortField || "created");
+    return;
+  }
+
   const groupId = button.dataset.id;
   const entry = getVisibleGroupedEntries().find(item => item.groupId === groupId);
 
@@ -4369,6 +4375,19 @@ function handleLedgerTableActions(event) {
     softDeleteEntry(entry);
     renderPlanningLedger();
   }
+}
+
+function togglePlanningLedgerSort(field) {
+  const normalizedField = field === "transaction" ? "transaction" : "created";
+  const currentField = state.planningLedgerSort.startsWith("transaction") ? "transaction" : "created";
+  const currentDirection = state.planningLedgerSort.endsWith("-asc") ? "asc" : "desc";
+  const nextDirection = currentField === normalizedField && currentDirection === "desc" ? "asc" : "desc";
+  state.planningLedgerSort = `${normalizedField}-${nextDirection}`;
+  state.openHistoryMenuId = null;
+  if (els.ledgerPageSort) {
+    els.ledgerPageSort.value = state.planningLedgerSort;
+  }
+  renderPlanningLedger();
 }
 
 function handleLedgerNavActions(event) {
@@ -8664,12 +8683,14 @@ function renderPlanningLedgerFilters() {
 }
 
 function renderPlanningLedgerFilterPanel() {
+  els.ledgerPageFilterCard?.classList.toggle("is-collapsed", !state.showLedgerFilters);
   if (els.ledgerPageFilterBody) {
     els.ledgerPageFilterBody.classList.toggle("hidden", !state.showLedgerFilters);
   }
   if (els.ledgerPageFilterToggle) {
-    els.ledgerPageFilterToggle.textContent = state.showLedgerFilters ? "Hide" : "Filters";
     els.ledgerPageFilterToggle.setAttribute("aria-expanded", String(state.showLedgerFilters));
+    els.ledgerPageFilterToggle.setAttribute("aria-label", state.showLedgerFilters ? "Hide ledger filters" : "Show ledger filters");
+    els.ledgerPageFilterToggle.title = state.showLedgerFilters ? "Hide ledger filters" : "Show ledger filters";
   }
 }
 
@@ -8747,8 +8768,8 @@ function renderPlanningLedger() {
   els.ledgerTable.innerHTML = `
     <div class="ledger-table">
       <div class="ledger-table-row ${state.showLedgerPageActions ? "with-actions" : ""} ledger-table-head">
-        <span>Transaction Date</span>
-        <span>Created</span>
+        <span>${buildLedgerSortHeader("Transaction Date", "transaction")}</span>
+        <span>${buildLedgerSortHeader("Created", "created")}</span>
         <span>Type</span>
         <span>Account</span>
         <span>Category / Route</span>
@@ -8761,14 +8782,23 @@ function renderPlanningLedger() {
   `;
 }
 
+function buildLedgerSortHeader(label, field) {
+  const activeField = state.planningLedgerSort.startsWith("transaction") ? "transaction" : "created";
+  const direction = state.planningLedgerSort.endsWith("-asc") ? "asc" : "desc";
+  const indicator = activeField === field
+    ? direction === "asc" ? " ↑" : " ↓"
+    : "";
+  return `<button class="table-sort-btn" type="button" data-action="sort-ledger" data-sort-field="${field}" aria-label="Sort by ${escapeHtml(label)}">${escapeHtml(label)}${indicator}</button>`;
+}
+
 function buildLedgerTableRow(entry) {
   const route = entry.kind === "transfer"
-    ? `${entry.fromAccountName} to ${entry.toAccountName}`
+    ? `${entry.fromAccountDisplayName || entry.fromAccountName} to ${entry.toAccountDisplayName || entry.toAccountName}`
     : entry.kind === "adjustment"
       ? entry.accountName
       : entry.categoryName || "-";
   const account = entry.kind === "transfer"
-    ? entry.fromAccountName
+    ? entry.fromAccountDisplayName || entry.fromAccountName
     : entry.accountName || "-";
   const typeLabel = isInvestmentEntry(entry)
     ? getInvestmentEntryLabel(entry)
@@ -8823,8 +8853,8 @@ function buildHistoryMarkup(entry) {
   } else {
     pills.push(`<span class="pill ${typePillClass}">${escapeHtml(entry.kindLabel)}</span>`);
     if (entry.kind === "transfer") {
-      pills.push(`<span class="pill neutral">${escapeHtml(entry.fromAccountName)}</span>`);
-      pills.push(`<span class="pill neutral">${escapeHtml(entry.toAccountName)}</span>`);
+      pills.push(`<span class="pill neutral">${escapeHtml(entry.fromAccountDisplayName || entry.fromAccountName)}</span>`);
+      pills.push(`<span class="pill neutral">${escapeHtml(entry.toAccountDisplayName || entry.toAccountName)}</span>`);
     } else {
       if (entry.categoryName) {
         pills.push(`<span class="pill neutral">${escapeHtml(entry.categoryName)}</span>`);
@@ -9699,6 +9729,11 @@ function mapRowsToEntry(groupId, rows) {
     if (!outRow || !inRow) {
       return null;
     }
+    const fromOwnerUserId = outRow.accountPrimaryOwnerUserIdSnapshot || "";
+    const toOwnerUserId = inRow.accountPrimaryOwnerUserIdSnapshot || "";
+    const fromAccountName = outRow.accountNameSnapshot || "From account";
+    const toAccountName = inRow.accountNameSnapshot || "To account";
+    const isCrossOwnerTransfer = Boolean(fromOwnerUserId && toOwnerUserId && fromOwnerUserId !== toOwnerUserId);
     return {
       groupId,
       kind: "transfer",
@@ -9714,10 +9749,12 @@ function mapRowsToEntry(groupId, rows) {
       recurringBillOccurrenceId: outRow.recurringBillOccurrenceId || inRow.recurringBillOccurrenceId || null,
       fromAccountId: outRow.accountId,
       toAccountId: inRow.accountId,
-      fromAccountPrimaryOwnerUserId: outRow.accountPrimaryOwnerUserIdSnapshot || "",
-      toAccountPrimaryOwnerUserId: inRow.accountPrimaryOwnerUserIdSnapshot || "",
-      fromAccountName: outRow.accountNameSnapshot || "From account",
-      toAccountName: inRow.accountNameSnapshot || "To account"
+      fromAccountPrimaryOwnerUserId: fromOwnerUserId,
+      toAccountPrimaryOwnerUserId: toOwnerUserId,
+      fromAccountName,
+      toAccountName,
+      fromAccountDisplayName: isCrossOwnerTransfer ? `${fromAccountName} - ${getMemberName(fromOwnerUserId)}` : fromAccountName,
+      toAccountDisplayName: isCrossOwnerTransfer ? `${toAccountName} - ${getMemberName(toOwnerUserId)}` : toAccountName
     };
   }
 

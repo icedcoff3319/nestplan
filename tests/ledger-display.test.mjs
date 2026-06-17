@@ -38,6 +38,20 @@ test("builds transfer history display with route in title and subtitle", () => {
   assert.equal(display.subtitle, "22 Apr 2026 | BCA to Saving | Created 22 Apr 2026, 23.40 | Reserve");
 });
 
+test("prefers owner-aware transfer display names when available", () => {
+  const display = buildHistoryDisplay({
+    kind: "transfer",
+    fromAccountName: "BCA",
+    fromAccountDisplayName: "BCA - User A",
+    toAccountName: "BCA",
+    toAccountDisplayName: "BCA - User B",
+    note: ""
+  }, formatters);
+
+  assert.equal(display.title, "BCA - User A to BCA - User B");
+  assert.equal(display.subtitle, "22 Apr 2026 | BCA - User A to BCA - User B | Created 22 Apr 2026, 23.40 | -");
+});
+
 test("builds adjustment history display with clear balance correction title", () => {
   const display = buildHistoryDisplay({
     kind: "adjustment",

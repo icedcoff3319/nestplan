@@ -1,6 +1,8 @@
 export function buildHistoryDisplay(entry, { formatDate, formatDateTime }) {
+  const fromAccountName = entry.fromAccountDisplayName || entry.fromAccountName;
+  const toAccountName = entry.toAccountDisplayName || entry.toAccountName;
   const title = entry.kind === "transfer"
-    ? `${entry.fromAccountName} to ${entry.toAccountName}`
+    ? `${fromAccountName} to ${toAccountName}`
     : entry.kind === "adjustment"
       ? `Balance correction | ${entry.accountName}`
       : entry.categoryName || "No category";
@@ -8,7 +10,7 @@ export function buildHistoryDisplay(entry, { formatDate, formatDateTime }) {
   const subtitleParts = [formatDate(entry.transactionAt)];
 
   if (entry.kind === "transfer") {
-    subtitleParts.push(`${entry.fromAccountName} to ${entry.toAccountName}`);
+    subtitleParts.push(`${fromAccountName} to ${toAccountName}`);
   } else if (entry.kind === "adjustment") {
     subtitleParts.push(entry.accountName);
   } else {
