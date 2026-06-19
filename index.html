@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260619a" />
+  <link rel="stylesheet" href="./styles.css?v=20260619b" />
 </head>
 <body>
   <main class="app-shell">
@@ -1063,6 +1063,10 @@
                       <label for="ledger-page-category-filter">Category</label>
                       <select id="ledger-page-category-filter"></select>
                     </div>
+                    <div class="field-group">
+                      <label for="ledger-page-creator-filter">Creator</label>
+                      <select id="ledger-page-creator-filter"></select>
+                    </div>
                     <div class="field-group ledger-date-field">
                       <label for="ledger-page-date-from">From</label>
                       <input id="ledger-page-date-from" type="date" />
@@ -1101,9 +1105,9 @@
                   <div class="ledger-table-actions">
                     <label class="visually-hidden" for="ledger-table-layout">Ledger table layout</label>
                     <select id="ledger-table-layout" class="compact-select" aria-label="Ledger table layout">
-                      <option value="auto">Auto layout</option>
-                      <option value="wide">Wide table</option>
-                      <option value="stacked">Stacked list</option>
+                      <option value="auto">Auto</option>
+                      <option value="wide">Wide</option>
+                      <option value="stacked">Stacked</option>
                     </select>
                     <button id="ledger-page-download-btn" class="ghost-btn icon-only-btn" type="button" aria-label="Download CSV" title="Download CSV">&#8595;</button>
                   </div>
@@ -1766,7 +1770,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260619a";
+    window.__nestplanBuild = "20260619b";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1887,7 +1891,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260619a").catch(function (error) {
+    import("./app.js?v=20260619b").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

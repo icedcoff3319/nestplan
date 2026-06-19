@@ -1274,12 +1274,14 @@ textarea:focus {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .compact-select {
   min-height: 34px;
-  max-width: 150px;
+  width: 104px;
+  max-width: 104px;
   padding: 7px 34px 7px 10px;
   border-radius: 12px;
   font-size: 12px;
@@ -1469,7 +1471,14 @@ textarea:focus {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 }
 
+.ledger-planning-grid > .card {
+  min-width: 0;
+}
+
 .ledger-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   max-height: min(70vh, 680px);
   overflow: auto;
   border: 1px solid rgba(111, 129, 104, 0.12);
@@ -1479,6 +1488,7 @@ textarea:focus {
 
 .ledger-table {
   display: grid;
+  width: max-content;
   min-width: var(--ledger-table-min-width, 900px);
   font-size: 12px;
   color: var(--text-soft);
@@ -1486,7 +1496,7 @@ textarea:focus {
 
 .ledger-table-row {
   display: grid;
-  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px);
+  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px);
   gap: 10px;
   align-items: center;
   min-height: 38px;
@@ -1495,7 +1505,7 @@ textarea:focus {
 }
 
 .ledger-table-row.with-actions {
-  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px) 42px;
+  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px) 42px;
 }
 
 .ledger-table-row:last-child {
@@ -1593,6 +1603,7 @@ textarea:focus {
 }
 
 .ledger-table-wrap.layout-stacked .ledger-table {
+  width: 100%;
   min-width: 0;
 }
 
@@ -1626,6 +1637,7 @@ textarea:focus {
 }
 
 .ledger-table-wrap.layout-wide .ledger-table {
+  width: max-content;
   min-width: var(--ledger-table-min-width, 900px);
 }
 
@@ -1634,11 +1646,11 @@ textarea:focus {
 }
 
 .ledger-table-wrap.layout-wide .ledger-table-row {
-  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px);
+  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px);
 }
 
 .ledger-table-wrap.layout-wide .ledger-table-row.with-actions {
-  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px) 42px;
+  grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px) 42px;
 }
 
 .ledger-table-wrap.layout-wide .ledger-table-row > span[data-label] {
@@ -1742,9 +1754,10 @@ textarea:focus {
       minmax(120px, 0.8fr)
       minmax(150px, 1fr)
       minmax(150px, 1fr)
-      minmax(170px, 0.95fr)
-      minmax(170px, 0.95fr)
-      minmax(140px, 0.82fr);
+      minmax(140px, 0.9fr)
+      minmax(150px, 0.9fr)
+      minmax(150px, 0.9fr)
+      minmax(130px, 0.8fr);
   }
 }
 
@@ -1753,7 +1766,7 @@ textarea:focus {
 }
 
 .compact-filter-grid .ledger-date-field {
-  min-width: 168px;
+  min-width: 148px;
 }
 
 .compact-filter-grid .field-group {
@@ -2110,6 +2123,7 @@ textarea:focus {
   }
 
   .ledger-table {
+    width: 100%;
     min-width: 0;
   }
 
@@ -2146,6 +2160,7 @@ textarea:focus {
   }
 
   .ledger-table-wrap.layout-wide .ledger-table {
+    width: max-content;
     min-width: var(--ledger-table-min-width, 900px);
   }
 
@@ -2154,13 +2169,13 @@ textarea:focus {
   }
 
   .ledger-table-wrap.layout-wide .ledger-table-row {
-    grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px);
+    grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px);
     gap: 10px;
     padding: 8px 10px;
   }
 
   .ledger-table-wrap.layout-wide .ledger-table-row.with-actions {
-    grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 150px 180px 190px 128px) 42px;
+    grid-template-columns: var(--ledger-table-columns, 128px 148px 92px 130px 150px 180px 190px 128px) 42px;
   }
 
   .ledger-table-wrap.layout-wide .ledger-table-row > span[data-label] {

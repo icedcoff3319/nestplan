@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260619a";
+} from "./firebase-client.js?v=20260619b";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260619a";
+} from "./constants.js?v=20260619b";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260619a";
+} from "./category-import.js?v=20260619b";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260619a";
+} from "./csv-export.js?v=20260619b";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260619a";
+} from "./ledger-display.js?v=20260619b";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260619a";
+} from "./format-utils.js?v=20260619b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -165,6 +165,7 @@ const state = {
     transaction: 128,
     created: 148,
     type: 92,
+    creator: 130,
     account: 150,
     route: 180,
     note: 190,
@@ -174,6 +175,7 @@ const state = {
     kind: "",
     accountId: "",
     categoryId: "",
+    creatorUserId: "",
     dateFrom: "",
     dateTo: ""
   },
@@ -439,6 +441,7 @@ const els = {
   ledgerPageKindFilter: document.getElementById("ledger-page-kind-filter"),
   ledgerPageAccountFilter: document.getElementById("ledger-page-account-filter"),
   ledgerPageCategoryFilter: document.getElementById("ledger-page-category-filter"),
+  ledgerPageCreatorFilter: document.getElementById("ledger-page-creator-filter"),
   ledgerPageDateFrom: document.getElementById("ledger-page-date-from"),
   ledgerPageDateTo: document.getElementById("ledger-page-date-to"),
   ledgerPageSort: document.getElementById("ledger-page-sort"),
@@ -939,6 +942,7 @@ function bindEvents() {
     els.ledgerPageKindFilter,
     els.ledgerPageAccountFilter,
     els.ledgerPageCategoryFilter,
+    els.ledgerPageCreatorFilter,
     els.ledgerPageDateFrom,
     els.ledgerPageDateTo,
     els.ledgerPageSort
@@ -1129,6 +1133,7 @@ function resetLedgerView() {
     kind: "",
     accountId: "",
     categoryId: "",
+    creatorUserId: "",
     dateFrom: "",
     dateTo: ""
   };
@@ -1450,7 +1455,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260619a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260619b");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4490,6 +4495,7 @@ function handlePlanningLedgerFilterChange() {
     kind: els.ledgerPageKindFilter?.value || "",
     accountId: els.ledgerPageAccountFilter?.value || "",
     categoryId: els.ledgerPageCategoryFilter?.value || "",
+    creatorUserId: els.ledgerPageCreatorFilter?.value || "",
     dateFrom: els.ledgerPageDateFrom?.value || "",
     dateTo: els.ledgerPageDateTo?.value || ""
   };
@@ -4504,6 +4510,7 @@ function clearPlanningLedgerFilters() {
     kind: "",
     accountId: "",
     categoryId: "",
+    creatorUserId: "",
     dateFrom: "",
     dateTo: ""
   };
@@ -8722,6 +8729,7 @@ function renderPlanningLedgerFilters() {
   renderLedgerKindOptions(els.ledgerPageKindFilter, state.planningLedgerFilters.kind, { includeInvestment: true });
   renderLedgerAccountOptions(els.ledgerPageAccountFilter, state.planningLedgerFilters.accountId);
   renderLedgerCategoryOptions(els.ledgerPageCategoryFilter, state.planningLedgerFilters.categoryId);
+  renderLedgerCreatorOptions(els.ledgerPageCreatorFilter, state.planningLedgerFilters.creatorUserId);
   els.ledgerPageDateFrom.value = state.planningLedgerFilters.dateFrom || "";
   els.ledgerPageDateTo.value = state.planningLedgerFilters.dateTo || "";
   els.ledgerPageSort.value = state.planningLedgerSort;
@@ -8791,6 +8799,27 @@ function renderLedgerCategoryOptions(select, value = "") {
   setSelectValue(select, value);
 }
 
+function renderLedgerCreatorOptions(select, value = "") {
+  if (!select) {
+    return;
+  }
+
+  const creatorIds = new Set(
+    getVisibleGroupedEntries()
+      .map(entry => entry.createdByUserId || "")
+      .filter(Boolean)
+  );
+  const creators = Array.from(creatorIds)
+    .map(userId => ({ userId, name: getMemberName(userId) }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  select.innerHTML = [
+    `<option value="">All creators</option>`,
+    ...creators.map(creator => `<option value="${escapeHtml(creator.userId)}">${escapeHtml(creator.name)}</option>`)
+  ].join("");
+  setSelectValue(select, value);
+}
+
 function renderPlanningLedger() {
   if (!els.ledgerTable) {
     return;
@@ -8821,6 +8850,7 @@ function renderPlanningLedger() {
         ${buildLedgerHeaderCell("Transaction Date", "transaction", { sortable: true })}
         ${buildLedgerHeaderCell("Created", "created", { sortable: true })}
         ${buildLedgerHeaderCell("Type", "type")}
+        ${buildLedgerHeaderCell("Creator", "creator")}
         ${buildLedgerHeaderCell("Account", "account")}
         ${buildLedgerHeaderCell("Category / Route", "route")}
         ${buildLedgerHeaderCell("Note", "note")}
@@ -8885,6 +8915,7 @@ function getLedgerTableColumnTemplate() {
     "transaction",
     "created",
     "type",
+    "creator",
     "account",
     "route",
     "note",
@@ -8906,6 +8937,7 @@ function getLedgerColumnDefaultWidth(column) {
     transaction: 128,
     created: 148,
     type: 92,
+    creator: 130,
     account: 150,
     route: 180,
     note: 190,
@@ -8918,6 +8950,7 @@ function clampLedgerColumnWidth(column, width) {
     transaction: 104,
     created: 118,
     type: 76,
+    creator: 96,
     account: 108,
     route: 128,
     note: 120,
@@ -8971,6 +9004,7 @@ function buildLedgerTableRow(entry) {
       <span data-label="Transaction Date">${escapeHtml(formatDate(entry.transactionAt))}</span>
       <span data-label="Created">${escapeHtml(formatDateTime(entry.createdAt))}</span>
       <span data-label="Type">${escapeHtml(typeLabel)}</span>
+      <span data-label="Creator">${escapeHtml(getMemberName(entry.createdByUserId))}</span>
       <span data-label="Account">${escapeHtml(account)}</span>
       <span data-label="Category / Route">${escapeHtml(route)}</span>
       <span data-label="Note">${escapeHtml(entry.note || "-")}</span>
@@ -9689,6 +9723,10 @@ function filterLedgerEntries(entries, filters = {}) {
     }
 
     if (filters.categoryId && !entry.rows.some(row => row.categoryId === filters.categoryId)) {
+      return false;
+    }
+
+    if (filters.creatorUserId && entry.createdByUserId !== filters.creatorUserId) {
       return false;
     }
 
