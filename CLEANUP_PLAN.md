@@ -89,6 +89,7 @@ Split `app.js` gradually while preserving behavior:
 - Move pure CSV export helpers. Completed in `csv-export.js`.
 - Move pure formatting helpers. Completed in `format-utils.js`.
 - Move pure ledger history display helpers. Completed in `ledger-display.js`.
+- Move pure text and normalization helpers. Completed in `text-utils.js`.
 - Move validation helpers.
 - Move auth/session boot.
 - Move household listeners.

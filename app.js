@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260619c";
+} from "./firebase-client.js?v=20260619d";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260619c";
+} from "./constants.js?v=20260619d";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260619c";
+} from "./category-import.js?v=20260619d";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260619c";
+} from "./csv-export.js?v=20260619d";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260619c";
+} from "./ledger-display.js?v=20260619d";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,16 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260619c";
+} from "./format-utils.js?v=20260619d";
+import {
+  capitalize,
+  cleanText,
+  escapeHtml,
+  getEmailDomain,
+  normalizeDomain,
+  normalizeEmail,
+  sanitizeStringArray
+} from "./text-utils.js?v=20260619d";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1455,7 +1464,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260619c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260619d");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -10655,20 +10664,6 @@ async function isEmailDomainBlocked(domain) {
   return snap.exists() && snap.data().status === "active";
 }
 
-function getEmailDomain(email) {
-  return normalizeEmail(email).split("@").pop() || "";
-}
-
-function normalizeDomain(value = "") {
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .split("/")[0]
-    .replace(/[^a-z0-9.-]/g, "");
-}
-
 function clampRegistrationExpiryDays(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -10798,23 +10793,8 @@ function isOnboardingRequired() {
   return !(status.hasAccount && status.hasIncomeCategory && status.hasOutcomeCategory);
 }
 
-function normalizeEmail(email = "") {
-  return email.trim().toLowerCase();
-}
-
 function cleanInviteCode(code = "") {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
-
-function cleanText(text = "") {
-  return text.trim();
-}
-
-function sanitizeStringArray(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-  return values.filter(value => typeof value === "string" && value.trim()).map(value => value.trim());
 }
 
 function reverseTimestampSortValue(timestamp) {
@@ -10919,19 +10899,6 @@ function setLastGreeting(greeting) {
 
 function timestampFromDateInput(value) {
   return Timestamp.fromDate(dateFromDateInput(value));
-}
-
-function capitalize(value = "") {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function escapeHtml(value = "") {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function isCategoryAllowedForKind(category, kind) {

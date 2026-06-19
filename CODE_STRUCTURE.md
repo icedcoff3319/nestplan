@@ -11,6 +11,7 @@ NestPlan is currently a local-first static web app backed by Firebase Auth and F
 - `csv-export.js` contains pure ledger CSV export formatting and filename helpers.
 - `format-utils.js` contains pure money, date, month, schedule, timestamp, and expiry formatting helpers.
 - `ledger-display.js` contains pure ledger history title/subtitle display helpers.
+- `text-utils.js` contains pure text cleanup, escaping, capitalization, email normalization, and domain normalization helpers.
 - `firebase-client.js` owns Firebase SDK imports, environment selection, and Firebase service exports.
 - `constants.js` owns app constants, the minimal built-in greeting fallback, and system category seeds.
 - `firestore.rules` owns the production/staging security contract.
@@ -77,7 +78,7 @@ These are good first module-split candidates because they are mostly pure helper
 - CSV export formatting: moved to `csv-export.js` in Phase 4.
 - Money/date formatting: moved to `format-utils.js` in Phase 4.
 - Ledger history title/subtitle display: moved to `ledger-display.js` in Phase 4.
-- Text helpers: `cleanText()`, `escapeHtml()`, `sanitizeStringArray()`, `capitalize()`.
+- Text helpers: moved to `text-utils.js` in Phase 4.
 - Report math helpers: median, variance, month-window helpers, report model builders after tests are added.
 - Code generation helpers: invite/registration code generation and normalization, if kept independent from Firestore reads.
 
@@ -93,27 +94,22 @@ Each extraction should include:
 
 Use this order for the next cleanup passes. It keeps risk low while shrinking `app.js` gradually.
 
-1. Text and sanitization helpers.
-Candidate functions: `cleanText()`, `escapeHtml()`, `capitalize()`, `sanitizeStringArray()`, `normalizeEmail()`, `normalizeDomain()`, `getEmailDomain()`.
-Target module: `text-utils.js`.
-Safety: pure helper tests only, then `node --check app.js` and `npm.cmd run check:release`.
-
-2. Code and policy normalization helpers.
+1. Code and policy normalization helpers.
 Candidate functions: `generateInviteCode()`, `generateRegistrationCode()`, `cleanInviteCode()`, `clampRegistrationExpiryDays()`, registration-code serializers, email override/domain serializers.
 Target module: `access-utils.js`.
 Safety: keep Firestore reads/writes in `app.js`; extract only generation, normalization, and serializers first.
 
-3. Ledger calculation helpers.
+2. Ledger calculation helpers.
 Candidate functions: timestamp sorting, grouping, visibility checks, amount class/prefix logic, and table row display models.
 Target module: `ledger-utils.js`.
 Safety: add tests before moving anything that affects balances or personal-vs-household visibility.
 
-4. Report math helpers.
+3. Report math helpers.
 Candidate functions: median, variance, month windows, trend helpers, and report model builders.
 Target module: `report-utils.js`.
 Safety: tests should cover month boundaries and empty data before extraction.
 
-5. DOM render sections.
+4. DOM render sections.
 Candidate areas: admin-library tables, report filter modal, category guide modal, and compact dashboard snapshots.
 Target modules: only after pure helpers are stable.
 Safety: staging visual smoke tests are required because these touch the UI directly.

@@ -88,6 +88,7 @@ async function checkBuildMarkers() {
     extractSingleMatch(appJs, /csv-export\.js\?v=([^"]+)"/, "csv-export.js cache marker"),
     extractSingleMatch(appJs, /ledger-display\.js\?v=([^"]+)"/, "ledger-display.js cache marker"),
     extractSingleMatch(appJs, /format-utils\.js\?v=([^"]+)"/, "format-utils.js cache marker"),
+    extractSingleMatch(appJs, /text-utils\.js\?v=([^"]+)"/, "text-utils.js cache marker"),
     extractSingleMatch(appJs, /window\.__nestplanBuild \|\| "([^"]+)"/, "verification return fallback marker")
   ];
 
