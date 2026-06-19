@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260617d";
+} from "./firebase-client.js?v=20260619a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260617d";
+} from "./constants.js?v=20260619a";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260617d";
+} from "./category-import.js?v=20260619a";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260617d";
+} from "./csv-export.js?v=20260619a";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260617d";
+} from "./ledger-display.js?v=20260619a";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260617d";
+} from "./format-utils.js?v=20260619a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -159,6 +159,7 @@ const state = {
   showDashboardLedgerFilters: false,
   planningLedgerLoaded: false,
   showLedgerPageActions: false,
+  ledgerTableLayout: "auto",
   planningLedgerVisibleCount: 50,
   ledgerColumnWidths: {
     transaction: 128,
@@ -442,6 +443,7 @@ const els = {
   ledgerPageDateTo: document.getElementById("ledger-page-date-to"),
   ledgerPageSort: document.getElementById("ledger-page-sort"),
   ledgerPageActionsToggle: document.getElementById("ledger-page-actions-toggle"),
+  ledgerTableLayout: document.getElementById("ledger-table-layout"),
   ledgerPageDownloadBtn: document.getElementById("ledger-page-download-btn"),
   ledgerPageClearBtn: document.getElementById("ledger-page-clear-btn"),
   ledgerPageFilterCard: document.getElementById("ledger-page-filter-card"),
@@ -951,6 +953,10 @@ function bindEvents() {
     state.openHistoryMenuId = null;
     renderPlanningLedger();
   });
+  els.ledgerTableLayout?.addEventListener("change", () => {
+    state.ledgerTableLayout = getSelectedLedgerTableLayout();
+    renderPlanningLedger();
+  });
   els.ledgerPageDownloadBtn?.addEventListener("click", openExportModal);
   els.ledgerLoadMoreBtn?.addEventListener("click", handleLedgerLoadMore);
   els.ledgerTable?.addEventListener("click", handleLedgerTableActions);
@@ -1444,7 +1450,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260617d");
+  url.searchParams.set("v", window.__nestplanBuild || "20260619a");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -8790,6 +8796,8 @@ function renderPlanningLedger() {
     return;
   }
 
+  syncLedgerTableLayoutControl();
+
   if (!state.planningLedgerLoaded) {
     els.ledgerPageMeta.textContent = "Open the Ledger tab to load ledger rows.";
     els.ledgerTable.innerHTML = `<p class="status-copy">Ledger rows load when this tab is opened.</p>`;
@@ -8822,6 +8830,26 @@ function renderPlanningLedger() {
       ${visibleEntries.map(buildLedgerTableRow).join("")}
     </div>
   `;
+}
+
+function syncLedgerTableLayoutControl() {
+  const layout = normalizeLedgerTableLayout(state.ledgerTableLayout);
+  state.ledgerTableLayout = layout;
+  if (els.ledgerTableLayout) {
+    els.ledgerTableLayout.value = layout;
+  }
+  if (els.ledgerTable) {
+    els.ledgerTable.classList.toggle("layout-wide", layout === "wide");
+    els.ledgerTable.classList.toggle("layout-stacked", layout === "stacked");
+  }
+}
+
+function getSelectedLedgerTableLayout() {
+  return normalizeLedgerTableLayout(els.ledgerTableLayout?.value || state.ledgerTableLayout);
+}
+
+function normalizeLedgerTableLayout(value) {
+  return ["auto", "wide", "stacked"].includes(value) ? value : "auto";
 }
 
 function buildLedgerHeaderCell(label, column, options = {}) {
