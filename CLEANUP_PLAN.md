@@ -10,9 +10,20 @@ This cleanup track is intentionally separate from feature work. The goal is to m
 - Do not mix behavior changes with broad refactors.
 - Do not hard-delete financial history during cleanup.
 
-## Phase 1: Documentation And Build Hygiene
+## Current Cleanup Focus
 
 Status: active.
+
+The current cleanup track is documentation-first. The goal is to keep the codebase understandable before moving more logic out of `app.js`.
+
+- Keep the runtime behavior unchanged.
+- Keep production stable while cleanup happens on a branch first.
+- Update the app map and extraction order before moving any high-dependency code.
+- Prefer pure-helper extraction and tests before touching auth, listeners, transactions, or rules.
+
+## Phase 1: Documentation And Build Hygiene
+
+Status: active, healthy.
 
 - Keep `DECISIONS.md` current so product and security choices survive chat context limits.
 - Keep `TESTING.md` current with the latest staging smoke tests.
@@ -38,7 +49,7 @@ Status: completed for the current production flow.
 
 ## Phase 2: Release Hygiene
 
-Status: active.
+Status: active, healthy.
 
 - Keep production and staging Firebase aliases in `.firebaserc`.
 - Use versioned asset markers for every deploy.
@@ -74,10 +85,10 @@ Status: active.
 
 Split `app.js` gradually while preserving behavior:
 
-- Move pure category CSV import helpers first.
-- Move pure CSV export helpers.
-- Move pure formatting helpers.
-- Move pure ledger history display helpers.
+- Move pure category CSV import helpers first. Completed in `category-import.js`.
+- Move pure CSV export helpers. Completed in `csv-export.js`.
+- Move pure formatting helpers. Completed in `format-utils.js`.
+- Move pure ledger history display helpers. Completed in `ledger-display.js`.
 - Move validation helpers.
 - Move auth/session boot.
 - Move household listeners.

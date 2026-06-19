@@ -30,24 +30,24 @@ These files support development and release discipline but are excluded from Fir
 
 Approximate line ranges change over time, but the current order is:
 
-- Lines 1-760: imports, constants, global `state`, DOM `els`, info modal copy, listener globals, and maintenance write guards.
-- Lines 760-1127: event binding, money input binding, listener teardown, maintenance listener, render scheduling, ledger reset, and household context clearing.
-- Lines 1128-1458: auth boot, user session loading, profile refresh, greeting/default library loading, email verification, pending registration, and verification-return handling.
-- Lines 1472-1787: master-admin service helpers for admin status, dashboard data, maintenance mode, registration codes, email overrides, blocked domains, greeting quotes, and default category library.
-- Lines 1796-2518: form/event handlers for login, signup, verification, master admin actions, household setup/join/switching, profile, household rename, invites, members, and admin-library tables.
-- Lines 2535-2994: Planning handlers for budgets, savings, saving completion/reopen, recurring bills, bill reminders, and archive/delete behavior.
-- Lines 3011-3510: Investment handlers for portfolio setup, activity, scope switching, movement transactions, asset updates, and archive/delete behavior.
-- Lines 3527-3863: Account, balance correction, category creation, category CSV import, category edit/archive handlers.
-- Lines 3887-4259: Transaction submit handlers, single/transfer transaction writers, dashboard investment transfers, fee rows, and permission-denied messaging.
-- Lines 4263-4574: Ledger/history/export handlers for edit/delete menus, filters, month navigation, CSV modal, download, and copy.
-- Lines 4574-5054: user profile creation, household loading, real-time household listeners, household creation/join, invite acceptance/revocation, and active household updates.
-- Lines 5054-6611: render pipeline and major render functions for boot screens, admin screen, setup, app shell, header, onboarding, dashboard, planning, insights, reports, performance, and investments.
-- Lines 6714-7896: form population/reset helpers and domain calculations for planning, investments, savings, budgets, bill reminders, scope, category eligibility, and default category behavior.
-- Lines 7966-8452: bill reminder writes, lookup helpers, category CSV/default helpers, category guide modal, general info modal, and report filter modal.
-- Lines 8452-9309: payload builders, bill transaction prefill, invite/member/account/category/ledger rendering, transaction select synchronization, fee helpers, and recurring bill completion sync.
-- Lines 9412-9929: ledger/account balance calculations, visibility filters, grouped ledger mapping, row builders, permissions, and account/category/transaction reset helpers.
-- Lines 9940-10388: screen/view/scope state setters, fatal errors, messages, maintenance guards, user-facing error mapping, auth route helpers, and busy/loading helpers.
-- Lines 10418-end: money parsing, password toggle, code generation, registration/email policy helpers, serializers, profile/household normalization, and generic text/HTML helpers.
+- Lines 1-807: imports, constants, global `state`, DOM `els`, info modal copy, listener globals, and maintenance write guards.
+- Lines 808-1178: event binding, money input binding, listener teardown, maintenance listener, render scheduling, ledger reset, and household context clearing.
+- Lines 1179-1537: auth boot, user session loading, profile refresh, greeting/default library loading, email verification, pending registration, and verification-return handling.
+- Lines 1538-1846: master-admin service helpers for admin status, dashboard data, maintenance mode, registration codes, email overrides, blocked domains, greeting quotes, and default category library.
+- Lines 1847-2585: form/event handlers for login, signup, verification, master admin actions, household setup/join/switching, profile, household rename, invites, members, and admin-library tables.
+- Lines 2586-3061: Planning handlers for budgets, savings, saving completion/reopen, recurring bills, bill reminders, and archive/delete behavior.
+- Lines 3062-3577: Investment handlers for portfolio setup, activity, scope switching, movement transactions, asset updates, and archive/delete behavior.
+- Lines 3578-3937: Account, balance correction, category creation, category CSV import, category edit/archive handlers.
+- Lines 3938-4313: Transaction submit handlers, single/transfer transaction writers, dashboard investment transfers, fee rows, and permission-denied messaging.
+- Lines 4314-4762: Ledger/history/export handlers for edit/delete menus, filters, layout selection, month navigation, CSV modal, download, and copy.
+- Lines 4763-5499: user profile creation, household loading, real-time household listeners, household creation/join, invite acceptance/revocation, and active household updates.
+- Lines 5500-7271: render pipeline and major render functions for boot screens, admin screen, setup, app shell, header, onboarding, dashboard, planning, insights, reports, performance, and investments.
+- Lines 7272-8064: form population/reset helpers and domain calculations for planning, investments, savings, budgets, bill reminders, scope, category eligibility, and default category behavior.
+- Lines 8065-8674: bill reminder writes, lookup helpers, category CSV/default helpers, category guide modal, general info modal, and report filter modal.
+- Lines 8675-9647: dashboard ledger rendering, dedicated ledger filters/table rendering, transaction select synchronization, fee helpers, recurring bill completion sync, and ledger row action controls.
+- Lines 9648-10066: ledger/account balance calculations, visibility filters, grouped ledger mapping, row builders, permissions, and transaction payload builders.
+- Lines 10067-10567: form resets, screen/view/scope state setters, fatal errors, messages, maintenance guards, user-facing error mapping, auth route helpers, and busy/loading helpers.
+- Lines 10568-end: money parsing, password toggle, code generation, registration/email policy helpers, serializers, profile/household normalization, and generic text/HTML helpers.
 
 Core landmarks:
 
@@ -88,6 +88,35 @@ Each extraction should include:
 - `node --check app.js`;
 - `npm.cmd run check:release`;
 - relevant manual staging smoke test if UI behavior is touched.
+
+## Next Extraction Map
+
+Use this order for the next cleanup passes. It keeps risk low while shrinking `app.js` gradually.
+
+1. Text and sanitization helpers.
+Candidate functions: `cleanText()`, `escapeHtml()`, `capitalize()`, `sanitizeStringArray()`, `normalizeEmail()`, `normalizeDomain()`, `getEmailDomain()`.
+Target module: `text-utils.js`.
+Safety: pure helper tests only, then `node --check app.js` and `npm.cmd run check:release`.
+
+2. Code and policy normalization helpers.
+Candidate functions: `generateInviteCode()`, `generateRegistrationCode()`, `cleanInviteCode()`, `clampRegistrationExpiryDays()`, registration-code serializers, email override/domain serializers.
+Target module: `access-utils.js`.
+Safety: keep Firestore reads/writes in `app.js`; extract only generation, normalization, and serializers first.
+
+3. Ledger calculation helpers.
+Candidate functions: timestamp sorting, grouping, visibility checks, amount class/prefix logic, and table row display models.
+Target module: `ledger-utils.js`.
+Safety: add tests before moving anything that affects balances or personal-vs-household visibility.
+
+4. Report math helpers.
+Candidate functions: median, variance, month windows, trend helpers, and report model builders.
+Target module: `report-utils.js`.
+Safety: tests should cover month boundaries and empty data before extraction.
+
+5. DOM render sections.
+Candidate areas: admin-library tables, report filter modal, category guide modal, and compact dashboard snapshots.
+Target modules: only after pure helpers are stable.
+Safety: staging visual smoke tests are required because these touch the UI directly.
 
 ## Fragile Areas To Avoid First
 
