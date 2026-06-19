@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260619b";
+} from "./firebase-client.js?v=20260619c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260619b";
+} from "./constants.js?v=20260619c";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260619b";
+} from "./category-import.js?v=20260619c";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260619b";
+} from "./csv-export.js?v=20260619c";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260619b";
+} from "./ledger-display.js?v=20260619c";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260619b";
+} from "./format-utils.js?v=20260619c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -159,7 +159,7 @@ const state = {
   showDashboardLedgerFilters: false,
   planningLedgerLoaded: false,
   showLedgerPageActions: false,
-  ledgerTableLayout: "auto",
+  ledgerTableLayout: getDefaultLedgerTableLayout(),
   planningLedgerVisibleCount: 50,
   ledgerColumnWidths: {
     transaction: 128,
@@ -1455,7 +1455,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260619b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260619c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -8879,7 +8879,11 @@ function getSelectedLedgerTableLayout() {
 }
 
 function normalizeLedgerTableLayout(value) {
-  return ["auto", "wide", "stacked"].includes(value) ? value : "auto";
+  return ["wide", "stacked"].includes(value) ? value : getDefaultLedgerTableLayout();
+}
+
+function getDefaultLedgerTableLayout() {
+  return window.matchMedia?.("(max-width: 719px)")?.matches ? "stacked" : "wide";
 }
 
 function buildLedgerHeaderCell(label, column, options = {}) {

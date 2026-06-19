@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260619b" />
+  <link rel="stylesheet" href="./styles.css?v=20260619c" />
 </head>
 <body>
   <main class="app-shell">
@@ -1105,7 +1105,6 @@
                   <div class="ledger-table-actions">
                     <label class="visually-hidden" for="ledger-table-layout">Ledger table layout</label>
                     <select id="ledger-table-layout" class="compact-select" aria-label="Ledger table layout">
-                      <option value="auto">Auto</option>
                       <option value="wide">Wide</option>
                       <option value="stacked">Stacked</option>
                     </select>
@@ -1770,7 +1769,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260619b";
+    window.__nestplanBuild = "20260619c";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1891,7 +1890,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260619b").catch(function (error) {
+    import("./app.js?v=20260619c").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");
