@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260619d";
+} from "./firebase-client.js?v=20260620a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260619d";
+} from "./constants.js?v=20260620a";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260619d";
+} from "./category-import.js?v=20260620a";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260619d";
+} from "./csv-export.js?v=20260620a";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260619d";
+} from "./ledger-display.js?v=20260620a";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260619d";
+} from "./format-utils.js?v=20260620a";
 import {
   capitalize,
   cleanText,
@@ -72,7 +72,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260619d";
+} from "./text-utils.js?v=20260620a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1366,8 +1366,10 @@ async function loadMasterAdminSession(user) {
     if (state.masterAdmin.authorized) {
       await refreshMasterAdminDashboard();
     } else {
-      exitMasterAdminRoute();
-      await loadUserSession(user);
+      renderMasterAdminScreen(
+        "This signed-in account is not listed as an active NestPlan master admin. Check the masterAdmins document for this user in the current Firebase project.",
+        "error"
+      );
     }
   } catch (error) {
     state.masterAdmin.checked = true;
@@ -1464,7 +1466,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260619d");
+  url.searchParams.set("v", window.__nestplanBuild || "20260620a");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
