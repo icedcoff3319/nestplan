@@ -1218,6 +1218,7 @@ async function handleAuthStateChanged(user) {
 
   try {
     if (isMasterAdminRoute()) {
+      // Admin route contract: non-admin sessions return to the normal app; auth/rules errors stay visible.
       const masterAdminDestination = await loadMasterAdminSession(user);
       setBootState("ready");
       if (masterAdminDestination.route === "normal") {

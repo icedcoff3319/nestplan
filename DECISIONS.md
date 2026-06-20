@@ -24,6 +24,7 @@ This file records product and engineering decisions that should survive chat con
 - One user creation code is intended for one successful account creation.
 - Email verification is required before household creation or household join.
 - Master-admin features belong on the admin route, not inside normal household settings.
+- Admin route access is strict: logged-out users may see admin login, master admins may use admin tools, signed-in non-admins return to the normal app, and rules/network authorization errors stay visible for diagnosis.
 
 ## Household And Ownership Model
 

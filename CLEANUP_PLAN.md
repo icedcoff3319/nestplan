@@ -9,6 +9,7 @@ This cleanup track is intentionally separate from feature work. The goal is to m
 - Prefer small commits that can be reviewed and rolled back independently.
 - Do not mix behavior changes with broad refactors.
 - Do not hard-delete financial history during cleanup.
+- Record product/security rules in `DECISIONS.md` and keep one short code comment near the enforcement point.
 
 ## Current Cleanup Focus
 
