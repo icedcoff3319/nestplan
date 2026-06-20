@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260620a";
+} from "./firebase-client.js?v=20260620b";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,18 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260620a";
+} from "./constants.js?v=20260620b";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260620a";
+} from "./category-import.js?v=20260620b";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260620a";
+} from "./csv-export.js?v=20260620b";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260620a";
+} from "./ledger-display.js?v=20260620b";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +63,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260620a";
+} from "./format-utils.js?v=20260620b";
 import {
   capitalize,
   cleanText,
@@ -72,7 +72,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260620a";
+} from "./text-utils.js?v=20260620b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1218,9 +1218,13 @@ async function handleAuthStateChanged(user) {
 
   try {
     if (isMasterAdminRoute()) {
-      await loadMasterAdminSession(user);
+      const masterAdminDestination = await loadMasterAdminSession(user);
       setBootState("ready");
-      renderMasterAdminScreen();
+      if (masterAdminDestination.route === "normal") {
+        renderAuthenticatedDestination();
+      } else {
+        renderMasterAdminScreen(masterAdminDestination.message, masterAdminDestination.type);
+      }
       setAuthBusy(false);
       return;
     }
@@ -1243,11 +1247,7 @@ async function handleAuthStateChanged(user) {
 
     await loadUserSession(user);
     setBootState("ready");
-    if (state.household?.id) {
-      renderApp();
-    } else {
-      renderScreens();
-    }
+    renderAuthenticatedDestination();
     setAuthBusy(false);
   } catch (error) {
     if (error?.code === "registration/incomplete") {
@@ -1357,7 +1357,6 @@ async function loadMasterAdminSession(user) {
   state.authUser = user;
   state.masterAdmin.checked = false;
   state.masterAdmin.authorized = false;
-  renderMasterAdminScreen();
 
   try {
     const isMaster = await getMasterAdminStatus();
@@ -1365,21 +1364,22 @@ async function loadMasterAdminSession(user) {
     state.masterAdmin.authorized = isMaster;
     if (state.masterAdmin.authorized) {
       await refreshMasterAdminDashboard();
+      return { route: "admin" };
     } else {
-      renderMasterAdminScreen(
-        "This signed-in account is not listed as an active NestPlan master admin. Check the masterAdmins document for this user in the current Firebase project.",
-        "error"
-      );
+      exitMasterAdminRoute();
+      await loadUserSession(user);
+      return { route: "normal" };
     }
   } catch (error) {
     state.masterAdmin.checked = true;
     state.masterAdmin.authorized = false;
-    renderMasterAdminScreen(
-      getUserErrorMessage(error, {
+    return {
+      route: "admin",
+      message: getUserErrorMessage(error, {
         permissionMessage: "Firebase denied master admin access. Publish the latest Firestore rules for the invite-only admin flow, then refresh this page."
       }),
-      "error"
-    );
+      type: "error"
+    };
   }
 }
 
@@ -1466,7 +1466,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260620a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260620b");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -5224,6 +5224,14 @@ function renderScreens() {
   els.masterAdminScreen.classList.add("hidden");
   els.setupScreen.classList.toggle("hidden", !showSetup);
   els.appScreen.classList.toggle("hidden", !showApp);
+}
+
+function renderAuthenticatedDestination() {
+  if (state.household?.id) {
+    renderApp();
+  } else {
+    renderScreens();
+  }
 }
 
 function renderEmailVerification(message = "", type = "") {
