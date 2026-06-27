@@ -78,6 +78,7 @@ async function checkHostingConfig() {
 async function checkBuildMarkers() {
   const indexHtml = await readText("index.html");
   const appJs = await readText("app.js");
+  const accessUtilsJs = await readText("access-utils.js");
   const buildMarker = extractSingleMatch(indexHtml, /window\.__nestplanBuild\s*=\s*"([^"]+)"/, "window.__nestplanBuild");
   const markers = [
     extractSingleMatch(indexHtml, /styles\.css\?v=([^"]+)"/, "styles.css cache marker"),
@@ -89,6 +90,8 @@ async function checkBuildMarkers() {
     extractSingleMatch(appJs, /ledger-display\.js\?v=([^"]+)"/, "ledger-display.js cache marker"),
     extractSingleMatch(appJs, /format-utils\.js\?v=([^"]+)"/, "format-utils.js cache marker"),
     extractSingleMatch(appJs, /text-utils\.js\?v=([^"]+)"/, "text-utils.js cache marker"),
+    extractSingleMatch(appJs, /access-utils\.js\?v=([^"]+)"/, "access-utils.js cache marker"),
+    extractSingleMatch(accessUtilsJs, /format-utils\.js\?v=([^"]+)"/, "access-utils format-utils.js cache marker"),
     extractSingleMatch(appJs, /window\.__nestplanBuild \|\| "([^"]+)"/, "verification return fallback marker")
   ];
 

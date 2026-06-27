@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260620b";
+} from "./firebase-client.js?v=20260620c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,18 +34,27 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260620b";
+} from "./constants.js?v=20260620c";
+import {
+  cleanInviteCode,
+  clampRegistrationExpiryDays,
+  generateInviteCode,
+  generateRegistrationCode,
+  serializeBlockedDomain,
+  serializeEmailOverride,
+  serializeRegistrationCode
+} from "./access-utils.js?v=20260620c";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260620b";
+} from "./category-import.js?v=20260620c";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260620b";
+} from "./csv-export.js?v=20260620c";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260620b";
+} from "./ledger-display.js?v=20260620c";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -63,7 +72,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260620b";
+} from "./format-utils.js?v=20260620c";
 import {
   capitalize,
   cleanText,
@@ -72,7 +81,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260620b";
+} from "./text-utils.js?v=20260620c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -80,7 +89,6 @@ const PENDING_REGISTRATION_STORAGE_KEY = "nestplan.pendingRegistration.v1";
 const LAST_GREETING_STORAGE_KEY = "nestplan.lastGreeting.v1";
 const ADMIN_ROUTE_PARAM = "admin";
 const VERIFICATION_RETURN_PARAM = "verificationReturn";
-const REGISTRATION_CODE_LENGTH = 8;
 const INVESTMENT_CATEGORY_KEYS = new Set(["investment_deposit", "investment_withdrawal"]);
 const PROTECTED_SYSTEM_CATEGORY_KEYS = new Set([
   "saving",
@@ -1467,7 +1475,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260620b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260620c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -10641,18 +10649,6 @@ async function generateUniqueRegistrationCode() {
   throw new Error("Could not generate a unique user creation code. Please try again.");
 }
 
-function generateInviteCode() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(6));
-  return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
-}
-
-function generateRegistrationCode() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(REGISTRATION_CODE_LENGTH));
-  return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
-}
-
 function assertUsableRegistrationCode(registrationCode, emailNormalized) {
   if (registrationCode.status !== "unused") {
     throw new Error("This user creation code is no longer available.");
@@ -10673,49 +10669,6 @@ async function hasEmailOverride(email) {
 async function isEmailDomainBlocked(domain) {
   const snap = await getDoc(doc(db, "emailPolicyBlockedDomains", normalizeDomain(domain)));
   return snap.exists() && snap.data().status === "active";
-}
-
-function clampRegistrationExpiryDays(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return 14;
-  }
-  return Math.max(1, Math.min(60, Math.floor(parsed)));
-}
-
-function serializeRegistrationCode(id, data = {}) {
-  return {
-    id,
-    code: data.code || id,
-    emailNormalized: data.emailNormalized || "",
-    status: data.status || "unused",
-    note: data.note || "",
-    createdAtSort: getTimestampSortValue(data.createdAt),
-    createdAtFormatted: formatDateTime(data.createdAt),
-    expiresAtFormatted: formatDateTime(data.expiresAt),
-    consumedAtFormatted: formatDateTime(data.consumedAt),
-    revokedAtFormatted: formatDateTime(data.revokedAt)
-  };
-}
-
-function serializeEmailOverride(id, data = {}) {
-  return {
-    id,
-    emailNormalized: data.emailNormalized || id,
-    status: data.status || "active",
-    createdAtSort: getTimestampSortValue(data.createdAt),
-    createdAtFormatted: formatDateTime(data.createdAt)
-  };
-}
-
-function serializeBlockedDomain(id, data = {}) {
-  return {
-    id,
-    domain: data.domain || id,
-    status: data.status || "active",
-    createdAtSort: getTimestampSortValue(data.createdAt),
-    createdAtFormatted: formatDateTime(data.createdAt)
-  };
 }
 
 function serializeGreetingQuote(id, data = {}) {
@@ -10802,10 +10755,6 @@ function getOnboardingStatus() {
 function isOnboardingRequired() {
   const status = getOnboardingStatus();
   return !(status.hasAccount && status.hasIncomeCategory && status.hasOutcomeCategory);
-}
-
-function cleanInviteCode(code = "") {
-  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 function reverseTimestampSortValue(timestamp) {

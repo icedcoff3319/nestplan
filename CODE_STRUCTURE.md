@@ -12,6 +12,7 @@ NestPlan is currently a local-first static web app backed by Firebase Auth and F
 - `format-utils.js` contains pure money, date, month, schedule, timestamp, and expiry formatting helpers.
 - `ledger-display.js` contains pure ledger history title/subtitle display helpers.
 - `text-utils.js` contains pure text cleanup, escaping, capitalization, email normalization, and domain normalization helpers.
+- `access-utils.js` contains pure invite/user-code generation, access-code cleanup, registration expiry clamping, and admin access-policy serializers.
 - `firebase-client.js` owns Firebase SDK imports, environment selection, and Firebase service exports.
 - `constants.js` owns app constants, the minimal built-in greeting fallback, and system category seeds.
 - `firestore.rules` owns the production/staging security contract.
@@ -48,7 +49,7 @@ Approximate line ranges change over time, but the current order is:
 - Lines 8675-9647: dashboard ledger rendering, dedicated ledger filters/table rendering, transaction select synchronization, fee helpers, recurring bill completion sync, and ledger row action controls.
 - Lines 9648-10066: ledger/account balance calculations, visibility filters, grouped ledger mapping, row builders, permissions, and transaction payload builders.
 - Lines 10067-10567: form resets, screen/view/scope state setters, fatal errors, messages, maintenance guards, user-facing error mapping, auth route helpers, and busy/loading helpers.
-- Lines 10568-end: money parsing, password toggle, code generation, registration/email policy helpers, serializers, profile/household normalization, and generic text/HTML helpers.
+- Lines 10568-end: money parsing, password toggle, registration/email policy Firestore checks, profile/household normalization, and generic HTML helpers.
 
 Core landmarks:
 
@@ -80,7 +81,7 @@ These are good first module-split candidates because they are mostly pure helper
 - Ledger history title/subtitle display: moved to `ledger-display.js` in Phase 4.
 - Text helpers: moved to `text-utils.js` in Phase 4.
 - Report math helpers: median, variance, month-window helpers, report model builders after tests are added.
-- Code generation helpers: invite/registration code generation and normalization, if kept independent from Firestore reads.
+- Access code helpers: moved to `access-utils.js` in Phase 4.
 
 Each extraction should include:
 
@@ -94,10 +95,8 @@ Each extraction should include:
 
 Use this order for the next cleanup passes. It keeps risk low while shrinking `app.js` gradually.
 
-1. Code and policy normalization helpers.
-Candidate functions: `generateInviteCode()`, `generateRegistrationCode()`, `cleanInviteCode()`, `clampRegistrationExpiryDays()`, registration-code serializers, email override/domain serializers.
-Target module: `access-utils.js`.
-Safety: keep Firestore reads/writes in `app.js`; extract only generation, normalization, and serializers first.
+1. Code and policy normalization helpers. Completed in `access-utils.js`.
+Firestore reads/writes remain in `app.js`; only generation, normalization, expiry clamping, and serializers were extracted.
 
 2. Ledger calculation helpers.
 Candidate functions: timestamp sorting, grouping, visibility checks, amount class/prefix logic, and table row display models.
