@@ -67,6 +67,17 @@ Run this before promoting staging to production.
 - Confirm default category library behavior matches the current release plan.
 - Confirm greeting and blocked-domain library behavior matches the current release plan.
 
+CLI support:
+
+```powershell
+$env:NESTPLAN_ADMIN_EMAIL="staging-admin@example.com"
+$env:NESTPLAN_ADMIN_PASSWORD="do-not-commit-passwords"
+npm.cmd run smoke:admin -- --project=staging
+npm.cmd run smoke:admin -- --project=staging --write
+```
+
+The dry-run reads admin-gated collections. The write mode creates one disposable user creation code and deletes it immediately.
+
 ## Default Category Starter Import
 
 The app reads default categories from Firestore collection `appDefaultCategories`. The starter list is not part of runtime app behavior.

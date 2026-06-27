@@ -5,6 +5,7 @@
   "scripts": {
     "check:release": "node scripts/check-release-hygiene.mjs",
     "seed:default-categories": "node scripts/seed-default-categories.mjs",
+    "smoke:admin": "node scripts/smoke-admin.mjs",
     "test:category-import": "node --test tests/category-import.test.mjs",
     "test:csv-export": "node --test tests/csv-export.test.mjs",
     "test:format-utils": "node --test tests/format-utils.test.mjs",
