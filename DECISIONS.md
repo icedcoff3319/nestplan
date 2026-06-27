@@ -17,6 +17,7 @@ This file records product and engineering decisions that should survive chat con
 - Hosting rollback can be done from Firebase Console for static-app regressions.
 - Git tags let us redeploy an exact previous app version.
 - If Firestore rules change, the matching rules from the same tag must be part of rollback planning.
+- Restricted Firebase web API keys must allow both Hosting domains and Firebase Auth action domains, for example `web.app` and matching `firebaseapp.com`, or email verification links can fail.
 
 ## Invite-Only Registration
 
@@ -39,8 +40,15 @@ This file records product and engineering decisions that should survive chat con
 - The default category library is admin-managed Firestore data in `appDefaultCategories`.
 - The default category library is not hardcoded runtime behavior.
 - CSV category upload is for importing categories into the current household.
+- Future CSV category upload should include a downloadable template.
 - CSV category import accepts `income`, `outcome`, and `both` directions.
 - Existing active categories with the same name and direction should be skipped rather than duplicated.
+
+## Transaction Import
+
+- Future transaction CSV import should include a downloadable template.
+- Transaction import must validate accounts, categories, direction/type, dates, amounts, ownership, fees, savings locks, and budget warnings before writing any rows.
+- Transaction import should be staging-tested with partial-failure cases so invalid files do not create partial ledger history.
 
 ## System Categories
 

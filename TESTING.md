@@ -26,6 +26,7 @@ Passwords are intentionally not stored in the repository.
 - Registration is invite-only through a master-admin user creation code.
 - A user creation code should be used once for one successful account creation.
 - After signup, the user must verify the email before NestPlan creates or joins a household.
+- If restricted Firebase web API keys are used, the project key must allow both the app Hosting domain and Firebase Auth action domain. For staging, that means `https://nestplan-staging-863e5.web.app/*` and `https://nestplan-staging-863e5.firebaseapp.com/*`.
 - Best practice: keep the original NestPlan signup tab open, click the email verification link, then return to the original tab and choose `I verified my email`.
 - If the verification link opens a new tab, that tab should not be used to create a household directly unless the app has successfully finalized the registration.
 - If the original tab was closed, log in again with the same email and password, then complete the registration recovery flow.
@@ -114,6 +115,11 @@ Rules to test:
 - The import skips active duplicates with the same category name and direction.
 - The import respects the 50 active manual category limit.
 - Invalid rows should stop the import before any category is written.
+
+Future improvement:
+
+- Add a category CSV template download beside upload.
+- Add transaction CSV upload with its own template download and all-or-nothing validation.
 
 ## Known Testing Rules
 
