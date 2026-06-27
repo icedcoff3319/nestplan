@@ -27,6 +27,7 @@ The current cleanup track is documentation-first. The goal is to keep the codeba
 Status: active, healthy.
 
 - Keep `DECISIONS.md` current so product and security choices survive chat context limits.
+- Keep `SPECS/` current for high-risk planned work before implementation starts.
 - Keep `TESTING.md` current with the latest staging smoke tests.
 - Keep `RELEASE_CHECKLIST.md` current with the exact staging-to-production flow.
 - Keep `CODE_STRUCTURE.md` current before extracting code.

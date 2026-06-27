@@ -25,7 +25,7 @@ These files support development and release discipline but are excluded from Fir
 - `tests/**`
 - `package.json`
 - `package-lock.json`
-- docs such as `TESTING.md`, `RELEASE_CHECKLIST.md`, `CLEANUP_PLAN.md`, `CODE_STRUCTURE.md`, and `DECISIONS.md`
+- docs such as `SPECS/**`, `TESTING.md`, `RELEASE_CHECKLIST.md`, `CLEANUP_PLAN.md`, `CODE_STRUCTURE.md`, and `DECISIONS.md`
 - logs, local tool folders, Git metadata, dependencies, and temporary files
 
 ## `app.js` Working Map

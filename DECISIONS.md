@@ -71,4 +71,5 @@ This file records product and engineering decisions that should survive chat con
 - Firebase Hosting ignores docs, tests, scripts, logs, package files, dependencies, Git metadata, and local tooling.
 - Keep behavior changes narrow before production.
 - Do not mix large refactors with feature releases.
+- High-risk work needs a short spec in `SPECS/` before implementation; tiny UI, text, CSS, tested helper extraction, and docs-only updates do not.
 - Cleanup should first improve documentation, tests, and pure helpers before touching Firebase listener/write flows.
