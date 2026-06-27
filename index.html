@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260620c" />
+  <link rel="stylesheet" href="./styles.css?v=20260627a" />
 </head>
 <body>
   <main class="app-shell">
@@ -1039,6 +1039,31 @@
 
           <section id="insights-ledger-panel" class="planning-panel">
             <div id="planning-ledger-panel" class="planning-grid ledger-planning-grid">
+              <section id="transaction-import-card" class="card card-span-2">
+                <div class="card-header space-between compact-card-header">
+                  <div>
+                    <h3 class="card-title">Import transactions</h3>
+                    <p class="card-subtle">Preview a filled CSV template before any ledger data is saved.</p>
+                  </div>
+                  <button id="transaction-import-template-btn" class="ghost-btn small-btn" type="button">Download template</button>
+                </div>
+                <div class="ledger-filter-grid transaction-import-controls">
+                  <div class="field-group">
+                    <label for="transaction-import-input">CSV file</label>
+                    <input id="transaction-import-input" type="file" accept=".csv,text/csv,text/plain" />
+                  </div>
+                  <div class="field-group import-preview-note">
+                    <span>Preview only</span>
+                    <p class="status-copy">This step validates rows and references. It does not create transactions yet.</p>
+                  </div>
+                </div>
+                <div class="action-row compact-actions">
+                  <button id="transaction-import-clear-btn" class="ghost-btn small-btn" type="button">Clear preview</button>
+                </div>
+                <div id="transaction-import-message" class="message" aria-live="polite"></div>
+                <div id="transaction-import-preview" class="transaction-import-preview"></div>
+              </section>
+
               <section id="ledger-page-filter-card" class="card sticky-report-controls compact-ledger-filter-card">
                 <div class="card-header space-between compact-card-header">
                   <div>
@@ -1769,7 +1794,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260620c";
+    window.__nestplanBuild = "20260627a";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1890,7 +1915,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260620c").catch(function (error) {
+    import("./app.js?v=20260627a").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

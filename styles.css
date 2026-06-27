@@ -2090,6 +2090,69 @@ textarea:focus {
   line-height: 1.1;
 }
 
+.transaction-import-controls {
+  align-items: end;
+}
+
+.import-preview-note {
+  align-self: stretch;
+  justify-content: center;
+}
+
+.transaction-import-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transaction-import-summary span {
+  display: grid;
+  min-width: 118px;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(111, 129, 104, 0.14);
+  border-radius: 12px;
+  background: rgba(239, 241, 230, 0.64);
+}
+
+.transaction-import-summary strong {
+  color: var(--text-strong);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.transaction-import-summary small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.transaction-import-error-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--danger-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.transaction-import-table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.admin-table.transaction-import-table {
+  min-width: 980px;
+}
+
+.admin-table-row.transaction-import-row {
+  grid-template-columns: 48px 92px 86px minmax(128px, 1fr) minmax(180px, 1.35fr) 108px 86px minmax(160px, 1fr);
+}
+
 .investment-asset-list {
   display: grid;
   gap: 6px;

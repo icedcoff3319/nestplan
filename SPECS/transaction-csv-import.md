@@ -1,6 +1,6 @@
 # Spec: Transaction CSV Import
 
-Status: Planned
+Status: In progress
 
 ## Goal
 
@@ -67,8 +67,9 @@ V1 field rules:
 V1 parser foundation:
 
 - Parse and validate CSV structure, references, ownership, category direction, and transfer/saving target shape.
-- Do not write to Firestore.
-- Do not yet simulate balances or create preview UI.
+- Provide a preview-only UI in Insights > Ledger with template download, blocking errors, row count, totals, and normalized row preview.
+- Do not write to Firestore yet.
+- Do not yet simulate balances.
 - Do not yet support balance correction, recurring bill completion, or investment-specific transaction import.
 
 ## Edge Cases

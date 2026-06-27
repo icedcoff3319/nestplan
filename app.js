@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260620c";
+} from "./firebase-client.js?v=20260627a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260620c";
+} from "./constants.js?v=20260627a";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,18 +43,22 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260620c";
+} from "./access-utils.js?v=20260627a";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260620c";
+} from "./category-import.js?v=20260627a";
+import {
+  buildTransactionImportTemplate,
+  parseTransactionImportCsv
+} from "./transaction-import.js?v=20260627a";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260620c";
+} from "./csv-export.js?v=20260627a";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260620c";
+} from "./ledger-display.js?v=20260627a";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -72,7 +76,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260620c";
+} from "./format-utils.js?v=20260627a";
 import {
   capitalize,
   cleanText,
@@ -81,7 +85,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260620c";
+} from "./text-utils.js?v=20260627a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -165,6 +169,7 @@ const state = {
   dashboardBillDismissStorageKey: "",
   dismissedDashboardBillReminderIds: new Set(),
   exportCsvContent: "",
+  transactionImportPreview: null,
   authFlowLock: false,
   ledgerMode: "recent",
   ledgerMonthOffset: 0,
@@ -472,6 +477,11 @@ const els = {
   ledgerPageMeta: document.getElementById("ledger-page-meta"),
   ledgerTable: document.getElementById("ledger-table"),
   ledgerLoadMoreBtn: document.getElementById("ledger-load-more-btn"),
+  transactionImportTemplateBtn: document.getElementById("transaction-import-template-btn"),
+  transactionImportInput: document.getElementById("transaction-import-input"),
+  transactionImportClearBtn: document.getElementById("transaction-import-clear-btn"),
+  transactionImportMessage: document.getElementById("transaction-import-message"),
+  transactionImportPreview: document.getElementById("transaction-import-preview"),
   budgetScopeCopy: document.getElementById("budget-scope-copy"),
   savingScopeCopy: document.getElementById("saving-scope-copy"),
   billScopeCopy: document.getElementById("bill-scope-copy"),
@@ -982,6 +992,11 @@ function bindEvents() {
   els.ledgerLoadMoreBtn?.addEventListener("click", handleLedgerLoadMore);
   els.ledgerTable?.addEventListener("click", handleLedgerTableActions);
   els.ledgerTable?.addEventListener("pointerdown", handleLedgerColumnResizeStart);
+  els.transactionImportTemplateBtn?.addEventListener("click", handleTransactionImportTemplateDownload);
+  els.transactionImportInput?.addEventListener("change", event => {
+    void handleTransactionImportFileChange(event);
+  });
+  els.transactionImportClearBtn?.addEventListener("click", clearTransactionImportPreview);
   els.insightsTabLedger?.addEventListener("click", () => setInsightsTab("ledger"));
   els.insightsTabReport?.addEventListener("click", () => setInsightsTab("report"));
   [
@@ -1179,6 +1194,7 @@ function clearHouseholdContextState() {
   state.openBillMenuId = null;
   state.dashboardBillDismissStorageKey = "";
   state.dismissedDashboardBillReminderIds = new Set();
+  state.transactionImportPreview = null;
 }
 
 function getAccessibleHouseholdIds() {
@@ -1475,7 +1491,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260620c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260627a");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4545,6 +4561,176 @@ function handleLedgerLoadMore() {
   renderPlanningLedger();
 }
 
+function handleTransactionImportTemplateDownload() {
+  const blob = new Blob([buildTransactionImportTemplate()], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "NestPlan-transaction-import-template.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setMessage(els.transactionImportMessage, "Template download started.", "success");
+}
+
+async function handleTransactionImportFileChange(event) {
+  setMessage(els.transactionImportMessage, "");
+  const fileInput = event.target;
+  const file = fileInput.files?.[0] || null;
+  if (!file) {
+    return;
+  }
+  state.transactionImportPreview = null;
+  renderTransactionImportPreview();
+
+  try {
+    if (!state.household?.id || !state.authUser) {
+      setMessage(els.transactionImportMessage, "Open a household first.", "error");
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      setMessage(els.transactionImportMessage, "Use a CSV file smaller than 1 MB for preview.", "error");
+      return;
+    }
+
+    const text = await file.text();
+    const result = parseTransactionImportCsv(text, getTransactionImportContext());
+    const errors = result.errors.length
+      ? result.errors
+      : result.rows.length
+        ? []
+        : ["The CSV has a header but no transaction rows."];
+    state.transactionImportPreview = {
+      fileName: file.name,
+      rows: result.rows,
+      errors
+    };
+    renderTransactionImportPreview();
+    setMessage(
+      els.transactionImportMessage,
+      errors.length
+        ? `CSV preview found ${errors.length} blocking issue${errors.length === 1 ? "" : "s"}. Nothing was imported.`
+        : `Preview ready: ${result.rows.length} row${result.rows.length === 1 ? "" : "s"} validated. Nothing has been saved yet.`,
+      errors.length ? "error" : "success"
+    );
+  } catch (error) {
+    state.transactionImportPreview = {
+      fileName: file.name,
+      rows: [],
+      errors: [error.message || "Could not read this CSV file."]
+    };
+    renderTransactionImportPreview();
+    setMessage(els.transactionImportMessage, error.message || "Could not read this CSV file.", "error");
+  } finally {
+    fileInput.value = "";
+  }
+}
+
+function clearTransactionImportPreview() {
+  state.transactionImportPreview = null;
+  if (els.transactionImportInput) {
+    els.transactionImportInput.value = "";
+  }
+  setMessage(els.transactionImportMessage, "");
+  renderTransactionImportPreview();
+}
+
+function getTransactionImportContext() {
+  return {
+    authUserId: state.authUser?.uid || "",
+    accounts: state.accounts,
+    categories: state.categories,
+    savingGoals: state.savingGoals
+  };
+}
+
+function renderTransactionImportPreview() {
+  if (!els.transactionImportPreview) {
+    return;
+  }
+
+  const preview = state.transactionImportPreview;
+  if (!preview) {
+    els.transactionImportPreview.innerHTML = `
+      <div class="empty-card">
+        <h4>No CSV preview yet</h4>
+        <p>Download the template, fill it, then upload it here. This preview does not create ledger rows.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (preview.errors.length) {
+    const visibleErrors = preview.errors.slice(0, 8);
+    els.transactionImportPreview.innerHTML = `
+      <div class="empty-card">
+        <h4>Fix CSV before importing</h4>
+        <p>${escapeHtml(preview.fileName || "Uploaded file")} has blocking validation issues.</p>
+        <ul class="transaction-import-error-list">
+          ${visibleErrors.map(error => `<li>${escapeHtml(error)}</li>`).join("")}
+        </ul>
+        ${preview.errors.length > visibleErrors.length ? `<p>${escapeHtml(`${preview.errors.length - visibleErrors.length} more issue(s) hidden.`)}</p>` : ""}
+      </div>
+    `;
+    return;
+  }
+
+  const rows = preview.rows;
+  const visibleRows = rows.slice(0, 10);
+  const totalMinor = rows.reduce((sum, row) => sum + row.amountMinor, 0);
+  const feeMinor = rows.reduce((sum, row) => sum + row.feeMinor, 0);
+  els.transactionImportPreview.innerHTML = `
+    <div class="transaction-import-summary">
+      <span><strong>${escapeHtml(String(rows.length))}</strong><small>Rows ready</small></span>
+      <span><strong>${escapeHtml(formatRupiah(totalMinor))}</strong><small>Main total</small></span>
+      <span><strong>${escapeHtml(formatRupiah(feeMinor))}</strong><small>Fee total</small></span>
+      <span><strong>Preview only</strong><small>No writes yet</small></span>
+    </div>
+    <div class="admin-table-wrap transaction-import-table-wrap">
+      <div class="admin-table transaction-import-table">
+        <div class="admin-table-row admin-table-head transaction-import-row">
+          <span>Row</span>
+          <span>Date</span>
+          <span>Type</span>
+          <span>Account</span>
+          <span>Category / Route</span>
+          <span>Amount</span>
+          <span>Fee</span>
+          <span>Note</span>
+        </div>
+        ${visibleRows.map(buildTransactionImportPreviewRow).join("")}
+      </div>
+    </div>
+    ${rows.length > visibleRows.length ? `<p class="status-copy">Showing first ${visibleRows.length} of ${rows.length} validated rows.</p>` : ""}
+  `;
+}
+
+function buildTransactionImportPreviewRow(row) {
+  return `
+    <div class="admin-table-row transaction-import-row">
+      <span>${escapeHtml(String(row.rowNumber))}</span>
+      <span>${escapeHtml(row.transactionDate || "-")}</span>
+      <span>${escapeHtml(capitalize(row.type || "-"))}</span>
+      <span class="admin-table-strong">${escapeHtml(row.accountName || "-")}</span>
+      <span>${escapeHtml(getTransactionImportRouteLabel(row))}</span>
+      <span>${escapeHtml(formatRupiah(row.amountMinor))}</span>
+      <span>${escapeHtml(row.feeMinor ? formatRupiah(row.feeMinor) : "-")}</span>
+      <span>${escapeHtml(row.note || "-")}</span>
+    </div>
+  `;
+}
+
+function getTransactionImportRouteLabel(row) {
+  if (row.type === "transfer") {
+    const destination = row.savingGoalName
+      ? `[Saving] ${row.savingGoalName}`
+      : row.toAccountName || "Destination";
+    return `${row.accountName || "Account"} to ${destination}`;
+  }
+  return row.categoryName || "-";
+}
+
 function handleDocumentClick(event) {
   if (!state.openHistoryMenuId && !state.openBillMenuId) {
     return;
@@ -5546,6 +5732,7 @@ function renderApp() {
     ["investments", renderInvestmentsView],
     ["ledger controls", renderLedgerFilterControls],
     ["planning ledger", renderPlanningLedger],
+    ["transaction import preview", renderTransactionImportPreview],
     ["report", renderReportView],
     ["accounts", renderAccountsList],
     ["categories", renderCategories],
@@ -10210,6 +10397,7 @@ function resetStateForAuth(user) {
   state.dashboardBillDismissStorageKey = "";
   state.dismissedDashboardBillReminderIds = new Set();
   state.exportCsvContent = "";
+  state.transactionImportPreview = null;
   state.ensuringSystemCategories = false;
   state.reportRange = "this-month";
   state.reportCustomFrom = "";
@@ -10361,6 +10549,7 @@ function clearMessages() {
     els.billMessage,
     els.transactionMessage,
     els.exportMessage,
+    els.transactionImportMessage,
     els.profileMessage,
     els.settingsHouseholdMessage,
     els.inviteMessage,

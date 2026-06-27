@@ -8,7 +8,7 @@ NestPlan is currently a local-first static web app backed by Firebase Auth and F
 - `styles.css` contains the visual system, responsive layout, cards, tables, modals, and mobile polish.
 - `app.js` contains state, event binding, Firebase reads/writes, rendering, validation, export, and UI helpers.
 - `category-import.js` contains pure household category CSV parsing helpers.
-- `transaction-import.js` contains pure transaction CSV template, parsing, and pre-write validation helpers.
+- `transaction-import.js` contains pure transaction CSV template, parsing, and pre-write validation helpers. The current preview-only UI is wired from `app.js`.
 - `csv-export.js` contains pure ledger CSV export formatting and filename helpers.
 - `format-utils.js` contains pure money, date, month, schedule, timestamp, and expiry formatting helpers.
 - `ledger-display.js` contains pure ledger history title/subtitle display helpers.
