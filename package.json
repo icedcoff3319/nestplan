@@ -11,6 +11,7 @@
     "test:format-utils": "node --test tests/format-utils.test.mjs",
     "test:ledger-display": "node --test tests/ledger-display.test.mjs",
     "test:access-utils": "node --test tests/access-utils.test.mjs",
+    "test:transaction-import": "node --test tests/transaction-import.test.mjs",
     "test:text-utils": "node --test tests/text-utils.test.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },

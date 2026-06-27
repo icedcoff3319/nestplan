@@ -23,6 +23,23 @@ Status: Planned
 - User confirms import.
 - App writes all valid rows in one controlled batch or writes nothing.
 
+V1 template columns:
+
+| Transaction Date | Type | Amount | Account | Category | To Account | Saving Goal | Note | Fee Amount |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `2026-04-22` | `outcome` | `45000` | `BCA` | `Essentials - Food` |  |  | `Lunch` | `2500` |
+| `2026-04-23` | `income` | `5000000` | `BCA` | `Work - Salary` |  |  | `Salary` |  |
+| `2026-04-24` | `transfer` | `300000` | `BCA` |  | `GoPay` |  | `Top up e-wallet` | `1000` |
+| `2026-04-25` | `transfer` | `100000` | `BCA` |  |  | `Emergency Fund` | `Reserve to saving` |  |
+
+V1 field rules:
+
+- `Transaction Date` uses `YYYY-MM-DD`.
+- `Type` is exactly `income`, `outcome`, or `transfer`.
+- `Amount` and `Fee Amount` are IDR minor-unit integers or formatted IDR digits such as `45.000`.
+- `Account`, `Category`, `To Account`, and `Saving Goal` may match by unique name or ID.
+- `Saving Goal` is used only for transfer rows that reserve/fund a saving goal.
+
 ## Data Model / Affected Collections
 
 - Writes to `households/{householdId}/transactions`.
@@ -47,6 +64,13 @@ Status: Planned
 - Import must prevent negative account balance and locked-saving violations.
 - Invalid rows block the whole import before any write.
 
+V1 parser foundation:
+
+- Parse and validate CSV structure, references, ownership, category direction, and transfer/saving target shape.
+- Do not write to Firestore.
+- Do not yet simulate balances or create preview UI.
+- Do not yet support balance correction, recurring bill completion, or investment-specific transaction import.
+
 ## Edge Cases
 
 - Duplicate CSV rows should be detected or clearly warned.
@@ -70,5 +94,5 @@ Status: Planned
 ## Open Questions
 
 - Should we add `importRuns` in v1 or wait until duplicate detection needs it?
-- What row limit should v1 enforce?
-- Should users match accounts/categories by ID, name, or both?
+- Current parser foundation uses a 250-row limit. Confirm whether the UI should keep that limit.
+- Current parser foundation allows matching accounts/categories/savings by unique name or ID. Confirm whether the UI should expose IDs in the template later.
