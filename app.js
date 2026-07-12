@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260712d";
+} from "./firebase-client.js?v=20260712e";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260712d";
+} from "./constants.js?v=20260712e";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,25 +43,25 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260712d";
+} from "./access-utils.js?v=20260712e";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260712d";
+} from "./category-import.js?v=20260712e";
 import {
   buildTransactionImportTemplate,
   parseTransactionImportCsv
-} from "./transaction-import.js?v=20260712d";
+} from "./transaction-import.js?v=20260712e";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260712d";
+} from "./csv-export.js?v=20260712e";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260712d";
+} from "./ledger-display.js?v=20260712e";
 import {
   summarizeMoneyFlow
-} from "./report-utils.js?v=20260712d";
+} from "./report-utils.js?v=20260712e";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -79,7 +79,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260712d";
+} from "./format-utils.js?v=20260712e";
 import {
   capitalize,
   cleanText,
@@ -88,7 +88,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260712d";
+} from "./text-utils.js?v=20260712e";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1516,7 +1516,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260712d");
+  url.searchParams.set("v", window.__nestplanBuild || "20260712e");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";

@@ -98,3 +98,4 @@ V1 parser foundation:
 - Should we add `importRuns` in v1 or wait until duplicate detection needs it?
 - Current parser foundation uses a 250-row limit. Confirm whether the UI should keep that limit.
 - Current parser foundation allows matching accounts/categories/savings by unique name or ID. Confirm whether the UI should expose IDs in the template later.
+- Deferred improvement: when a category is not registered, show a pre-import resolution step where the user can map it to an existing category, deliberately create it, or correct the file. Never create unknown categories silently.
