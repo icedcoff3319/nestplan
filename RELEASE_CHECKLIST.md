@@ -12,6 +12,9 @@ Use this checklist before staging and production deploys.
 - Run `npm.cmd run test:csv-export`.
 - Run `npm.cmd run test:format-utils`.
 - Run `npm.cmd run test:ledger-display`.
+- Run `npm.cmd run test:text-utils`.
+- Run `npm.cmd run test:access-utils`.
+- Run `npm.cmd run test:transaction-import`.
 - Run `npm.cmd run test:report-utils`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.
@@ -40,6 +43,9 @@ Use this checklist before staging and production deploys.
 - Run `npm.cmd run test:csv-export`.
 - Run `npm.cmd run test:format-utils`.
 - Run `npm.cmd run test:ledger-display`.
+- Run `npm.cmd run test:text-utils`.
+- Run `npm.cmd run test:access-utils`.
+- Run `npm.cmd run test:transaction-import`.
 - Run `npm.cmd run test:report-utils`.
 - Run `npm.cmd run check:release`.
 - Run `git diff --check`.

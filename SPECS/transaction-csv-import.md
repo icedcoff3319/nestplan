@@ -1,6 +1,6 @@
 # Spec: Transaction CSV Import
 
-Status: In progress
+Status: Implemented and verified in staging
 
 ## Goal
 
@@ -96,6 +96,6 @@ V1 parser foundation:
 ## Open Questions
 
 - Should we add `importRuns` in v1 or wait until duplicate detection needs it?
-- Current parser foundation uses a 250-row limit. Confirm whether the UI should keep that limit.
+- The parser supports up to 250 rows, while confirmed imports are intentionally capped at 150 rows to keep the worst-case atomic batch below Firestore's write limit.
 - Current parser foundation allows matching accounts/categories/savings by unique name or ID. Confirm whether the UI should expose IDs in the template later.
 - Deferred improvement: when a category is not registered, show a pre-import resolution step where the user can map it to an existing category, deliberately create it, or correct the file. Never create unknown categories silently.
