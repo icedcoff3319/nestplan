@@ -1238,6 +1238,67 @@ textarea:focus {
   gap: var(--space-3);
 }
 
+.creation-disclosure {
+  border: 1px solid rgba(111, 129, 104, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.48);
+  overflow: hidden;
+}
+
+.creation-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--primary-deep);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.creation-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.creation-disclosure > summary::after {
+  content: "+";
+  font-size: 18px;
+  line-height: 1;
+}
+
+.creation-disclosure[open] > summary {
+  border-bottom: 1px solid rgba(111, 129, 104, 0.12);
+}
+
+.creation-disclosure[open] > summary::after {
+  content: "-";
+}
+
+.creation-disclosure-body {
+  padding: 12px;
+}
+
+.compact-disclosure .creation-disclosure-body {
+  display: grid;
+  gap: 10px;
+}
+
+.file-input::file-selector-button {
+  min-height: 34px;
+  margin-right: 10px;
+  padding: 6px 10px;
+  border: 1px solid rgba(111, 129, 104, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text-soft);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .action-row {
   flex-wrap: wrap;
 }
@@ -2015,6 +2076,10 @@ textarea:focus {
   grid-template-columns: minmax(110px, 1fr) repeat(4, minmax(90px, auto));
 }
 
+.report-monthly-row > span[data-label]::before {
+  content: none;
+}
+
 .report-table-head {
   color: var(--text-strong);
   font-size: 10px;
@@ -2184,6 +2249,101 @@ textarea:focus {
 }
 
 @media (max-width: 719px) {
+  .app-header {
+    padding: 11px 12px;
+  }
+
+  .app-header .brand-mark {
+    width: 42px;
+    height: 42px;
+  }
+
+  .app-header .brand-name {
+    font-size: 28px;
+  }
+
+  .header-top {
+    margin-bottom: 6px;
+  }
+
+  .greeting {
+    font-size: 28px;
+  }
+
+  .header-context-row {
+    margin-top: 4px;
+  }
+
+  .nav-row {
+    margin-top: 8px;
+  }
+
+  #app-screen .view-nav-btn,
+  #app-screen .scope-btn,
+  #app-screen .segment-btn {
+    min-height: 38px;
+  }
+
+  #planning-view .segmented-control {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  #planning-view .segment-btn {
+    flex: 0 0 auto;
+  }
+
+  #app-screen .app-info-btn,
+  #app-screen .icon-only-btn,
+  #app-screen .icon-btn.subtle {
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  #app-screen #export-btn,
+  #app-screen .ledger-header-actions .icon-only-btn {
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  .history-item .overflow-btn,
+  .tiny-overflow-btn,
+  .ledger-action-cell .tiny-overflow-btn,
+  .ledger-action-cell .overflow-btn {
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .admin-table .small-btn {
+    min-height: 36px;
+    padding: 7px 10px;
+  }
+
+  .table-sort-btn {
+    min-height: 32px;
+  }
+
+  .report-money-flow-card {
+    gap: 8px;
+  }
+
+  .report-verdict {
+    padding: 7px 9px;
+  }
+
+  .report-kpi-strip {
+    gap: 6px;
+  }
+
+  .report-kpi-strip article {
+    padding: 7px 9px;
+    border-radius: 11px;
+  }
+
   .compact-ledger-filter-card.is-collapsed {
     top: 72px;
     right: 12px;
@@ -2271,9 +2431,31 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .report-table-row {
+  #report-monthly-table .report-table-head {
+    display: none;
+  }
+
+  #report-monthly-table .report-monthly-row {
     grid-template-columns: 1fr;
-    gap: 3px;
+    gap: 0;
+    padding: 6px 0;
+  }
+
+  #report-monthly-table .report-monthly-row > span[data-label] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 30px;
+    padding: 4px 6px;
+  }
+
+  #report-monthly-table .report-monthly-row > span[data-label]::before {
+    content: attr(data-label);
+    color: var(--text-faint);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
   }
 }
 
@@ -2746,6 +2928,10 @@ textarea:focus {
   .performance-grid,
   .ledger-planning-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-grid {
+    align-items: start;
   }
 
   .checklist-grid {

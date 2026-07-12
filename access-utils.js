@@ -1,7 +1,7 @@
 import {
   formatDateTime,
   getTimestampSortValue
-} from "./format-utils.js?v=20260712c";
+} from "./format-utils.js?v=20260712d";
 
 const ACCESS_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_REGISTRATION_EXPIRY_DAYS = 14;

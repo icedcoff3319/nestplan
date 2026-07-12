@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260712c";
+} from "./firebase-client.js?v=20260712d";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260712c";
+} from "./constants.js?v=20260712d";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,25 +43,25 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260712c";
+} from "./access-utils.js?v=20260712d";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260712c";
+} from "./category-import.js?v=20260712d";
 import {
   buildTransactionImportTemplate,
   parseTransactionImportCsv
-} from "./transaction-import.js?v=20260712c";
+} from "./transaction-import.js?v=20260712d";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260712c";
+} from "./csv-export.js?v=20260712d";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260712c";
+} from "./ledger-display.js?v=20260712d";
 import {
   summarizeMoneyFlow
-} from "./report-utils.js?v=20260712c";
+} from "./report-utils.js?v=20260712d";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -79,7 +79,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260712c";
+} from "./format-utils.js?v=20260712d";
 import {
   capitalize,
   cleanText,
@@ -88,7 +88,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260712c";
+} from "./text-utils.js?v=20260712d";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -487,10 +487,13 @@ const els = {
   transactionImportClearBtn: document.getElementById("transaction-import-clear-btn"),
   transactionImportMessage: document.getElementById("transaction-import-message"),
   transactionImportPreview: document.getElementById("transaction-import-preview"),
+  transactionImportDisclosure: document.getElementById("transaction-import-disclosure"),
   budgetScopeCopy: document.getElementById("budget-scope-copy"),
   savingScopeCopy: document.getElementById("saving-scope-copy"),
   billScopeCopy: document.getElementById("bill-scope-copy"),
   budgetForm: document.getElementById("budget-form"),
+  budgetFormDisclosure: document.getElementById("budget-form-disclosure"),
+  budgetFormDisclosureSummary: document.getElementById("budget-form-disclosure-summary"),
   budgetEditId: document.getElementById("budget-edit-id"),
   budgetName: document.getElementById("budget-name"),
   budgetHouseholdScope: document.getElementById("budget-household-scope"),
@@ -507,6 +510,8 @@ const els = {
   budgetMessage: document.getElementById("budget-message"),
   budgetsList: document.getElementById("budgets-list"),
   savingForm: document.getElementById("saving-form"),
+  savingFormDisclosure: document.getElementById("saving-form-disclosure"),
+  savingFormDisclosureSummary: document.getElementById("saving-form-disclosure-summary"),
   savingEditId: document.getElementById("saving-edit-id"),
   savingName: document.getElementById("saving-name"),
   savingHouseholdScope: document.getElementById("saving-household-scope"),
@@ -519,6 +524,8 @@ const els = {
   savingsListNote: document.getElementById("savings-list-note"),
   savingsList: document.getElementById("savings-list"),
   billForm: document.getElementById("bill-form"),
+  billFormDisclosure: document.getElementById("bill-form-disclosure"),
+  billFormDisclosureSummary: document.getElementById("bill-form-disclosure-summary"),
   billEditId: document.getElementById("bill-edit-id"),
   billName: document.getElementById("bill-name"),
   billHouseholdScope: document.getElementById("bill-household-scope"),
@@ -597,6 +604,9 @@ const els = {
   investmentMessage: document.getElementById("investment-message"),
   investmentsList: document.getElementById("investments-list"),
   investmentMovementForm: document.getElementById("investment-movement-form"),
+  investmentMovementDisclosure: document.getElementById("investment-movement-disclosure"),
+  investmentMovementDisclosureSummary: document.getElementById("investment-movement-disclosure-summary"),
+  investmentMovementPrerequisite: document.getElementById("investment-movement-prerequisite"),
   investmentMovementDate: document.getElementById("investment-movement-date"),
   investmentMovementAccount: document.getElementById("investment-movement-account"),
   investmentMovementType: document.getElementById("investment-movement-type"),
@@ -1506,7 +1516,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260712c");
+  url.searchParams.set("v", window.__nestplanBuild || "20260712d");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -2716,6 +2726,12 @@ function handleBudgetListActions(event) {
   }
 
   if (button.dataset.action === "edit-budget") {
+    if (els.budgetFormDisclosure) {
+      els.budgetFormDisclosure.open = true;
+    }
+    if (els.budgetFormDisclosureSummary) {
+      els.budgetFormDisclosureSummary.textContent = "Edit budget";
+    }
     state.editBudgetId = budget.id;
     els.budgetEditId.value = budget.id;
     els.budgetName.value = budget.name || "";
@@ -2815,6 +2831,12 @@ function handleSavingListActions(event) {
   }
 
   if (button.dataset.action === "edit-saving") {
+    if (els.savingFormDisclosure) {
+      els.savingFormDisclosure.open = true;
+    }
+    if (els.savingFormDisclosureSummary) {
+      els.savingFormDisclosureSummary.textContent = "Edit saving goal";
+    }
     state.editSavingGoalId = goal.id;
     els.savingEditId.value = goal.id;
     els.savingName.value = goal.name || "";
@@ -3046,6 +3068,12 @@ function handleDashboardBillReminderActions(event) {
 }
 
 function openBillEditor(bill) {
+  if (els.billFormDisclosure) {
+    els.billFormDisclosure.open = true;
+  }
+  if (els.billFormDisclosureSummary) {
+    els.billFormDisclosureSummary.textContent = "Edit recurring bill";
+  }
   state.editBillId = bill.id;
   els.billEditId.value = bill.id;
   els.billName.value = bill.name || "";
@@ -3057,6 +3085,7 @@ function openBillEditor(bill) {
   els.billAnchorDate.value = toDateInput(bill.anchorDate || new Date());
   els.billSubmitBtn.textContent = "Update bill";
   els.billCancelBtn.classList.remove("hidden");
+  scrollEditorIntoView(els.billForm);
 }
 
 async function deleteOrArchiveBudget(budget) {
@@ -3269,6 +3298,12 @@ function openInvestmentEventEditor(eventRecord) {
     return;
   }
   state.editInvestmentEventId = eventRecord.id;
+  if (els.investmentMovementDisclosure) {
+    els.investmentMovementDisclosure.open = true;
+  }
+  if (els.investmentMovementDisclosureSummary) {
+    els.investmentMovementDisclosureSummary.textContent = "Edit investment transaction";
+  }
   state.openInvestmentEventMenuId = null;
   els.investmentMovementAccount.value = investment.id;
   els.investmentMovementType.value = eventRecord.eventType === "withdrawal" ? "withdrawal" : "deposit";
@@ -6117,6 +6152,12 @@ function renderHeader() {
   els.navInvestments.classList.toggle("active", state.currentView === "investments");
   els.navInsights?.classList.toggle("active", state.currentView === "insights");
   els.navSettings?.classList.toggle("active", state.currentView === "settings");
+  [
+    [els.navDashboard, "dashboard"],
+    [els.navInvestments, "investments"],
+    [els.navPlanning, "planning"],
+    [els.navInsights, "insights"]
+  ].forEach(([element, view]) => element?.setAttribute("aria-selected", String(state.currentView === view)));
   if (els.scopeCopy) {
     els.scopeCopy.textContent = state.scope === "personal"
       ? "Showing your owned accounts, your personal planning items, and the activity you created or touched."
@@ -6361,6 +6402,13 @@ function renderPlanningState() {
   els.planningTabSavings?.classList.toggle("active", state.planningTab === "savings");
   els.planningTabBills?.classList.toggle("active", state.planningTab === "bills");
   els.planningTabPerformance?.classList.toggle("active", state.planningTab === "performance");
+  [
+    [els.planningTabAccounts, "accounts"],
+    [els.planningTabBudgets, "budgets"],
+    [els.planningTabSavings, "savings"],
+    [els.planningTabBills, "bills"],
+    [els.planningTabPerformance, "performance"]
+  ].forEach(([element, tab]) => element?.setAttribute("aria-selected", String(state.planningTab === tab)));
   els.planningBudgetsPanel?.classList.toggle("hidden", state.planningTab !== "budgets");
   els.planningSavingsPanel?.classList.toggle("hidden", state.planningTab !== "savings");
   els.planningBillsPanel?.classList.toggle("hidden", state.planningTab !== "bills");
@@ -6381,6 +6429,8 @@ function renderInsightsState() {
   }
   els.insightsTabLedger?.classList.toggle("active", state.insightsTab === "ledger");
   els.insightsTabReport?.classList.toggle("active", state.insightsTab === "report");
+  els.insightsTabLedger?.setAttribute("aria-selected", String(state.insightsTab === "ledger"));
+  els.insightsTabReport?.setAttribute("aria-selected", String(state.insightsTab === "report"));
   els.insightsLedgerPanel?.classList.toggle("hidden", state.insightsTab !== "ledger");
   els.insightsReportPanel?.classList.toggle("hidden", state.insightsTab !== "report");
 }
@@ -6997,12 +7047,12 @@ function renderReportMonthlyTable(model) {
           <span>Allocation</span>
         </div>
         ${model.monthlyRows.map(row => `
-          <button class="report-table-row" type="button" data-action="open-report-month" data-month="${escapeHtml(row.monthKey)}">
-            <span>${escapeHtml(formatMonthKey(row.monthKey))}</span>
-            <span>${escapeHtml(formatRupiah(row.incomeMinor))}</span>
-            <span>${escapeHtml(formatRupiah(row.spendingMinor))}</span>
-            <span class="${row.cashFlowMinor < 0 ? "metric-over" : row.cashFlowMinor > 0 ? "metric-good" : "metric-neutral"}">${escapeHtml(formatRupiah(row.cashFlowMinor))}</span>
-            <span>${escapeHtml(formatRupiah(row.allocationMinor))}</span>
+          <button class="report-table-row report-monthly-row" type="button" data-action="open-report-month" data-month="${escapeHtml(row.monthKey)}">
+            <span data-label="Month">${escapeHtml(formatMonthKey(row.monthKey))}</span>
+            <span data-label="Income">${escapeHtml(formatRupiah(row.incomeMinor))}</span>
+            <span data-label="Real spending">${escapeHtml(formatRupiah(row.spendingMinor))}</span>
+            <span data-label="Cash flow" class="${row.cashFlowMinor < 0 ? "metric-over" : row.cashFlowMinor > 0 ? "metric-good" : "metric-neutral"}">${escapeHtml(formatRupiah(row.cashFlowMinor))}</span>
+            <span data-label="Allocation">${escapeHtml(formatRupiah(row.allocationMinor))}</span>
           </button>
         `).join("")}
       </div>
@@ -7297,6 +7347,12 @@ function renderInvestmentsView() {
   els.investmentNetInvested.textContent = formatRupiah(totalSummary.netInvestedMinor);
   els.investmentGainLoss.textContent = `${totalSummary.gainLossMinor >= 0 ? "+" : "-"}${formatRupiah(Math.abs(totalSummary.gainLossMinor))}`;
   els.investmentGainLoss.className = `summary-value ${totalSummary.gainLossMinor >= 0 ? "income" : "outcome"}`;
+  const hasInvestments = investments.length > 0;
+  els.investmentMovementDisclosure?.classList.toggle("hidden", !hasInvestments);
+  els.investmentMovementPrerequisite?.classList.toggle("hidden", hasInvestments);
+  if (!hasInvestments && els.investmentMovementDisclosure) {
+    els.investmentMovementDisclosure.open = false;
+  }
   els.investmentFormCard?.classList.toggle("hidden", !state.showInvestmentForm);
   if (els.investmentAddPortfolioBtn) {
     els.investmentAddPortfolioBtn.textContent = state.showInvestmentForm ? "Hide form" : "Add a portfolio";
@@ -7513,6 +7569,12 @@ function resetBudgetForm(options = {}) {
   setMoneyInputValue(els.budgetAmount, 0);
   els.budgetSubmitBtn.textContent = "Save budget";
   els.budgetCancelBtn.classList.add("hidden");
+  if (els.budgetFormDisclosure) {
+    els.budgetFormDisclosure.open = false;
+  }
+  if (els.budgetFormDisclosureSummary) {
+    els.budgetFormDisclosureSummary.textContent = "Create budget";
+  }
   if (clearMessage) {
     setMessage(els.budgetMessage, "");
   }
@@ -7533,6 +7595,12 @@ function resetSavingForm(options = {}) {
   setMoneyInputValue(els.savingTargetAmount, 0);
   els.savingSubmitBtn.textContent = "Save saving";
   els.savingCancelBtn.classList.add("hidden");
+  if (els.savingFormDisclosure) {
+    els.savingFormDisclosure.open = false;
+  }
+  if (els.savingFormDisclosureSummary) {
+    els.savingFormDisclosureSummary.textContent = "Create saving goal";
+  }
   if (clearMessage) {
     setMessage(els.savingMessage, "");
   }
@@ -7549,6 +7617,12 @@ function resetBillForm(options = {}) {
   els.billAnchorDate.value = toDateInput(new Date());
   els.billSubmitBtn.textContent = "Save bill";
   els.billCancelBtn.classList.add("hidden");
+  if (els.billFormDisclosure) {
+    els.billFormDisclosure.open = false;
+  }
+  if (els.billFormDisclosureSummary) {
+    els.billFormDisclosureSummary.textContent = "Create recurring bill";
+  }
   if (clearMessage) {
     setMessage(els.billMessage, "");
   }
@@ -7584,6 +7658,12 @@ function resetInvestmentMovementForm(options = {}) {
   setMoneyInputValue(els.investmentMovementAmount, 0);
   setMoneyInputValue(els.investmentMovementFeeAmount, 0);
   els.investmentMovementSubmitBtn.textContent = "Save movement";
+  if (els.investmentMovementDisclosure) {
+    els.investmentMovementDisclosure.open = false;
+  }
+  if (els.investmentMovementDisclosureSummary) {
+    els.investmentMovementDisclosureSummary.textContent = "Create investment transaction";
+  }
   if (clearMessage) {
     setMessage(els.investmentMovementMessage, "");
   }

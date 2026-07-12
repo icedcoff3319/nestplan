@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260712c" />
+  <link rel="stylesheet" href="./styles.css?v=20260712d" />
 </head>
 <body>
   <main class="app-shell">
@@ -507,10 +507,10 @@
 
         <div class="nav-row">
           <div class="view-nav" role="tablist" aria-label="App sections">
-            <button id="nav-dashboard" class="view-nav-btn active" type="button" data-view="dashboard">Dashboard</button>
-            <button id="nav-investments" class="view-nav-btn" type="button" data-view="investments">Investment</button>
-            <button id="nav-planning" class="view-nav-btn" type="button" data-view="planning">Planning</button>
-            <button id="nav-insights" class="view-nav-btn" type="button" data-view="insights">Insights</button>
+            <button id="nav-dashboard" class="view-nav-btn active" type="button" role="tab" aria-selected="true" data-view="dashboard">Dashboard</button>
+            <button id="nav-investments" class="view-nav-btn" type="button" role="tab" aria-selected="false" data-view="investments">Investment</button>
+            <button id="nav-planning" class="view-nav-btn" type="button" role="tab" aria-selected="false" data-view="planning">Planning</button>
+            <button id="nav-insights" class="view-nav-btn" type="button" role="tab" aria-selected="false" data-view="insights">Insights</button>
           </div>
         </div>
         <p id="scope-copy" class="card-subtle header-scope-copy hidden">Showing your owned accounts and the activity you created or touched.</p>
@@ -734,11 +734,11 @@
             </div>
 
             <div class="segmented-control" role="group" aria-label="Planning section">
-              <button id="planning-tab-accounts" class="segment-btn active" type="button" data-planning-tab="accounts">Accounts & Categories</button>
-              <button id="planning-tab-budgets" class="segment-btn" type="button" data-planning-tab="budgets">Budgets</button>
-              <button id="planning-tab-savings" class="segment-btn" type="button" data-planning-tab="savings">Savings</button>
-              <button id="planning-tab-bills" class="segment-btn" type="button" data-planning-tab="bills">Bills</button>
-              <button id="planning-tab-performance" class="segment-btn" type="button" data-planning-tab="performance">Performance</button>
+              <button id="planning-tab-accounts" class="segment-btn active" type="button" role="tab" aria-selected="true" data-planning-tab="accounts">Accounts & Categories</button>
+              <button id="planning-tab-budgets" class="segment-btn" type="button" role="tab" aria-selected="false" data-planning-tab="budgets">Budgets</button>
+              <button id="planning-tab-savings" class="segment-btn" type="button" role="tab" aria-selected="false" data-planning-tab="savings">Savings</button>
+              <button id="planning-tab-bills" class="segment-btn" type="button" role="tab" aria-selected="false" data-planning-tab="bills">Bills</button>
+              <button id="planning-tab-performance" class="segment-btn" type="button" role="tab" aria-selected="false" data-planning-tab="performance">Performance</button>
             </div>
           </section>
 
@@ -753,6 +753,9 @@
                   </div>
                 </div>
 
+                <details id="budget-form-disclosure" class="creation-disclosure">
+                  <summary id="budget-form-disclosure-summary">Create budget</summary>
+                  <div class="creation-disclosure-body">
                 <form id="budget-form" class="field-stack compact-form">
                   <input id="budget-edit-id" type="hidden" />
                   <div class="field-group">
@@ -803,8 +806,10 @@
                     <button id="budget-submit-btn" class="primary-btn" type="submit">Save budget</button>
                     <button id="budget-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
                   </div>
-                  <div id="budget-message" class="message" aria-live="polite"></div>
                 </form>
+                  </div>
+                </details>
+                <div id="budget-message" class="message" aria-live="polite"></div>
               </section>
 
               <section class="card">
@@ -833,6 +838,9 @@
                   </div>
                 </div>
 
+                <details id="saving-form-disclosure" class="creation-disclosure">
+                  <summary id="saving-form-disclosure-summary">Create saving goal</summary>
+                  <div class="creation-disclosure-body">
                 <form id="saving-form" class="field-stack compact-form">
                   <input id="saving-edit-id" type="hidden" />
                   <div class="field-group">
@@ -861,7 +869,6 @@
                     <button id="saving-submit-btn" class="primary-btn" type="submit">Save saving</button>
                     <button id="saving-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
                   </div>
-                  <div id="saving-message" class="message" aria-live="polite"></div>
                 </form>
 
                 <div class="section-divider"></div>
@@ -871,6 +878,9 @@
                   <p class="status-copy">Savings no longer support manual progress adjustments.</p>
                   <p class="status-copy">Add funds with <strong>Transfer</strong> into a saving target, and spend them by choosing the saving as the source account in an <strong>Outcome</strong> transaction.</p>
                 </article>
+                  </div>
+                </details>
+                <div id="saving-message" class="message" aria-live="polite"></div>
               </section>
 
               <section class="card">
@@ -900,6 +910,9 @@
                   </div>
                 </div>
 
+                <details id="bill-form-disclosure" class="creation-disclosure">
+                  <summary id="bill-form-disclosure-summary">Create recurring bill</summary>
+                  <div class="creation-disclosure-body">
                 <form id="bill-form" class="field-stack compact-form">
                   <input id="bill-edit-id" type="hidden" />
                   <div class="field-group">
@@ -940,8 +953,10 @@
                     <button id="bill-submit-btn" class="primary-btn" type="submit">Save bill</button>
                     <button id="bill-cancel-btn" class="ghost-btn hidden" type="button">Cancel edit</button>
                   </div>
-                  <div id="bill-message" class="message" aria-live="polite"></div>
                 </form>
+                  </div>
+                </details>
+                <div id="bill-message" class="message" aria-live="polite"></div>
               </section>
 
               <section class="card">
@@ -1032,8 +1047,8 @@
             </div>
 
             <div class="segmented-control" role="group" aria-label="Insights section">
-              <button id="insights-tab-ledger" class="segment-btn active" type="button" data-insights-tab="ledger">Ledger</button>
-              <button id="insights-tab-report" class="segment-btn" type="button" data-insights-tab="report">Report</button>
+              <button id="insights-tab-ledger" class="segment-btn active" type="button" role="tab" aria-selected="true" data-insights-tab="ledger">Ledger</button>
+              <button id="insights-tab-report" class="segment-btn" type="button" role="tab" aria-selected="false" data-insights-tab="report">Report</button>
             </div>
           </section>
 
@@ -1047,10 +1062,13 @@
                   </div>
                   <button id="transaction-import-template-btn" class="ghost-btn small-btn" type="button">Download template</button>
                 </div>
+                <details id="transaction-import-disclosure" class="creation-disclosure compact-disclosure">
+                  <summary>Upload and preview CSV</summary>
+                  <div class="creation-disclosure-body">
                 <div class="ledger-filter-grid transaction-import-controls">
                   <div class="field-group">
                     <label for="transaction-import-input">CSV file</label>
-                    <input id="transaction-import-input" type="file" accept=".csv,text/csv,text/plain" />
+                    <input id="transaction-import-input" class="file-input" type="file" accept=".csv,text/csv,text/plain" />
                   </div>
                   <div class="field-group import-preview-note">
                     <span>Safe import</span>
@@ -1061,8 +1079,10 @@
                   <button id="transaction-import-confirm-btn" class="primary-btn small-btn hidden" type="button">Import validated rows</button>
                   <button id="transaction-import-clear-btn" class="ghost-btn small-btn" type="button">Clear preview</button>
                 </div>
-                <div id="transaction-import-message" class="message" aria-live="polite"></div>
                 <div id="transaction-import-preview" class="transaction-import-preview"></div>
+                  </div>
+                </details>
+                <div id="transaction-import-message" class="message" aria-live="polite"></div>
               </section>
 
               <section id="ledger-page-filter-card" class="card sticky-report-controls compact-ledger-filter-card">
@@ -1400,11 +1420,15 @@
             <section class="card">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Create investment transaction</h3>
+                  <h3 class="card-title">Investment activity</h3>
                   <p class="card-subtle">Cash movements affect account balance but stay separate from monthly income, expenses, and budgets.</p>
                 </div>
               </div>
 
+              <p id="investment-movement-prerequisite" class="status-copy hidden">Create a portfolio before recording investment deposits or withdrawals.</p>
+              <details id="investment-movement-disclosure" class="creation-disclosure">
+                <summary id="investment-movement-disclosure-summary">Create investment transaction</summary>
+                <div class="creation-disclosure-body">
               <form id="investment-movement-form" class="field-stack compact-form">
                 <div class="field-grid two-up">
                   <div class="field-group">
@@ -1453,8 +1477,10 @@
                   <input id="investment-movement-note" type="text" placeholder="Monthly deposit" />
                 </div>
                 <button id="investment-movement-submit-btn" class="primary-btn" type="submit">Save movement</button>
-                <div id="investment-movement-message" class="message" aria-live="polite"></div>
               </form>
+                </div>
+              </details>
+              <div id="investment-movement-message" class="message" aria-live="polite"></div>
             </section>
 
             <section class="card">
@@ -1635,7 +1661,7 @@
                 <label for="profile-display-name">Display name</label>
                 <input id="profile-display-name" type="text" placeholder="Your name" />
               </div>
-              <div class="field-group">
+              <div class="field-group hidden" aria-hidden="true">
                 <label for="settings-household-switcher">Active household</label>
                 <select id="settings-household-switcher"></select>
               </div>
@@ -1808,7 +1834,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260712c";
+    window.__nestplanBuild = "20260712d";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1929,7 +1955,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260712c").catch(function (error) {
+    import("./app.js?v=20260712d").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");

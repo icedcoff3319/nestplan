@@ -1,4 +1,4 @@
-import { parseDelimitedLine } from "./category-import.js?v=20260712c";
+import { parseDelimitedLine } from "./category-import.js?v=20260712d";
 
 export const TRANSACTION_IMPORT_COLUMNS = [
   "Transaction Date",
