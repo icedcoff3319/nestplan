@@ -68,8 +68,9 @@ V1 parser foundation:
 
 - Parse and validate CSV structure, references, ownership, category direction, and transfer/saving target shape.
 - Provide a preview-only UI in Insights > Ledger with template download, blocking errors, row count, totals, and normalized row preview.
-- Do not write to Firestore yet.
-- Do not yet simulate balances.
+- Simulate account and saving balances before write by appending candidate rows to current active ledger rows.
+- Confirm import after preview, then write all transaction rows in one Firestore batch or write nothing.
+- Limit confirmed imports to 150 CSV rows so the worst-case write size stays under Firestore's 500-write batch limit.
 - Do not yet support balance correction, recurring bill completion, or investment-specific transaction import.
 
 ## Edge Cases

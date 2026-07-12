@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260627a";
+} from "./firebase-client.js?v=20260712a";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260627a";
+} from "./constants.js?v=20260712a";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,22 +43,22 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260627a";
+} from "./access-utils.js?v=20260712a";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260627a";
+} from "./category-import.js?v=20260712a";
 import {
   buildTransactionImportTemplate,
   parseTransactionImportCsv
-} from "./transaction-import.js?v=20260627a";
+} from "./transaction-import.js?v=20260712a";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260627a";
+} from "./csv-export.js?v=20260712a";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260627a";
+} from "./ledger-display.js?v=20260712a";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -76,7 +76,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260627a";
+} from "./format-utils.js?v=20260712a";
 import {
   capitalize,
   cleanText,
@@ -85,7 +85,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260627a";
+} from "./text-utils.js?v=20260712a";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -99,6 +99,7 @@ const PROTECTED_SYSTEM_CATEGORY_KEYS = new Set([
   "admin_fee",
   ...INVESTMENT_CATEGORY_KEYS
 ]);
+const TRANSACTION_IMPORT_WRITE_ROW_LIMIT = 150;
 
 const state = {
   bootStatus: "loading",
@@ -479,6 +480,7 @@ const els = {
   ledgerLoadMoreBtn: document.getElementById("ledger-load-more-btn"),
   transactionImportTemplateBtn: document.getElementById("transaction-import-template-btn"),
   transactionImportInput: document.getElementById("transaction-import-input"),
+  transactionImportConfirmBtn: document.getElementById("transaction-import-confirm-btn"),
   transactionImportClearBtn: document.getElementById("transaction-import-clear-btn"),
   transactionImportMessage: document.getElementById("transaction-import-message"),
   transactionImportPreview: document.getElementById("transaction-import-preview"),
@@ -803,6 +805,7 @@ const MAINTENANCE_WRITE_ACTIONS = new Set([
 
 const MAINTENANCE_WRITE_BUTTON_IDS = new Set([
   "category-defaults-btn",
+  "transaction-import-confirm-btn",
   "settings-password-reset-btn"
 ]);
 
@@ -995,6 +998,9 @@ function bindEvents() {
   els.transactionImportTemplateBtn?.addEventListener("click", handleTransactionImportTemplateDownload);
   els.transactionImportInput?.addEventListener("change", event => {
     void handleTransactionImportFileChange(event);
+  });
+  els.transactionImportConfirmBtn?.addEventListener("click", () => {
+    void handleTransactionImportConfirm();
   });
   els.transactionImportClearBtn?.addEventListener("click", clearTransactionImportPreview);
   els.insightsTabLedger?.addEventListener("click", () => setInsightsTab("ledger"));
@@ -1491,7 +1497,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260627a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260712a");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -4596,22 +4602,27 @@ async function handleTransactionImportFileChange(event) {
 
     const text = await file.text();
     const result = parseTransactionImportCsv(text, getTransactionImportContext());
-    const errors = result.errors.length
-      ? result.errors
-      : result.rows.length
-        ? []
-        : ["The CSV has a header but no transaction rows."];
+    const simulation = result.errors.length ? { errors: [] } : validateTransactionImportRows(result.rows);
+    const errors = [
+      ...result.errors,
+      ...simulation.errors,
+      ...(!result.errors.length && !simulation.errors.length && !result.rows.length
+        ? ["The CSV has a header but no transaction rows."]
+        : [])
+    ];
     state.transactionImportPreview = {
       fileName: file.name,
       rows: result.rows,
-      errors
+      errors,
+      writeCount: simulation.writeCount || 0,
+      overBudgetNames: simulation.overBudgetNames || []
     };
     renderTransactionImportPreview();
     setMessage(
       els.transactionImportMessage,
       errors.length
         ? `CSV preview found ${errors.length} blocking issue${errors.length === 1 ? "" : "s"}. Nothing was imported.`
-        : `Preview ready: ${result.rows.length} row${result.rows.length === 1 ? "" : "s"} validated. Nothing has been saved yet.`,
+        : `Preview ready: ${result.rows.length} row${result.rows.length === 1 ? "" : "s"} validated. Confirm to save ${simulation.writeCount} ledger row${simulation.writeCount === 1 ? "" : "s"}.`,
       errors.length ? "error" : "success"
     );
   } catch (error) {
@@ -4641,8 +4652,293 @@ function getTransactionImportContext() {
     authUserId: state.authUser?.uid || "",
     accounts: state.accounts,
     categories: state.categories,
-    savingGoals: state.savingGoals
+    savingGoals: state.savingGoals,
+    rowLimit: TRANSACTION_IMPORT_WRITE_ROW_LIMIT
   };
+}
+
+async function handleTransactionImportConfirm() {
+  const preview = state.transactionImportPreview;
+  setMessage(els.transactionImportMessage, "");
+
+  if (!preview || !preview.rows?.length || preview.errors?.length) {
+    setMessage(els.transactionImportMessage, "Upload and fix a CSV preview before importing.", "error");
+    return;
+  }
+
+  const simulation = validateTransactionImportRows(preview.rows);
+  if (simulation.errors.length) {
+    state.transactionImportPreview = {
+      ...preview,
+      errors: simulation.errors,
+      writeCount: 0,
+      overBudgetNames: []
+    };
+    renderTransactionImportPreview();
+    setMessage(els.transactionImportMessage, `Import stopped. ${simulation.errors.length} issue${simulation.errors.length === 1 ? "" : "s"} must be fixed first.`, "error");
+    return;
+  }
+
+  if (!window.confirm(`Import ${preview.rows.length} CSV row${preview.rows.length === 1 ? "" : "s"} as ${simulation.writeCount} ledger row${simulation.writeCount === 1 ? "" : "s"}? This cannot be undone except by deleting the created entries.`)) {
+    return;
+  }
+
+  setButtonLoading(els.transactionImportConfirmBtn, true, "Importing...");
+  try {
+    const result = await commitTransactionImportRows(preview.rows);
+    const budgetWarning = result.overBudgetNames.length
+      ? ` Budget warning: ${result.overBudgetNames.join(", ")} ${result.overBudgetNames.length === 1 ? "is" : "are"} over budget.`
+      : "";
+    state.transactionImportPreview = null;
+    renderTransactionImportPreview();
+    setMessage(
+      els.transactionImportMessage,
+      `Imported ${preview.rows.length} CSV row${preview.rows.length === 1 ? "" : "s"} as ${result.writeCount} ledger row${result.writeCount === 1 ? "" : "s"}.${budgetWarning}`,
+      budgetWarning ? "error" : "success"
+    );
+  } catch (error) {
+    setMessage(
+      els.transactionImportMessage,
+      isPermissionDeniedError(error)
+        ? "Firebase denied the import. The file may include a row shape that no longer matches the rules; re-preview and try again."
+        : error.message,
+      "error"
+    );
+  } finally {
+    setButtonLoading(els.transactionImportConfirmBtn, false);
+  }
+}
+
+function validateTransactionImportRows(rows = []) {
+  const errors = [];
+  const projectedRows = [...getActiveRawTransactions()];
+  const pendingRows = [];
+  const overBudgetNames = [];
+
+  if (rows.length > TRANSACTION_IMPORT_WRITE_ROW_LIMIT) {
+    errors.push(`Import is limited to ${TRANSACTION_IMPORT_WRITE_ROW_LIMIT} rows so it can save atomically.`);
+    return { errors, pendingRows, writeCount: 0, overBudgetNames };
+  }
+
+  rows.forEach(row => {
+    try {
+      const candidateRows = buildTransactionImportLedgerRows(row, { transactionCollection: null })
+        .map(item => item.payload);
+      validateTransactionImportCandidate(row, candidateRows, projectedRows);
+      pendingRows.push(...candidateRows);
+      projectedRows.push(...candidateRows);
+    } catch (error) {
+      errors.push(`Row ${row.rowNumber}: ${error.message}`);
+    }
+  });
+
+  if (!errors.length) {
+    overBudgetNames.push(...getOverBudgetNamesForRows(projectedRows));
+  }
+
+  return {
+    errors,
+    pendingRows,
+    writeCount: pendingRows.length,
+    overBudgetNames
+  };
+}
+
+function validateTransactionImportCandidate(row, candidateRows, projectedRows) {
+  if (!candidateRows.length) {
+    throw new Error("No ledger rows were built.");
+  }
+
+  if (row.type === "outcome") {
+    assertRegularAccountSpendAllowed(row.accountId, Number(row.amountMinor || 0) + Number(row.feeMinor || 0), projectedRows);
+    return;
+  }
+
+  if (row.type === "transfer") {
+    assertRegularAccountSpendAllowed(row.accountId, Number(row.amountMinor || 0) + Number(row.feeMinor || 0), projectedRows);
+  }
+}
+
+async function commitTransactionImportRows(rows = []) {
+  const simulation = validateTransactionImportRows(rows);
+  if (simulation.errors.length) {
+    throw new Error(simulation.errors.join(" "));
+  }
+
+  const transactionCollection = collection(db, "households", state.household.id, "transactions");
+  const batch = writeBatch(db);
+  const writes = rows.flatMap(row => buildTransactionImportLedgerRows(row, { transactionCollection }));
+  writes.forEach(write => {
+    batch.set(write.ref, write.payload);
+  });
+  await batch.commit();
+
+  const projectedRows = [
+    ...getActiveRawTransactions(),
+    ...writes.map(write => write.payload)
+  ];
+  return {
+    writeCount: writes.length,
+    overBudgetNames: getOverBudgetNamesForRows(projectedRows)
+  };
+}
+
+function buildTransactionImportLedgerRows(row, { transactionCollection = null } = {}) {
+  const account = getActiveAccounts().find(item => item.id === row.accountId);
+  const transactionAt = Timestamp.fromDate(new Date(`${row.transactionDate}T12:00:00`));
+  const note = cleanText(row.note || "");
+
+  if (!account) {
+    throw new Error("Source account is no longer active.");
+  }
+  if (account.primaryOwnerUserId !== state.authUser?.uid) {
+    throw new Error("Source account must belong to the signed-in user.");
+  }
+
+  if (row.type === "income" || row.type === "outcome") {
+    const category = getActiveCategories().find(item => item.id === row.categoryId);
+    if (!category) {
+      throw new Error("Category is no longer active.");
+    }
+    if (isProtectedSystemCategory(category)) {
+      throw new Error("System categories are created by NestPlan flows. Choose a normal income or outcome category.");
+    }
+    if (!isCategoryAllowedForKind(category, row.type)) {
+      throw new Error(`Category direction does not match ${row.type}.`);
+    }
+    if (row.type === "income" && row.feeMinor) {
+      throw new Error("Fee Amount is only allowed for outcome or transfer rows.");
+    }
+    const transactionRef = createTransactionImportRef(transactionCollection, `import-row-${row.rowNumber}`);
+    const builtRows = [{
+      ref: transactionRef.ref,
+      payload: buildSingleRow({
+        id: transactionRef.id,
+        kind: row.type,
+        amountMinor: row.amountMinor,
+        note,
+        transactionAt,
+        account,
+        category
+      })
+    }];
+    return appendTransactionImportFeeRow(builtRows, {
+      row,
+      transactionCollection,
+      note,
+      fallbackNote: category.name,
+      transactionAt,
+      account
+    });
+  }
+
+  if (row.type === "transfer") {
+    const toAccount = getActiveAccounts().find(item => item.id === row.toAccountId);
+    const savingGoal = row.savingGoalId
+      ? state.savingGoals.find(item => item.id === row.savingGoalId && item.status === "active")
+      : null;
+    if (!toAccount) {
+      throw new Error("Destination account is no longer active.");
+    }
+    if (row.savingGoalId && !savingGoal) {
+      throw new Error("Saving goal is no longer active.");
+    }
+    if (savingGoal && savingGoal.linkedAccountId !== toAccount.id) {
+      throw new Error("Saving goal is linked to a different destination account.");
+    }
+    if (account.id === toAccount.id && !savingGoal) {
+      throw new Error("Transfer source and destination must be different unless reserving to a saving goal.");
+    }
+
+    const groupId = transactionCollection
+      ? doc(transactionCollection).id
+      : `import-group-${row.rowNumber}`;
+    const outRef = createTransactionImportRef(transactionCollection, `import-row-${row.rowNumber}-out`);
+    const inRef = createTransactionImportRef(transactionCollection, `import-row-${row.rowNumber}-in`);
+    const resolvedNote = note || (savingGoal ? cleanText(savingGoal.name) : "");
+    const builtRows = [
+      {
+        ref: outRef.ref,
+        payload: buildTransferRow({
+          id: outRef.id,
+          groupId,
+          postingKind: "transfer_out",
+          amountMinor: row.amountMinor,
+          note: resolvedNote,
+          transactionAt,
+          account,
+          counterpartyAccount: toAccount,
+          savingGoalId: null
+        })
+      },
+      {
+        ref: inRef.ref,
+        payload: buildTransferRow({
+          id: inRef.id,
+          groupId,
+          postingKind: "transfer_in",
+          amountMinor: row.amountMinor,
+          note: resolvedNote,
+          transactionAt,
+          account: toAccount,
+          counterpartyAccount: account,
+          savingGoalId: savingGoal?.id || null
+        })
+      }
+    ];
+    return appendTransactionImportFeeRow(builtRows, {
+      row,
+      transactionCollection,
+      note: resolvedNote,
+      fallbackNote: "Transfer",
+      transactionAt,
+      account
+    });
+  }
+
+  throw new Error("Unsupported transaction type.");
+}
+
+function createTransactionImportRef(transactionCollection, fallbackId) {
+  if (transactionCollection) {
+    const ref = doc(transactionCollection);
+    return { id: ref.id, ref };
+  }
+  return { id: fallbackId, ref: null };
+}
+
+function appendTransactionImportFeeRow(rows, { row, transactionCollection, note, fallbackNote, transactionAt, account }) {
+  if (!row.feeMinor) {
+    return rows;
+  }
+
+  const category = getAdminFeeCategory();
+  if (!category) {
+    throw new Error("Admin Fee category is not ready yet. Wait a moment, then try again.");
+  }
+  const feeRef = createTransactionImportRef(transactionCollection, `import-row-${row.rowNumber}-fee`);
+  return [
+    ...rows,
+    {
+      ref: feeRef.ref,
+      payload: buildSingleRow({
+        id: feeRef.id,
+        kind: "outcome",
+        amountMinor: row.feeMinor,
+        note: cleanText(note) || cleanText(fallbackNote) || category.name,
+        transactionAt,
+        account,
+        category
+      })
+    }
+  ];
+}
+
+function getOverBudgetNamesForRows(rows) {
+  return getVisibleBudgets()
+    .map(budget => buildBudgetSummary(budget, rows))
+    .filter(summary => summary.state === "over")
+    .map(summary => summary.name);
 }
 
 function renderTransactionImportPreview() {
@@ -4651,11 +4947,16 @@ function renderTransactionImportPreview() {
   }
 
   const preview = state.transactionImportPreview;
+  const canImport = Boolean(preview?.rows?.length && !preview.errors?.length);
+  els.transactionImportConfirmBtn?.classList.toggle("hidden", !canImport);
+  if (els.transactionImportConfirmBtn) {
+    els.transactionImportConfirmBtn.disabled = !canImport;
+  }
   if (!preview) {
     els.transactionImportPreview.innerHTML = `
       <div class="empty-card">
         <h4>No CSV preview yet</h4>
-        <p>Download the template, fill it, then upload it here. This preview does not create ledger rows.</p>
+        <p>Download the template, fill it, then upload it here. You can confirm the import after validation passes.</p>
       </div>
     `;
     return;
@@ -4680,12 +4981,13 @@ function renderTransactionImportPreview() {
   const visibleRows = rows.slice(0, 10);
   const totalMinor = rows.reduce((sum, row) => sum + row.amountMinor, 0);
   const feeMinor = rows.reduce((sum, row) => sum + row.feeMinor, 0);
+  const writeCount = Number(preview.writeCount || 0);
   els.transactionImportPreview.innerHTML = `
     <div class="transaction-import-summary">
       <span><strong>${escapeHtml(String(rows.length))}</strong><small>Rows ready</small></span>
       <span><strong>${escapeHtml(formatRupiah(totalMinor))}</strong><small>Main total</small></span>
       <span><strong>${escapeHtml(formatRupiah(feeMinor))}</strong><small>Fee total</small></span>
-      <span><strong>Preview only</strong><small>No writes yet</small></span>
+      <span><strong>${escapeHtml(String(writeCount))}</strong><small>Ledger rows to save</small></span>
     </div>
     <div class="admin-table-wrap transaction-import-table-wrap">
       <div class="admin-table transaction-import-table">

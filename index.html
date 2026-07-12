@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260627a" />
+  <link rel="stylesheet" href="./styles.css?v=20260712a" />
 </head>
 <body>
   <main class="app-shell">
@@ -1043,7 +1043,7 @@
                 <div class="card-header space-between compact-card-header">
                   <div>
                     <h3 class="card-title">Import transactions</h3>
-                    <p class="card-subtle">Preview a filled CSV template before any ledger data is saved.</p>
+                    <p class="card-subtle">Preview a filled CSV template, then confirm to save all validated rows.</p>
                   </div>
                   <button id="transaction-import-template-btn" class="ghost-btn small-btn" type="button">Download template</button>
                 </div>
@@ -1053,11 +1053,12 @@
                     <input id="transaction-import-input" type="file" accept=".csv,text/csv,text/plain" />
                   </div>
                   <div class="field-group import-preview-note">
-                    <span>Preview only</span>
-                    <p class="status-copy">This step validates rows and references. It does not create transactions yet.</p>
+                    <span>Safe import</span>
+                    <p class="status-copy">Rows are validated first. Confirmed imports save everything in one batch or nothing.</p>
                   </div>
                 </div>
                 <div class="action-row compact-actions">
+                  <button id="transaction-import-confirm-btn" class="primary-btn small-btn hidden" type="button">Import validated rows</button>
                   <button id="transaction-import-clear-btn" class="ghost-btn small-btn" type="button">Clear preview</button>
                 </div>
                 <div id="transaction-import-message" class="message" aria-live="polite"></div>
@@ -1794,7 +1795,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260627a";
+    window.__nestplanBuild = "20260712a";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1915,7 +1916,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260627a").catch(function (error) {
+    import("./app.js?v=20260712a").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");
