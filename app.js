@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260712b";
+} from "./firebase-client.js?v=20260712c";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260712b";
+} from "./constants.js?v=20260712c";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,25 +43,25 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260712b";
+} from "./access-utils.js?v=20260712c";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260712b";
+} from "./category-import.js?v=20260712c";
 import {
   buildTransactionImportTemplate,
   parseTransactionImportCsv
-} from "./transaction-import.js?v=20260712b";
+} from "./transaction-import.js?v=20260712c";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260712b";
+} from "./csv-export.js?v=20260712c";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260712b";
+} from "./ledger-display.js?v=20260712c";
 import {
   summarizeMoneyFlow
-} from "./report-utils.js?v=20260712b";
+} from "./report-utils.js?v=20260712c";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -79,7 +79,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260712b";
+} from "./format-utils.js?v=20260712c";
 import {
   capitalize,
   cleanText,
@@ -88,7 +88,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260712b";
+} from "./text-utils.js?v=20260712c";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -1506,7 +1506,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260712b");
+  url.searchParams.set("v", window.__nestplanBuild || "20260712c");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -6876,8 +6876,11 @@ function buildReportVerdict(model) {
     : flow.cashFlowMinor < 0
       ? "Cash deficit in this range."
       : "Income and real spending are balanced.";
-  if (model.months.length < 2 || flow.medianMonthlySpendingMinor <= 0) {
+  if (model.months.length < 2) {
     return `${cashFlowLabel} Select at least two months to compare typical and average spending.`;
+  }
+  if (flow.medianMonthlySpendingMinor <= 0) {
+    return `${cashFlowLabel} Add spending in more months to establish a typical-month comparison.`;
   }
   const differencePercent = Math.round(((flow.averageMonthlySpendingMinor - flow.medianMonthlySpendingMinor) / flow.medianMonthlySpendingMinor) * 100);
   if (Math.abs(differencePercent) <= 5) {
