@@ -23,7 +23,7 @@ import {
   updateProfile,
   where,
   writeBatch
-} from "./firebase-client.js?v=20260712a";
+} from "./firebase-client.js?v=20260712b";
 import {
   CATEGORY_DIRECTIONS,
   CURRENCY_CODE,
@@ -34,7 +34,7 @@ import {
   MAX_HOUSEHOLDS,
   SYSTEM_CATEGORY_SEEDS,
   TIMEZONE
-} from "./constants.js?v=20260712a";
+} from "./constants.js?v=20260712b";
 import {
   cleanInviteCode,
   clampRegistrationExpiryDays,
@@ -43,22 +43,25 @@ import {
   serializeBlockedDomain,
   serializeEmailOverride,
   serializeRegistrationCode
-} from "./access-utils.js?v=20260712a";
+} from "./access-utils.js?v=20260712b";
 import {
   getCategoryImportKey,
   parseCategoryCsv
-} from "./category-import.js?v=20260712a";
+} from "./category-import.js?v=20260712b";
 import {
   buildTransactionImportTemplate,
   parseTransactionImportCsv
-} from "./transaction-import.js?v=20260712a";
+} from "./transaction-import.js?v=20260712b";
 import {
   buildCsv,
   buildExportFilename
-} from "./csv-export.js?v=20260712a";
+} from "./csv-export.js?v=20260712b";
 import {
   buildHistoryDisplay
-} from "./ledger-display.js?v=20260712a";
+} from "./ledger-display.js?v=20260712b";
+import {
+  summarizeMoneyFlow
+} from "./report-utils.js?v=20260712b";
 import {
   addMonthsClamped,
   addScheduleDate,
@@ -76,7 +79,7 @@ import {
   startOfDay,
   toDateInput,
   toMonthInput
-} from "./format-utils.js?v=20260712a";
+} from "./format-utils.js?v=20260712b";
 import {
   capitalize,
   cleanText,
@@ -85,7 +88,7 @@ import {
   normalizeDomain,
   normalizeEmail,
   sanitizeStringArray
-} from "./text-utils.js?v=20260712a";
+} from "./text-utils.js?v=20260712b";
 
 const SAVING_ACCOUNT_OPTION_PREFIX = "saving::";
 const INVESTMENT_ACCOUNT_OPTION_PREFIX = "investment::";
@@ -214,7 +217,7 @@ const state = {
     memberIds: [],
     includeSavingSpending: false
   },
-  reportBudgetMode: "average",
+  reportBudgetMode: "median",
   reportBudgetRanking: "frequent",
   reportBudgetBuffer: "normal",
   reportDrillCategoryId: "",
@@ -553,10 +556,15 @@ const els = {
   reportMemberFilterGroup: document.getElementById("report-member-filter-group"),
   reportIncludeSavingSpending: document.getElementById("report-include-saving-spending"),
   reportScopeNote: document.getElementById("report-scope-note"),
-  reportTotalSpent: document.getElementById("report-total-spent"),
+  reportIncome: document.getElementById("report-income"),
+  reportRealSpending: document.getElementById("report-real-spending"),
+  reportCashFlow: document.getElementById("report-cash-flow"),
+  reportMedianMonthly: document.getElementById("report-median-monthly"),
   reportAverageMonthly: document.getElementById("report-average-monthly"),
-  reportTopCategoryShare: document.getElementById("report-top-category-share"),
-  reportMonthsCovered: document.getElementById("report-months-covered"),
+  reportAllocation: document.getElementById("report-allocation"),
+  reportVerdict: document.getElementById("report-verdict"),
+  reportCategoryTitle: document.getElementById("report-category-title"),
+  reportCategoryCopy: document.getElementById("report-category-copy"),
   reportCategoryBreakdown: document.getElementById("report-category-breakdown"),
   reportCategoryDrill: document.getElementById("report-category-drill"),
   reportMonthlyTable: document.getElementById("report-monthly-table"),
@@ -699,35 +707,36 @@ const INFO_TOPICS = {
   "report-controls": {
     title: "Report controls",
     paragraphs: [
-      "The report uses the current My view or Household view, then applies the selected time range and filters.",
-      "Leaving Accounts or Categories on Auto all means every currently visible option is included, including future options that appear later."
+      "The report uses the current My view or Household view and selected time range.",
+      "Account and member filters affect the whole report. Category, direction, and savings-spending filters affect the detailed breakdown only, so the Money Flow summary stays complete."
     ]
   },
   "report-kpis": {
-    title: "Report KPIs",
+    title: "Money Flow",
     paragraphs: [
-      "Total spent sums matching outcome rows in the selected range.",
-      "Average per month divides the selected spending by the number of calendar months covered. Top category share is the largest category's share of total spending."
+      "Cash surplus or deficit is income minus real spending. Balance corrections, transfers, saving allocations, and investment deposits are not treated as income or spending.",
+      "Median shows the typical calendar month and is less affected by unusual spikes. Average shows the true monthly burn across the range. Purchases paid from savings still count as real spending.",
+      "Saving allocations and investment deposits are shown separately. Investment withdrawals are movements of existing assets, not new income. Partial months are included when they are inside the selected range."
     ]
   },
   "report-category-breakdown": {
     title: "Category breakdown",
     paragraphs: [
       "Categories are ranked from highest to lowest spending in the selected range.",
-      "Average per month is total category spending divided by months covered. Trend compares against the previous equal-length period."
+      "Median per month shows the typical category month; average includes every spike. Trend compares the total with the previous equal-length period."
     ]
   },
   "report-monthly-view": {
     title: "Monthly view",
     paragraphs: [
-      "Monthly view groups matching rows by transaction month.",
-      "Spent uses outcome rows, income uses income rows, and net is income minus spent. Tap a month to lock the report to that month."
+      "Monthly view groups the complete Money Flow summary by transaction month.",
+      "Cash flow is income minus real spending. Allocation combines saving funding and investment deposits. Tap a month to lock the report to that month."
     ]
   },
   "report-budget-performance": {
     title: "Budget performance",
     paragraphs: [
-      "Budget performance compares visible budgets with matching outcome transactions in the report range.",
+      "Budget performance compares visible budgets with matching real spending in the report range.",
       "Hit rate is the percentage of months within budget. Overspend rankings use the months where spending exceeded the budget."
     ]
   },
@@ -1497,7 +1506,7 @@ async function sendVerificationEmail(user) {
 
 function getAppReturnUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("v", window.__nestplanBuild || "20260712a");
+  url.searchParams.set("v", window.__nestplanBuild || "20260712b");
   url.searchParams.set(VERIFICATION_RETURN_PARAM, "1");
   url.searchParams.delete(ADMIN_ROUTE_PARAM);
   url.hash = "";
@@ -6560,7 +6569,7 @@ function handleReportControlsChange() {
     memberIds: getMultiSelectValues(els.reportMemberFilter),
     includeSavingSpending: Boolean(els.reportIncludeSavingSpending?.checked)
   };
-  state.reportBudgetMode = els.reportBudgetMode?.value || "average";
+  state.reportBudgetMode = els.reportBudgetMode?.value || "median";
   state.reportBudgetRanking = els.reportBudgetRanking?.value || "frequent";
   state.reportBudgetBuffer = els.reportBudgetBuffer?.value || "normal";
   if (state.reportRange !== "custom") {
@@ -6683,19 +6692,20 @@ function buildReportModel() {
   const rows = getReportRows(windowData);
   const previousRows = getReportRows(getPreviousReportWindow(windowData));
   const months = getMonthKeysBetween(windowData.startDate, windowData.endDate);
-  const totalSpentMinor = rows.reduce((sum, row) => sum + Number(row.amountMinor || 0), 0);
-  const categoryRows = buildReportCategoryRows(rows, previousRows, months.length);
-  const monthlyRows = buildReportMonthlyRows(windowData, rows);
+  const categoryRows = buildReportCategoryRows(rows, previousRows, months);
+  const moneyFlow = summarizeMoneyFlow(getReportMoneyFlowRows(windowData), months, {
+    getCategorySystemKey,
+    getMonthKey: row => toMonthInput(row.transactionAt?.toDate?.() || new Date(0))
+  });
 
   return {
     ...windowData,
     rows,
     previousRows,
     months,
-    totalSpentMinor,
-    averageMonthlyMinor: months.length ? Math.round(totalSpentMinor / months.length) : 0,
     categoryRows,
-    monthlyRows
+    moneyFlow,
+    monthlyRows: moneyFlow.monthlyRows
   };
 }
 
@@ -6785,7 +6795,25 @@ function getReportRows(windowData) {
   });
 }
 
-function buildReportCategoryRows(rows, previousRows, monthCount) {
+function getReportMoneyFlowRows(windowData) {
+  const accountIds = new Set(state.reportFilters.accountIds || []);
+  const memberIds = new Set(state.reportFilters.memberIds || []);
+  return getVisibleRawTransactions().filter(row => {
+    const transactionMillis = getTimestampSortValue(row.transactionAt);
+    if (transactionMillis < windowData.startDate.getTime() || transactionMillis > windowData.endDate.getTime()) {
+      return false;
+    }
+    if (accountIds.size && !accountIds.has(row.accountId)) {
+      return false;
+    }
+    if (state.scope === "household" && memberIds.size && !memberIds.has(row.createdByUserId || "")) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function buildReportCategoryRows(rows, previousRows, monthKeys) {
   const currentTotals = groupRowsByCategory(rows);
   const previousTotals = groupRowsByCategory(previousRows);
   const totalMinor = [...currentTotals.values()].reduce((sum, item) => sum + item.amountMinor, 0);
@@ -6796,7 +6824,10 @@ function buildReportCategoryRows(rows, previousRows, monthCount) {
       const trendDelta = item.amountMinor - previousMinor;
       return {
         ...item,
-        averageMinor: monthCount ? Math.round(item.amountMinor / monthCount) : item.amountMinor,
+        averageMinor: monthKeys.length ? Math.round(item.amountMinor / monthKeys.length) : item.amountMinor,
+        medianMinor: median(monthKeys.map(monthKey => item.rows
+          .filter(row => toMonthInput(row.transactionAt?.toDate?.() || new Date(0)) === monthKey)
+          .reduce((sum, row) => sum + Number(row.amountMinor || 0), 0))),
         sharePercent: totalMinor ? Math.round((item.amountMinor / totalMinor) * 100) : 0,
         trendLabel: Math.abs(trendDelta) < 100 ? "Flat" : trendDelta > 0 ? "Up" : "Down",
         trendClass: Math.abs(trendDelta) < 100 ? "metric-neutral" : trendDelta > 0 ? "metric-over" : "metric-good"
@@ -6821,47 +6852,61 @@ function groupRowsByCategory(rows) {
   }, new Map());
 }
 
-function buildReportMonthlyRows(windowData, rows) {
-  const monthKeys = getMonthKeysBetween(windowData.startDate, windowData.endDate);
-  return monthKeys.map(monthKey => {
-    const monthRows = rows.filter(row => toMonthInput(row.transactionAt?.toDate?.() || new Date(0)) === monthKey);
-    const spentMinor = monthRows
-      .filter(row => row.postingKind === "outcome")
-      .reduce((sum, row) => sum + Number(row.amountMinor || 0), 0);
-    const incomeMinor = monthRows
-      .filter(row => row.postingKind === "income")
-      .reduce((sum, row) => sum + Number(row.amountMinor || 0), 0);
-    return {
-      monthKey,
-      spentMinor,
-      incomeMinor,
-      netMinor: incomeMinor - spentMinor
-    };
-  });
-}
-
 function renderReportKpis(model) {
-  if (!els.reportTotalSpent) {
+  if (!els.reportIncome) {
     return;
   }
-  const topCategory = model.categoryRows[0];
-  els.reportTotalSpent.textContent = formatRupiah(model.totalSpentMinor);
-  els.reportAverageMonthly.textContent = formatRupiah(model.averageMonthlyMinor);
-  els.reportTopCategoryShare.textContent = topCategory ? `${topCategory.sharePercent}%` : "0%";
-  els.reportMonthsCovered.textContent = String(model.months.length || 0);
+  const flow = model.moneyFlow;
+  els.reportIncome.textContent = formatRupiah(flow.incomeMinor);
+  els.reportRealSpending.textContent = formatRupiah(flow.spendingMinor);
+  els.reportCashFlow.textContent = formatRupiah(flow.cashFlowMinor);
+  els.reportCashFlow.className = flow.cashFlowMinor < 0 ? "metric-over" : flow.cashFlowMinor > 0 ? "metric-good" : "metric-neutral";
+  els.reportMedianMonthly.textContent = formatRupiah(flow.medianMonthlySpendingMinor);
+  els.reportAverageMonthly.textContent = formatRupiah(flow.averageMonthlySpendingMinor);
+  els.reportAllocation.textContent = formatRupiah(flow.allocationMinor);
+  els.reportVerdict.textContent = buildReportVerdict(model);
+  els.reportVerdict.className = `report-verdict ${flow.cashFlowMinor < 0 ? "metric-over" : flow.cashFlowMinor > 0 ? "metric-good" : "metric-neutral"}`;
   els.reportMonthBackBtn.classList.toggle("hidden", !model.lockedMonthKey);
+}
+
+function buildReportVerdict(model) {
+  const flow = model.moneyFlow;
+  const cashFlowLabel = flow.cashFlowMinor > 0
+    ? "Positive cash flow."
+    : flow.cashFlowMinor < 0
+      ? "Cash deficit in this range."
+      : "Income and real spending are balanced.";
+  if (model.months.length < 2 || flow.medianMonthlySpendingMinor <= 0) {
+    return `${cashFlowLabel} Select at least two months to compare typical and average spending.`;
+  }
+  const differencePercent = Math.round(((flow.averageMonthlySpendingMinor - flow.medianMonthlySpendingMinor) / flow.medianMonthlySpendingMinor) * 100);
+  if (Math.abs(differencePercent) <= 5) {
+    return `${cashFlowLabel} Average spending is close to your typical month.`;
+  }
+  return `${cashFlowLabel} Average spending is ${Math.abs(differencePercent)}% ${differencePercent > 0 ? "above" : "below"} your typical month.`;
 }
 
 function renderReportCategoryBreakdown(model) {
   if (!els.reportCategoryBreakdown) {
     return;
   }
+  const kind = state.reportFilters.kind || "outcome";
+  if (els.reportCategoryTitle) {
+    els.reportCategoryTitle.textContent = kind === "income" ? "Income behavior" : kind === "all" ? "Category activity" : "Spending behavior";
+  }
+  if (els.reportCategoryCopy) {
+    els.reportCategoryCopy.textContent = kind === "income"
+      ? "Income categories with typical and average monthly amounts."
+      : kind === "all"
+        ? "Income and spending categories in the selected detail filters."
+        : "Category totals with typical and average monthly spending.";
+  }
   els.reportCategoryBreakdown.innerHTML = model.categoryRows.length
     ? model.categoryRows.map(item => `
       <button class="report-list-row" type="button" data-action="drill-category" data-id="${escapeHtml(item.categoryId)}">
         <span>
           <strong>${escapeHtml(item.categoryName)}</strong>
-          <small>${escapeHtml(formatRupiah(item.averageMinor))}/month | ${item.sharePercent}% of total</small>
+          <small>Median ${escapeHtml(formatRupiah(item.medianMinor))}/month | average ${escapeHtml(formatRupiah(item.averageMinor))}/month | ${item.sharePercent}% of total</small>
         </span>
         <span class="report-row-end">
           <strong>${escapeHtml(formatRupiah(item.amountMinor))}</strong>
@@ -6943,16 +6988,18 @@ function renderReportMonthlyTable(model) {
       <div class="report-table">
         <div class="report-table-row report-table-head">
           <span>Month</span>
-          <span>Spent</span>
           <span>Income</span>
-          <span>Net</span>
+          <span>Real spending</span>
+          <span>Cash flow</span>
+          <span>Allocation</span>
         </div>
         ${model.monthlyRows.map(row => `
           <button class="report-table-row" type="button" data-action="open-report-month" data-month="${escapeHtml(row.monthKey)}">
             <span>${escapeHtml(formatMonthKey(row.monthKey))}</span>
-            <span>${escapeHtml(formatRupiah(row.spentMinor))}</span>
             <span>${escapeHtml(formatRupiah(row.incomeMinor))}</span>
-            <span>${escapeHtml(formatRupiah(row.netMinor))}</span>
+            <span>${escapeHtml(formatRupiah(row.spendingMinor))}</span>
+            <span class="${row.cashFlowMinor < 0 ? "metric-over" : row.cashFlowMinor > 0 ? "metric-good" : "metric-neutral"}">${escapeHtml(formatRupiah(row.cashFlowMinor))}</span>
+            <span>${escapeHtml(formatRupiah(row.allocationMinor))}</span>
           </button>
         `).join("")}
       </div>
@@ -7006,7 +7053,9 @@ function buildReportBudgetRows(model) {
     const monthsWithinBudget = monthlyActuals.filter(value => value <= budgetedMinor).length;
     const actualMinor = state.reportBudgetMode === "month"
       ? (monthlyActuals[monthlyActuals.length - 1] || 0)
-      : Math.round(monthlyActuals.reduce((sum, value) => sum + value, 0) / Math.max(1, monthlyActuals.length));
+      : state.reportBudgetMode === "average"
+        ? Math.round(monthlyActuals.reduce((sum, value) => sum + value, 0) / Math.max(1, monthlyActuals.length))
+        : median(monthlyActuals);
     return {
       id: budget.id,
       name: budget.name,
@@ -10712,7 +10761,7 @@ function resetStateForAuth(user) {
     memberIds: [],
     includeSavingSpending: false
   };
-  state.reportBudgetMode = "average";
+  state.reportBudgetMode = "median";
   state.reportBudgetRanking = "frequent";
   state.reportBudgetBuffer = "normal";
   state.masterAdmin = {

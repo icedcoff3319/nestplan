@@ -1914,8 +1914,22 @@ textarea:focus {
 
 .report-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.report-money-flow-card {
+  gap: 10px;
+}
+
+.report-verdict {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(111, 129, 104, 0.08);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .report-kpi-strip article {
@@ -1998,7 +2012,7 @@ textarea:focus {
 }
 
 .report-table-row {
-  grid-template-columns: minmax(110px, 1fr) repeat(3, minmax(90px, auto));
+  grid-template-columns: minmax(110px, 1fr) repeat(4, minmax(90px, auto));
 }
 
 .report-table-head {

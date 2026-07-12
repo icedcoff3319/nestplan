@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260712a" />
+  <link rel="stylesheet" href="./styles.css?v=20260712b" />
 </head>
 <body>
   <main class="app-shell">
@@ -1211,24 +1211,36 @@
                 </div>
                 <label class="toggle-field compact-toggle" for="report-include-saving-spending">
                   <input id="report-include-saving-spending" type="checkbox" />
-                  <span>Include spending from savings</span>
+                  <span>Include savings spending in breakdown</span>
                 </label>
               </div>
             </section>
 
-            <section class="report-kpi-strip">
-              <article><span>Total spent</span><strong id="report-total-spent">Rp0</strong><button class="icon-btn subtle app-info-btn mini-info-btn" type="button" data-info-topic="report-kpis" aria-label="Explain report KPIs">i</button></article>
-              <article><span>Avg / month</span><strong id="report-average-monthly">Rp0</strong></article>
-              <article><span>Top category share</span><strong id="report-top-category-share">0%</strong></article>
-              <article><span>Months covered</span><strong id="report-months-covered">0</strong></article>
+            <section class="card report-money-flow-card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Money Flow</h3>
+                  <p class="card-subtle">A compact view of financial health for the selected range.</p>
+                </div>
+                <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-kpis" aria-label="Explain Money Flow">i</button>
+              </div>
+              <p id="report-verdict" class="report-verdict metric-neutral">No activity in this range yet.</p>
+              <div class="report-kpi-strip">
+                <article><span>Income</span><strong id="report-income">Rp0</strong></article>
+                <article><span>Real spending</span><strong id="report-real-spending">Rp0</strong></article>
+                <article><span>Cash surplus / deficit</span><strong id="report-cash-flow">Rp0</strong></article>
+                <article><span>Median / month</span><strong id="report-median-monthly">Rp0</strong></article>
+                <article><span>Average / month</span><strong id="report-average-monthly">Rp0</strong></article>
+                <article><span>Savings + investment allocation</span><strong id="report-allocation">Rp0</strong></article>
+              </div>
             </section>
 
             <div class="planning-grid">
               <section class="card">
                 <div class="card-header space-between">
                   <div>
-                    <h3 class="card-title">Category breakdown</h3>
-                    <p class="card-subtle">Ranked by selected range total.</p>
+                    <h3 id="report-category-title" class="card-title">Spending behavior</h3>
+                    <p id="report-category-copy" class="card-subtle">Category totals with typical and average monthly spending.</p>
                   </div>
                   <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-category-breakdown" aria-label="Explain category breakdown">i</button>
                 </div>
@@ -1241,7 +1253,7 @@
                 <div class="card-header space-between">
                   <div>
                     <h3 class="card-title">Monthly view</h3>
-                    <p class="card-subtle">Tap a month to lock the report to that month.</p>
+                    <p class="card-subtle">Income, real spending, cash flow, and allocation by month.</p>
                   </div>
                   <button class="icon-btn subtle app-info-btn" type="button" data-info-topic="report-monthly-view" aria-label="Explain monthly view">i</button>
                 </div>
@@ -1260,6 +1272,7 @@
                   <div class="field-group">
                     <label for="report-budget-mode">Mode</label>
                     <select id="report-budget-mode">
+                      <option value="median">Median over range</option>
                       <option value="average">Average over range</option>
                       <option value="month">By month</option>
                     </select>
@@ -1795,7 +1808,7 @@
   </main>
 
   <script>
-    window.__nestplanBuild = "20260712a";
+    window.__nestplanBuild = "20260712b";
     // Staging Firebase project config. Production builds still use the production config in firebase-client.js.
     window.__nestplanStagingFirebaseConfig = {
       apiKey: "AIzaSyBl3FCeIyYKjGTE-Ud4fw0JlXtQmSs-Ge8",
@@ -1916,7 +1929,7 @@
     }());
   </script>
   <script type="module">
-    import("./app.js?v=20260712a").catch(function (error) {
+    import("./app.js?v=20260712b").catch(function (error) {
       console.error("NestPlan module boot failed:", error);
       window.__nestplanBootError = error?.message || String(error);
       const bootScreen = document.getElementById("boot-screen");
